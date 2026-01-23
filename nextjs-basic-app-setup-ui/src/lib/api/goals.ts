@@ -8,7 +8,7 @@ export function fetchGoals() {
   return apiFetch<ApiResponse<Goal[]>>("/goals");
 }
 
-export function createGoal(payload: Goal) {
+export function createGoal(payload: Omit<Goal, "id">) {
   return apiFetch<ApiResponse<Goal>>("/goals", { method: "POST", json: payload });
 }
 

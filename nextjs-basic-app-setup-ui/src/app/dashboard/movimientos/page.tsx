@@ -5,13 +5,15 @@ import { MovementForm } from "@/components/dashboard/MovementForm";
 import { MovementsTable } from "@/components/dashboard/MovementsTable";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { loadFromStorage, saveToStorage } from "@/lib/storage";
-import { DASHBOARD_MOCK } from "@/lib/dashboard/mock";
-import type { Movement } from "@/lib/dashboard/types";
+import type { Category, Movement } from "@/lib/dashboard/types";
 import { motion } from "framer-motion";
+import { fetchMovements, createMovement, updateMovement, deleteMovement } from "@/lib/api/movements";
+import { fetchCategories } from "@/lib/api/categories";
+import { getUserId } from "@/lib/auth";
 
 export default function MovimientosPage() {
   const [movimientos, setMovimientos] = useState<Movement[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [editingMovement, setEditingMovement] = useState<Movement | undefined>();
   const [showForm, setShowForm] = useState(false);
   const [filters, setFilters] = useState({
@@ -25,42 +27,43 @@ export default function MovimientosPage() {
   });
 
   useEffect(() => {
-    // Inicializar con datos del mock y añadir IDs
-    const stored = loadFromStorage<Movement[]>("movimientos", []);
-    if (stored.length > 0) {
-      setMovimientos(stored);
+    const load = async () => {
+      try {
+        if (!getUserId()) {
+          setMovimientos([]);
+          setCategories([]);
       return;
     }
-    const movimientosConIds = DASHBOARD_MOCK.movimientos.map((m, i) => ({
-      ...m,
-      id: `mov-${i}-${Date.now()}`,
-    }));
-    setMovimientos(movimientosConIds);
+        const [movementsRes, categoriesRes] = await Promise.all([
+          fetchMovements(),
+          fetchCategories(),
+        ]);
+        setMovimientos(movementsRes.data);
+        setCategories(categoriesRes.data as Category[]);
+      } catch {
+        setMovimientos([]);
+        setCategories([]);
+      }
+    };
+    void load();
   }, []);
 
-  useEffect(() => {
-    if (movimientos.length > 0) {
-      saveToStorage("movimientos", movimientos);
-    }
-  }, [movimientos]);
-
-  const handleSave = (movementData: Omit<Movement, "id">) => {
+  const handleSave = async (movementData: Omit<Movement, "id">) => {
     if (editingMovement) {
-      // Editar movimiento existente
+      const updated = await updateMovement(editingMovement.id!, movementData);
       setMovimientos((prev) =>
-        prev.map((m) => (m.id === editingMovement.id ? { ...movementData, id: m.id } : m))
+        prev.map((m) => (m.id === editingMovement.id ? updated.data : m))
       );
       setEditingMovement(undefined);
     } else {
-      // Añadir nuevo movimiento
-      const newMovement: Movement = {
-        ...movementData,
-        id: `mov-${Date.now()}-${Math.random()}`,
-      };
-      setMovimientos((prev) => [...prev, newMovement].sort((a, b) => 
+      const created = await createMovement(movementData);
+      setMovimientos((prev) =>
+        [created.data, ...prev].sort((a, b) =>
         new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
-      ));
+        )
+      );
     }
+    window.dispatchEvent(new Event("finanzapp:data-updated"));
     setShowForm(false);
   };
 
@@ -69,9 +72,11 @@ export default function MovimientosPage() {
     setShowForm(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("¿Estás seguro de que quieres eliminar este movimiento?")) {
+      await deleteMovement(id);
       setMovimientos((prev) => prev.filter((m) => m.id !== id));
+      window.dispatchEvent(new Event("finanzapp:data-updated"));
     }
   };
 
@@ -85,7 +90,7 @@ export default function MovimientosPage() {
     setEditingMovement(undefined);
   };
 
-  const categories = Array.from(
+  const categoryOptions = Array.from(
     new Set(movimientos.map((m) => m.categoria))
   ).sort();
 
@@ -244,7 +249,7 @@ export default function MovimientosPage() {
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground">Tipo</label>
             <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
-              {["Todos", "Ingreso", "Gasto", "Inversión"].map((tipo) => (
+              {["Todos", "Ingreso", "Gasto", "Inversión", "Ahorro"].map((tipo) => (
                 <button
                   key={tipo}
                   type="button"
@@ -270,7 +275,7 @@ export default function MovimientosPage() {
           <div className="space-y-2 xl:col-span-2">
             <label className="text-xs font-medium text-muted-foreground">Categoría</label>
             <div className="flex flex-wrap items-center gap-1 rounded-lg bg-muted p-1.5">
-              {["Todas", ...categories.slice(0, 5)].map((category) => (
+              {["Todas", ...categoryOptions.slice(0, 5)].map((category) => (
                 <button
                   key={category}
                   type="button"
@@ -289,7 +294,7 @@ export default function MovimientosPage() {
                   </span>
                 </button>
               ))}
-              {categories.length > 5 && (
+              {categoryOptions.length > 5 && (
                 <select
                   className="px-2 py-1 text-xs border-0 bg-transparent text-muted-foreground rounded-md"
                   value={filters.category}
@@ -298,9 +303,9 @@ export default function MovimientosPage() {
                   }
                 >
                   <option value={filters.category}>
-                    {categories.length > 5 ? `+${categories.length - 5} más` : "Más"}
+                    {categoryOptions.length > 5 ? `+${categoryOptions.length - 5} más` : "Más"}
                   </option>
-                  {categories.slice(5).map((category) => (
+                  {categoryOptions.slice(5).map((category) => (
                     <option key={category} value={category}>
                       {category}
                     </option>
@@ -353,6 +358,7 @@ export default function MovimientosPage() {
       {showForm && (
         <MovementForm
           movement={editingMovement}
+          categories={categories}
           onSave={handleSave}
           onCancel={handleCancel}
         />

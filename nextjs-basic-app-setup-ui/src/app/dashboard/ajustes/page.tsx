@@ -145,7 +145,7 @@ export default function AjustesPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <BudgetManager />
+            <BudgetManager triggerLabel="Gestionar Presupuestos" />
           </CardContent>
         </Card>
       </div>

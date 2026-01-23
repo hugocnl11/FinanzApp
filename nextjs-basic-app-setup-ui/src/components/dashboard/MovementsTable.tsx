@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { Movement, MovementType } from "@/lib/dashboard/types";
-import { Edit2, Trash2, Plus, ArrowUpCircle, ArrowDownCircle, TrendingUp } from "lucide-react";
-import { loadFromStorage } from "@/lib/storage";
+import { Edit2, Trash2, Plus, ArrowUpCircle, ArrowDownCircle, TrendingUp, PiggyBank } from "lucide-react";
 import { CATEGORY_ICON_MAP, type CategoryIconKey } from "@/lib/category-icons";
+import { fetchCategories } from "@/lib/api/categories";
+import { getUserId } from "@/lib/auth";
 
 type CategoryItem = {
   id: string;
@@ -27,10 +28,22 @@ export function MovementsTable({ movimientos = [], total, onEdit, onDelete, onAd
   const [categories, setCategories] = useState<CategoryItem[]>([]);
 
   useEffect(() => {
-    const stored = loadFromStorage<CategoryItem[]>("categories", []);
-    if (stored.length > 0) {
-      setCategories(stored);
-    }
+    const load = async () => {
+      try {
+        if (!getUserId()) {
+          setCategories([]);
+          return;
+        }
+        const response = await fetchCategories();
+        setCategories(response.data as CategoryItem[]);
+      } catch {
+        setCategories([]);
+      }
+    };
+    void load();
+    const handler = () => load();
+    window.addEventListener("finanzapp:data-updated", handler);
+    return () => window.removeEventListener("finanzapp:data-updated", handler);
   }, []);
 
   const categoryMap = useMemo(() => {
@@ -44,6 +57,8 @@ export function MovementsTable({ movimientos = [], total, onEdit, onDelete, onAd
         return <ArrowDownCircle className="h-4 w-4 text-red-500" />;
       case "Inversión":
         return <TrendingUp className="h-4 w-4 text-blue-500" />;
+      case "Ahorro":
+        return <PiggyBank className="h-4 w-4 text-emerald-500" />;
     }
   };
 
@@ -55,6 +70,8 @@ export function MovementsTable({ movimientos = [], total, onEdit, onDelete, onAd
         return "text-red-600 dark:text-red-400";
       case "Inversión":
         return "text-blue-600 dark:text-blue-400";
+      case "Ahorro":
+        return "text-emerald-600 dark:text-emerald-400";
     }
   };
 

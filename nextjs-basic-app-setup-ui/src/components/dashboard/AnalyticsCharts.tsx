@@ -6,11 +6,11 @@ import { scaleLinear, scalePoint } from "@visx/scale";
 import { curveMonotoneX } from "d3-shape";
 import { ParentSize } from "@visx/responsive";
 import { motion } from "framer-motion";
-import { DASHBOARD_MOCK } from "@/lib/dashboard/mock";
 import { last, previous, patrimonioAcumulado, percentChange, filterMonthsByPeriod, getDailyIncomeAndExpenses } from "@/lib/dashboard/selectors";
 import type { MoneyByMonth, MoneyByDay } from "@/lib/dashboard/types";
 import { formatNumber } from "@/lib/format";
 import { usePeriod } from "@/contexts/PeriodContext";
+import { useDashboardData } from "@/hooks/useDashboardData";
 
 type DataPoint = {
   month?: string;
@@ -52,6 +52,14 @@ function ChartCard<T extends Record<string, any>>({ title, value, percent, subti
   const lineColor = isPatrimonio ? "#3b82f6" : "currentColor";
   const pointColor = isPatrimonio ? "#3b82f6" : "currentColor";
   const labelColor = isPatrimonio ? "#3b82f6" : (title.includes("Ingresos") ? "#22c55e" : "#ef4444");
+
+  if (data.length === 0) {
+    return (
+      <Card className="p-6 min-h-[320px] flex flex-col items-center justify-center text-sm text-muted-foreground">
+        Sin datos disponibles
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-6 min-h-[320px]">
@@ -175,6 +183,14 @@ function CombinedChartCard({
   const ingresosVals = ingresos.map((d) => d.valor);
   const gastosVals = gastos.map((d) => d.valor);
   const maxY = Math.max(...ingresosVals, ...gastosVals);
+
+  if (ingresos.length === 0 || gastos.length === 0) {
+    return (
+      <Card className="p-6 min-h-[320px] flex flex-col items-center justify-center text-sm text-muted-foreground">
+        Sin datos disponibles
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-6 min-h-[320px]">
@@ -372,7 +388,8 @@ type AnalyticsChartsProps = {
 };
 
 export function AnalyticsCharts({ type = "combined" }: AnalyticsChartsProps) {
-  const { ingresosMensuales, gastosMensuales, movimientos } = DASHBOARD_MOCK;
+  const { data } = useDashboardData();
+  const { ingresosMensuales, gastosMensuales, movimientos } = data;
   const { period, getMonthCount } = usePeriod();
 
   useEffect(() => {

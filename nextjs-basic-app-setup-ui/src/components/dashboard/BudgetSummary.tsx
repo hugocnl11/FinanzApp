@@ -2,19 +2,26 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { AnimatedProgress } from "@/components/ui/animated-progress";
 import { Button } from "@/components/ui/button";
-import { loadFromStorage } from "@/lib/storage";
 import { CATEGORY_ICON_MAP, type CategoryIconKey } from "@/lib/category-icons";
 import { BudgetManager } from "@/components/dashboard/BudgetManager";
-import { Pencil } from "lucide-react";
 import { motion } from "framer-motion";
+import { Ban } from "lucide-react";
+import { fetchBudgets, createBudget, updateBudget } from "@/lib/api/budgets";
+import { fetchCategories } from "@/lib/api/categories";
+import { getUserId } from "@/lib/auth";
+import { fetchMovements } from "@/lib/api/movements";
+import type { Movement } from "@/lib/dashboard/types";
+import { formatNumber } from "@/lib/format";
 
 type BudgetItem = {
   id: string;
   category: string;
   limit: number;
   spent: number;
+  period?: string;
+  isImplicit?: boolean;
 };
 
 type CategoryItem = {
@@ -24,23 +31,7 @@ type CategoryItem = {
   color: string;
 };
 
-const fallbackBudgets: BudgetItem[] = [
-  // Fijos
-  { id: "bud-1", category: "Vivienda", limit: 850, spent: 620 },
-  { id: "bud-2", category: "Garaje", limit: 90, spent: 90 },
-  { id: "bud-3", category: "Gimnasio", limit: 45, spent: 45 },
-  { id: "bud-4", category: "Seguros", limit: 120, spent: 110 },
-  { id: "bud-5", category: "Servicios", limit: 160, spent: 145 },
-  // Variables
-  { id: "bud-6", category: "Comida", limit: 420, spent: 310 },
-  { id: "bud-7", category: "Ocio", limit: 180, spent: 120 },
-  { id: "bud-8", category: "Ropa", limit: 140, spent: 60 },
-  { id: "bud-9", category: "Transporte", limit: 180, spent: 190 },
-  { id: "bud-10", category: "Salud", limit: 90, spent: 40 },
-  { id: "bud-11", category: "Educación", limit: 120, spent: 30 },
-  { id: "bud-12", category: "Viajes", limit: 260, spent: 140 },
-  { id: "bud-13", category: "Regalos", limit: 110, spent: 65 },
-];
+const fallbackBudgets: BudgetItem[] = [];
 
 type BudgetType = "Fijo" | "Variable";
 
@@ -107,57 +98,172 @@ export function BudgetSummary({
 }) {
   const [budgets, setBudgets] = useState<BudgetItem[]>(fallbackBudgets);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [movements, setMovements] = useState<Movement[]>([]);
   const [budgetType, setBudgetType] = useState<BudgetType>("Fijo");
+  const [dragOver, setDragOver] = useState<"fixed" | "variable" | null>(null);
 
   useEffect(() => {
-    const loadBudgets = () => {
-      const stored = loadFromStorage<BudgetItem[]>("budgets", fallbackBudgets);
-      if (stored.length > 0) {
-        setBudgets(stored);
+    const loadBudgets = async () => {
+      try {
+        if (!getUserId()) {
+          setBudgets([]);
+          return;
+        }
+        const response = await fetchBudgets();
+        setBudgets(response.data as BudgetItem[]);
+      } catch {
+        setBudgets([]);
       }
     };
-    
-    loadBudgets();
-    
-    // Escuchar cambios en storage
+    void loadBudgets();
     const handler = () => loadBudgets();
-    window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
+    window.addEventListener("finanzapp:data-updated", handler);
+    return () => window.removeEventListener("finanzapp:data-updated", handler);
   }, []);
 
   useEffect(() => {
-    const stored = loadFromStorage<CategoryItem[]>("categories", []);
-    if (stored.length > 0) {
-      setCategories(stored);
-    }
+    const loadCategories = async () => {
+      try {
+        if (!getUserId()) {
+          setCategories([]);
+          return;
+        }
+        const response = await fetchCategories();
+        setCategories(response.data as CategoryItem[]);
+      } catch {
+        setCategories([]);
+      }
+    };
+    void loadCategories();
+    const handler = () => loadCategories();
+    window.addEventListener("finanzapp:data-updated", handler);
+    return () => window.removeEventListener("finanzapp:data-updated", handler);
+  }, []);
+
+  useEffect(() => {
+    const loadMovements = async () => {
+      try {
+        if (!getUserId()) {
+          setMovements([]);
+          return;
+        }
+        const response = await fetchMovements();
+        setMovements(response.data as Movement[]);
+      } catch {
+        setMovements([]);
+      }
+    };
+    void loadMovements();
+    const handler = () => loadMovements();
+    window.addEventListener("finanzapp:data-updated", handler);
+    return () => window.removeEventListener("finanzapp:data-updated", handler);
   }, []);
 
   const categoryMap = useMemo(() => {
     return new Map(categories.map((cat) => [cat.name, cat]));
   }, [categories]);
 
-  const filterByType = (type: BudgetType) => {
-    const categoriesToShow = type === "Fijo" ? FIXED_CATEGORIES : VARIABLE_CATEGORIES;
-    return budgets.filter((budget) =>
-      categoriesToShow.some((cat) =>
-        budget.category.toLowerCase().includes(cat.toLowerCase()) ||
-        cat.toLowerCase().includes(budget.category.toLowerCase())
-      )
-    );
+  const filterByType = (type: BudgetType, source = budgets) => {
+    const periodKey = type === "Fijo" ? "fixed" : "variable";
+    return source.filter((budget) => {
+      if (!budget.period) return true;
+      return budget.period === periodKey;
+    });
   };
 
+  const implicitVariableBudgets = useMemo(() => {
+    if (movements.length === 0) return [] as BudgetItem[];
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const budgetedCategories = new Set(budgets.map((budget) => budget.category));
+
+    const gastoMap = new Map<string, number>();
+    movements.forEach((movement) => {
+      if (movement.tipo !== "Gasto") return;
+      const date = new Date(movement.fecha);
+      if (date.getMonth() !== currentMonth || date.getFullYear() !== currentYear) return;
+      const current = gastoMap.get(movement.categoria) ?? 0;
+      gastoMap.set(movement.categoria, current + Math.abs(movement.cantidad));
+    });
+
+    return Array.from(gastoMap.entries())
+      .filter(([category]) => !budgetedCategories.has(category))
+      .map(([category, spent]) => ({
+        id: `implicit-${category}`,
+        category,
+        limit: 0,
+        spent,
+        period: "variable",
+        isImplicit: true,
+      }));
+  }, [movements, budgets]);
+
+  const spentByCategory = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const map = new Map<string, number>();
+    movements.forEach((movement) => {
+      if (movement.tipo !== "Gasto") return;
+      const date = new Date(movement.fecha);
+      if (date.getMonth() !== currentMonth || date.getFullYear() !== currentYear) return;
+      const current = map.get(movement.categoria) ?? 0;
+      map.set(movement.categoria, current + Math.abs(movement.cantidad));
+    });
+    return map;
+  }, [movements]);
+
+  const budgetsWithSpent = useMemo(() => {
+    return budgets.map((budget) => ({
+      ...budget,
+      spent: spentByCategory.get(budget.category) ?? 0,
+    }));
+  }, [budgets, spentByCategory]);
+
   // Filtrar presupuestos según tipo (Fijo/Variable)
-  const filteredBudgets = useMemo(() => filterByType(budgetType), [budgets, budgetType]);
-  const fixedBudgets = useMemo(() => filterByType("Fijo"), [budgets]);
-  const variableBudgets = useMemo(() => filterByType("Variable"), [budgets]);
+  const filteredBudgets = useMemo(() => {
+    const list = filterByType(budgetType, budgetsWithSpent);
+    if (budgetType === "Variable") {
+      return [...list, ...implicitVariableBudgets];
+    }
+    return list;
+  }, [budgetsWithSpent, budgetType, implicitVariableBudgets]);
+
+  const fixedBudgets = useMemo(() => filterByType("Fijo", budgetsWithSpent), [budgetsWithSpent]);
+  const variableBudgets = useMemo(
+    () => [...filterByType("Variable", budgetsWithSpent), ...implicitVariableBudgets],
+    [budgetsWithSpent, implicitVariableBudgets]
+  );
+
+  const handleDrop = async (target: "fixed" | "variable", payload?: string | null) => {
+    if (!payload) return;
+    const [id, category, spent] = payload.split("|");
+    const targetPeriod = target === "fixed" ? "fixed" : "variable";
+    try {
+      if (id.startsWith("implicit-")) {
+        await createBudget({
+          category,
+          limit: 0,
+          spent: Number(spent) || 0,
+          period: targetPeriod,
+        });
+      } else {
+        await updateBudget(id, { period: targetPeriod });
+      }
+      window.dispatchEvent(new Event("finanzapp:data-updated"));
+    } finally {
+      setDragOver(null);
+    }
+  };
 
   const totals = useMemo(() => {
-    const list = mode === "combined" ? budgets : filteredBudgets;
+    const list = mode === "combined" ? budgetsWithSpent : filteredBudgets;
     const totalLimit = list.reduce((acc, item) => acc + item.limit, 0);
     const totalSpent = list.reduce((acc, item) => acc + item.spent, 0);
     const percent = totalLimit ? (totalSpent / totalLimit) * 100 : 0;
     return { totalLimit, totalSpent, percent };
-  }, [budgets, filteredBudgets, mode]);
+  }, [budgetsWithSpent, filteredBudgets, mode]);
 
   const isOver = totals.totalSpent > totals.totalLimit;
 
@@ -202,10 +308,12 @@ export function BudgetSummary({
         </div>
       </div>
       <div className="text-2xl font-bold">
-        € {totals.totalSpent.toFixed(0)}{" "}
-        <span className="text-sm text-muted-foreground">/ € {totals.totalLimit.toFixed(0)}</span>
+        € {formatNumber(totals.totalSpent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+        <span className="text-sm text-muted-foreground">
+          / € {formatNumber(totals.totalLimit, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
       </div>
-      <Progress
+      <AnimatedProgress
         value={Math.min(totals.percent, 100)}
         className={isOver ? "[&>div]:bg-rose-500" : ""}
       />
@@ -221,29 +329,55 @@ export function BudgetSummary({
             ].map(({ label, list }) => (
               <div
                 key={label}
-                className="rounded-xl border border-border/70 bg-muted/10 p-3 shadow-sm flex flex-col h-full min-h-0"
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setDragOver(label === "Fijo" ? "fixed" : "variable");
+                }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const payload = event.dataTransfer.getData("text/plain");
+                  handleDrop(label === "Fijo" ? "fixed" : "variable", payload);
+                }}
+                className={`rounded-xl border border-border/70 bg-muted/10 p-3 shadow-sm flex flex-col h-full min-h-0 transition ${
+                  dragOver === (label === "Fijo" ? "fixed" : "variable")
+                    ? "ring-2 ring-primary/40"
+                    : ""
+                }`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {label}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    € {list.reduce((acc, item) => acc + item.spent, 0).toFixed(0)} /{" "}
-                    {list.reduce((acc, item) => acc + item.limit, 0).toFixed(0)}
+                    € {formatNumber(list.reduce((acc, item) => acc + item.spent, 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /{" "}
+                    {formatNumber(list.reduce((acc, item) => acc + item.limit, 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="h-px w-full bg-border/50 mb-3" />
                 {list.length > 0 ? (
                   <div className="flex-1 min-h-0 max-h-[420px] overflow-y-auto pr-1">
                     <div className="space-y-2">
-                      {list.map((budget) => {
+                      {list
+                        .slice()
+                        .sort((a, b) => b.limit - a.limit)
+                        .map((budget) => {
                         const meta = categoryMap.get(budget.category) ?? FALLBACK_CATEGORY_META[budget.category];
                         const Icon = meta ? CATEGORY_ICON_MAP[meta.icon] : null;
-                        const percent = Math.min((budget.spent / budget.limit) * 100, 120);
+                        const percent = budget.limit
+                          ? Math.min((budget.spent / budget.limit) * 100, 120)
+                          : 100;
                         return (
                           <div
                             key={budget.id}
                             className="rounded-lg border border-border/70 bg-background/60 px-3 py-2 shadow-[0_1px_0_rgba(0,0,0,0.08)]"
+                            draggable
+                            onDragStart={(event) => {
+                              event.dataTransfer.setData(
+                                "text/plain",
+                                `${budget.id}|${budget.category}|${budget.spent}`
+                              );
+                            }}
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2 min-w-0">
@@ -254,12 +388,22 @@ export function BudgetSummary({
                                   {Icon ? <Icon className="h-4 w-4" /> : <span className="text-xs">€</span>}
                                 </span>
                                 <span className="font-medium truncate">{budget.category}</span>
+                                {budget.isImplicit && (
+                                  <span
+                                    className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-muted-foreground"
+                                    title="Sin presupuesto"
+                                    aria-label="Sin presupuesto"
+                                  >
+                                    <Ban className="h-3 w-3" />
+                                  </span>
+                                )}
                               </div>
                               <span className="text-xs text-muted-foreground">
-                                € {budget.spent} / {budget.limit}
+                                € {formatNumber(budget.spent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /{" "}
+                                {formatNumber(budget.limit || 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             </div>
-                            <Progress
+                            <AnimatedProgress
                               value={percent}
                               className={`mt-2 ${budget.spent > budget.limit ? "[&>div]:bg-rose-500" : ""}`}
                             />
@@ -280,7 +424,10 @@ export function BudgetSummary({
           filteredBudgets.length > 0 ? (
             <div className="max-h-[260px] overflow-y-auto pr-1">
               <div className={listClassName}>
-                {filteredBudgets.map((budget) => {
+                {filteredBudgets
+                  .slice()
+                  .sort((a, b) => b.limit - a.limit)
+                  .map((budget) => {
                   const meta = categoryMap.get(budget.category) ?? FALLBACK_CATEGORY_META[budget.category];
                   const Icon = meta ? CATEGORY_ICON_MAP[meta.icon] : null;
                   const percent = Math.min((budget.spent / budget.limit) * 100, 120);
@@ -297,10 +444,11 @@ export function BudgetSummary({
                           <span className="font-medium truncate">{budget.category}</span>
                         </div>
                         <span className="text-xs text-muted-foreground">
-                          € {budget.spent} / {budget.limit}
+                          € {formatNumber(budget.spent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /{" "}
+                          {formatNumber(budget.limit, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
-                      <Progress
+                      <AnimatedProgress
                         value={percent}
                         className={`mt-2 ${budget.spent > budget.limit ? "[&>div]:bg-rose-500" : ""}`}
                       />

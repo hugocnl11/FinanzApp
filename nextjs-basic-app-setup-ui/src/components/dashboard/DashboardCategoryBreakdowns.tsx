@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown";
-import { DASHBOARD_MOCK } from "@/lib/dashboard/mock";
-import type { DashboardData } from "@/lib/dashboard/types";
+import { AssetsDistributionManager } from "@/components/dashboard/AssetsDistributionManager";
 import { gastosPorCategoriaDesdeMovimientos, scaleCategoriesToTotal, sumFilteredMonths, filterMonthsByPeriod, percentChangeByPeriod } from "@/lib/dashboard/selectors";
-import { loadFromStorage } from "@/lib/storage";
 import type { CategoryIconKey } from "@/lib/category-icons";
 import { usePeriod } from "@/contexts/PeriodContext";
-import { motion } from "framer-motion";
+import { useDashboardData } from "@/hooks/useDashboardData";
+import { fetchCategories } from "@/lib/api/categories";
+import { getUserId } from "@/lib/auth";
 
 type CategoryItem = {
   name: string;
@@ -17,19 +17,31 @@ type CategoryItem = {
 };
 
 type DashboardCategoryBreakdownsProps = {
-  data?: DashboardData;
   type?: "expenses" | "assets";
 };
 
-export function DashboardCategoryBreakdowns({ data = DASHBOARD_MOCK, type = "expenses" }: DashboardCategoryBreakdownsProps) {
+export function DashboardCategoryBreakdowns({ type = "expenses" }: DashboardCategoryBreakdownsProps) {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const { period, getMonthCount } = usePeriod();
+  const { data } = useDashboardData();
 
   useEffect(() => {
-    const stored = loadFromStorage<CategoryItem[]>("categories", []);
-    if (stored.length > 0) {
-      setCategories(stored);
-    }
+    const loadCategories = async () => {
+      try {
+        if (!getUserId()) {
+          setCategories([]);
+          return;
+        }
+        const response = await fetchCategories();
+        setCategories(response.data as CategoryItem[]);
+      } catch {
+        setCategories([]);
+      }
+    };
+    void loadCategories();
+    const handler = () => loadCategories();
+    window.addEventListener("finanzapp:data-updated", handler);
+    return () => window.removeEventListener("finanzapp:data-updated", handler);
   }, []);
 
   const categoryMeta = useMemo(() => {
@@ -63,6 +75,7 @@ export function DashboardCategoryBreakdowns({ data = DASHBOARD_MOCK, type = "exp
         title="Distribución de Activos"
         categories={data.distribucionActivos}
         categoryMeta={categoryMeta}
+        headerRight={<AssetsDistributionManager />}
       />
     );
   }

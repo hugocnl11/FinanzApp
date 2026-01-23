@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  Briefcase,
+  Euro,
   Car,
   CreditCard,
   Home,
@@ -19,8 +19,8 @@ import {
   BookOpen,
   Gift,
   Fuel,
-  ShieldCheck,
-  Droplet,
+  Beer,
+  Bitcoin,
 } from "lucide-react";
 
 export const CATEGORY_ICON_MAP = {
@@ -30,7 +30,7 @@ export const CATEGORY_ICON_MAP = {
   Car,
   Smartphone,
   CreditCard,
-  Briefcase,
+  Briefcase: Euro,
   PiggyBank,
   Plane,
   Film,
@@ -42,8 +42,8 @@ export const CATEGORY_ICON_MAP = {
   BookOpen,
   Gift,
   Fuel,
-  ShieldCheck,
-  Droplet,
+  ShieldCheck: Beer,
+  Droplet: Bitcoin,
 };
 
 export type CategoryIconKey = keyof typeof CATEGORY_ICON_MAP;

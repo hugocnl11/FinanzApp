@@ -2,60 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { AnimatedProgress } from "@/components/ui/animated-progress";
 import { Button } from "@/components/ui/button";
-import { DASHBOARD_MOCK } from "@/lib/dashboard/mock";
-import { sumFilteredMonths, percentChangeByPeriod, sumByMonth, last, previous, percentChange } from "@/lib/dashboard/selectors";
-import { loadFromStorage, saveToStorage } from "@/lib/storage";
+import { sumFilteredMonths, percentChangeByPeriod } from "@/lib/dashboard/selectors";
 import { formatNumber } from "@/lib/format";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { GoalEditorDialog, type EditableGoal } from "@/components/dashboard/GoalEditorDialog";
-import { Pencil } from "lucide-react";
 import { motion } from "framer-motion";
-
-export type WidgetsData = {
-  ingresos: { valor: number; porcentaje: number };
-  gastos: { valor: number; porcentaje: number };
-  saldo: { valor: number; porcentaje: number };
-  objetivo: { valor: number; ahorrado: number };
-};
-
-export const DEFAULT_WIDGETS_DATA: WidgetsData = (() => {
-  const { ingresosMensuales, gastosMensuales, goal } = DASHBOARD_MOCK;
-
-  const totalIngresos = sumByMonth(ingresosMensuales);
-  const totalGastos = sumByMonth(gastosMensuales);
-  const saldo = totalIngresos - totalGastos;
-
-  const ingresoActual = last(ingresosMensuales)?.valor ?? 0;
-  const ingresoPrevio = previous(ingresosMensuales)?.valor ?? 0;
-  const gastosActual = last(gastosMensuales)?.valor ?? 0;
-  const gastosPrevios = previous(gastosMensuales)?.valor ?? 0;
-
-  return {
-    ingresos: {
-      valor: totalIngresos,
-      porcentaje: percentChange(ingresoActual, ingresoPrevio),
-    },
-    gastos: {
-      valor: totalGastos,
-      porcentaje: percentChange(gastosActual, gastosPrevios),
-    },
-    saldo: {
-      valor: saldo,
-      porcentaje: 0, // se puede calcular más adelante si quieres
-    },
-    objetivo: {
-      valor: goal.objetivo,
-      ahorrado: goal.ahorrado,
-    },
-  };
-})();
+import { useDashboardData } from "@/hooks/useDashboardData";
+import { createGoal, updateGoal } from "@/lib/api/goals";
+import { Pencil } from "lucide-react";
 
 // Componente individual para Ingresos
 export function IncomeCard() {
   const { period, getMonthCount } = usePeriod();
-  const { ingresosMensuales } = DASHBOARD_MOCK;
+  const { data } = useDashboardData();
+  const { ingresosMensuales } = data;
   
   const monthCount = getMonthCount();
   const total = sumFilteredMonths(ingresosMensuales, monthCount);
@@ -93,7 +55,8 @@ export function IncomeCard() {
 // Componente individual para Gastos
 export function ExpensesCard() {
   const { period, getMonthCount } = usePeriod();
-  const { gastosMensuales } = DASHBOARD_MOCK;
+  const { data } = useDashboardData();
+  const { gastosMensuales } = data;
   
   const monthCount = getMonthCount();
   const total = sumFilteredMonths(gastosMensuales, monthCount);
@@ -130,52 +93,25 @@ export function ExpensesCard() {
 
 // Componente individual para Objetivo Principal
 export function GoalCard() {
+  const { data } = useDashboardData();
   const [currentGoal, setCurrentGoal] = useState<EditableGoal | null>(null);
 
   useEffect(() => {
-    const loadGoalFromStorage = () => {
-      const storedGoals = loadFromStorage<EditableGoal[]>("goals", []);
-      const primaryId = loadFromStorage<string>("primaryGoalId", "");
-      const fallback = DASHBOARD_MOCK.goal;
-      
-      if (storedGoals.length > 0) {
-        const primary = storedGoals.find((goal) => goal.id === primaryId) ?? storedGoals[0];
-        setCurrentGoal(primary);
-      } else {
-        // Crear objetivo desde fallback
-        const defaultGoal: EditableGoal = {
-          id: fallback.id,
-          title: fallback.title,
-          target: fallback.objetivo,
-          saved: fallback.ahorrado,
-          type: "ahorro",
-          dueDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          description: fallback.description,
-        };
-        setCurrentGoal(defaultGoal);
-      }
-    };
+    const primaryId =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("finanzapp:primary-goal")
+        : null;
+    const selected = data.goals.find((goal) => goal.id === primaryId) ?? data.goals[0] ?? null;
+    setCurrentGoal(selected ? { ...selected } : null);
+  }, [data.goals]);
 
-    loadGoalFromStorage();
-    const handler = () => loadGoalFromStorage();
-    window.addEventListener("finanzapp:goals-updated", handler);
-    return () => window.removeEventListener("finanzapp:goals-updated", handler);
-  }, []);
-
-  const handleSaveGoal = (updatedGoal: EditableGoal) => {
-    const storedGoals = loadFromStorage<EditableGoal[]>("goals", []);
-    const updatedGoals = storedGoals.map((goal) =>
-      goal.id === updatedGoal.id ? updatedGoal : goal
-    );
-    
-    // Si no existe, agregarlo
-    if (!storedGoals.find((g) => g.id === updatedGoal.id)) {
-      updatedGoals.push(updatedGoal);
+  const handleSaveGoal = async (updatedGoal: EditableGoal) => {
+    if (updatedGoal.id) {
+      await updateGoal(updatedGoal.id, updatedGoal);
+    } else {
+      await createGoal(updatedGoal);
     }
-    
-    saveToStorage("goals", updatedGoals);
-    setCurrentGoal(updatedGoal);
-    window.dispatchEvent(new Event("finanzapp:goals-updated"));
+    window.dispatchEvent(new Event("finanzapp:data-updated"));
   };
 
   if (!currentGoal) {
@@ -211,7 +147,7 @@ export function GoalCard() {
           / {formatNumber(currentGoal.target)} €
         </span>
       </div>
-      <Progress value={Math.min(porcentaje, 100)} />
+      <AnimatedProgress value={Math.min(porcentaje, 100)} />
       <div className="text-xs text-muted-foreground">{Math.round(porcentaje)}% completado</div>
     </Card>
   );

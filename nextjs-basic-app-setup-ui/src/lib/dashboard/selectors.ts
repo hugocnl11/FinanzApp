@@ -62,20 +62,20 @@ export function movimientosPorRango(
 }
 
 export function progresoObjetivo(goal: Goal) {
-  if (!goal.objetivo) return 0;
-  return Math.min((goal.ahorrado / goal.objetivo) * 100, 100);
+  if (!goal.target) return 0;
+  return Math.min((goal.saved / goal.target) * 100, 100);
 }
 
 export function presupuestoUsadoPorCategoria(movimientos: Movement[], budgets: Budget[]) {
   return budgets.map((budget) => {
     const spent = movimientos
-      .filter((movement) => movement.tipo === "Gasto" && movement.categoria === budget.categoryId)
+      .filter((movement) => movement.tipo === "Gasto" && movement.categoria === budget.category)
       .reduce((acc, movement) => acc + Math.abs(movement.cantidad), 0);
     return {
-      categoryId: budget.categoryId,
-      amount: budget.amount,
+      categoryId: budget.category,
+      amount: budget.limit,
       spent,
-      percent: budget.amount ? Math.min((spent / budget.amount) * 100, 150) : 0,
+      percent: budget.limit ? Math.min((spent / budget.limit) * 100, 150) : 0,
     };
   });
 }

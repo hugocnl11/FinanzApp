@@ -7,17 +7,11 @@ import { formatNumber } from "@/lib/format";
 
 type Category = { name: string; value: number };
 
-const defaultCategories: Category[] = [
-  { name: "Vivienda", value: 1200 },
-  { name: "Alimentación", value: 800 },
-  { name: "Ocio", value: 400 },
-  { name: "Transporte", value: 300 },
-  { name: "Otros", value: 200 },
-];
+const defaultCategories: Category[] = [];
 
 type Variant = "donut" | "pill-list";
 
-const palette = ["#f97316", "#6366f1", "#22c55e", "#a855f7", "#0ea5e9", "#facc15", "#ef4444"];
+const palette = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#8b5cf6", "#ec4899", "#f97316"];
 
 export function CategoryBreakdown({
   title = "Gastos por Categoría",
@@ -41,7 +35,18 @@ export function CategoryBreakdown({
   // Ordenar categorías por valor descendente (mayor a menor)
   const sortedCategories = [...categories].sort((a, b) => b.value - a.value);
   const total = sortedCategories.reduce((acc, c) => acc + c.value, 0);
-  const colors = sortedCategories.map((cat, i) => categoryMeta?.[cat.name]?.color ?? palette[i % palette.length]);
+  const usedColors = new Set<string>();
+  const colors = sortedCategories.map((cat, i) => {
+    const preferred = categoryMeta?.[cat.name]?.color;
+    if (preferred && !usedColors.has(preferred)) {
+      usedColors.add(preferred);
+      return preferred;
+    }
+    const next = palette.find((color) => !usedColors.has(color));
+    const chosen = next ?? preferred ?? palette[i % palette.length];
+    usedColors.add(chosen);
+    return chosen;
+  });
 
   if (variant === "pill-list") {
     return (

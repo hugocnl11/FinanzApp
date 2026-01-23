@@ -9,12 +9,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { loadFromStorage, saveToStorage } from "@/lib/storage";
 import { Pencil } from "lucide-react";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { getUserId } from "@/lib/auth";
+import { fetchBudgets, createBudget, updateBudget, deleteBudget } from "@/lib/api/budgets";
+import { fetchCategories } from "@/lib/api/categories";
+import type { Category } from "@/lib/dashboard/types";
 
 type BudgetItem = {
   id: string;
@@ -23,39 +27,9 @@ type BudgetItem = {
   spent: number;
 };
 
-const initialBudgets: BudgetItem[] = [
-  // Fijos
-  { id: "bud-1", category: "Vivienda", limit: 850, spent: 620 },
-  { id: "bud-2", category: "Garaje", limit: 90, spent: 90 },
-  { id: "bud-3", category: "Gimnasio", limit: 45, spent: 45 },
-  { id: "bud-4", category: "Seguros", limit: 120, spent: 110 },
-  { id: "bud-5", category: "Servicios", limit: 160, spent: 145 },
-  // Variables
-  { id: "bud-6", category: "Comida", limit: 420, spent: 310 },
-  { id: "bud-7", category: "Ocio", limit: 180, spent: 120 },
-  { id: "bud-8", category: "Ropa", limit: 140, spent: 60 },
-  { id: "bud-9", category: "Transporte", limit: 180, spent: 190 },
-  { id: "bud-10", category: "Salud", limit: 90, spent: 40 },
-  { id: "bud-11", category: "Educación", limit: 120, spent: 30 },
-  { id: "bud-12", category: "Viajes", limit: 260, spent: 140 },
-  { id: "bud-13", category: "Regalos", limit: 110, spent: 65 },
-];
+const initialBudgets: BudgetItem[] = [];
 
-const categories = [
-  "Vivienda",
-  "Garaje",
-  "Gimnasio",
-  "Seguros",
-  "Servicios",
-  "Comida",
-  "Ocio",
-  "Ropa",
-  "Transporte",
-  "Salud",
-  "Educación",
-  "Viajes",
-  "Regalos",
-];
+const categories: string[] = [];
 
 type BudgetType = "Fijo" | "Variable";
 
@@ -74,23 +48,37 @@ const VARIABLE_CATEGORIES = [
   "Ahorro",
 ];
 
-export function BudgetManager() {
+type BudgetManagerProps = {
+  triggerLabel?: string;
+  triggerVariant?: ButtonProps["variant"];
+  triggerSize?: ButtonProps["size"];
+  triggerClassName?: string;
+};
+
+export function BudgetManager({
+  triggerLabel,
+  triggerVariant,
+  triggerSize,
+  triggerClassName,
+}: BudgetManagerProps) {
   const [budgets, setBudgets] = useState<BudgetItem[]>(initialBudgets);
+  const [categoriesData, setCategoriesData] = useState<Category[]>([]);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [budgetType, setBudgetType] = useState<BudgetType>("Fijo");
   const [formData, setFormData] = useState({
-    category: categories[0],
+    category: categories[0] ?? "",
     limit: "",
   });
+  const hasLabel = Boolean(triggerLabel);
+  const expenseCategories = categoriesData.filter((category) => category.type === "expense");
 
-  // Filtrar presupuestos según tipo
+  // Filtrar presupuestos según tipo (basado en period)
   const filteredBudgets = useMemo(() => {
-    const categoriesToShow = budgetType === "Fijo" ? FIXED_CATEGORIES : VARIABLE_CATEGORIES;
-    return budgets.filter((budget) => 
-      categoriesToShow.some((cat) => 
-        budget.category.toLowerCase().includes(cat.toLowerCase()) ||
-        cat.toLowerCase().includes(budget.category.toLowerCase())
-      )
-    );
+    const periodKey = budgetType === "Fijo" ? "fixed" : "variable";
+    return budgets.filter((budget) => {
+      if (!budget.period) return true;
+      return budget.period === periodKey;
+    });
   }, [budgets, budgetType]);
 
   const totalLimit = useMemo(
@@ -104,46 +92,82 @@ export function BudgetManager() {
   );
 
   useEffect(() => {
-    const stored = loadFromStorage<BudgetItem[]>("budgets", initialBudgets);
-    if (stored.length > 0) {
-      setBudgets(stored);
-    }
+    const load = async () => {
+      if (!getUserId()) {
+        setBudgets([]);
+        setCategoriesData([]);
+        return;
+      }
+      try {
+        const [budgetsRes, categoriesRes] = await Promise.all([
+          fetchBudgets(),
+          fetchCategories(),
+        ]);
+        setBudgets(budgetsRes.data as BudgetItem[]);
+        setCategoriesData(categoriesRes.data as Category[]);
+      } catch (error) {
+        console.error(error);
+        setBudgets([]);
+        setCategoriesData([]);
+        setStatusMessage("No se pudieron cargar los presupuestos.");
+      }
+    };
+    void load();
   }, []);
 
   useEffect(() => {
-    if (budgets.length > 0) {
-      saveToStorage("budgets", budgets);
+    if (!formData.category && expenseCategories.length > 0) {
+      setFormData((prev) => ({ ...prev, category: expenseCategories[0].name }));
     }
-  }, [budgets]);
+  }, [expenseCategories, formData.category]);
 
-  const handleAddBudget = () => {
+  const handleAddBudget = async () => {
     const limitValue = Number(formData.limit);
-    if (!formData.category || !limitValue) return;
-    const existing = budgets.find((item) => item.category === formData.category);
-    if (existing) {
-      setBudgets((prev) =>
-        prev.map((item) =>
-          item.category === formData.category ? { ...item, limit: limitValue } : item
-        )
-      );
-    } else {
-      setBudgets((prev) => [
-        ...prev,
-        { id: `bud-${Date.now()}`, category: formData.category, limit: limitValue, spent: 0 },
-      ]);
+    if (!formData.category || !limitValue) {
+      setStatusMessage("Selecciona una categoría y define un límite válido.");
+      return;
     }
-    setFormData((prev) => ({ ...prev, limit: "" }));
+    try {
+      const existing = budgets.find((item) => item.category === formData.category);
+      if (existing) {
+        const updated = await updateBudget(existing.id, { limit: limitValue });
+        setBudgets((prev) =>
+          prev.map((item) => (item.id === existing.id ? (updated.data as BudgetItem) : item))
+        );
+      } else {
+        const created = await createBudget({
+          category: formData.category,
+          limit: limitValue,
+          spent: 0,
+          period: budgetType === "Fijo" ? "fixed" : "variable",
+        });
+        setBudgets((prev) => [...prev, created.data as BudgetItem]);
+      }
+      setFormData((prev) => ({ ...prev, limit: "" }));
+      setStatusMessage("Presupuesto guardado correctamente.");
+      window.dispatchEvent(new Event("finanzapp:data-updated"));
+    } catch (error) {
+      console.error(error);
+      setStatusMessage("No se pudo guardar el presupuesto.");
+    }
   };
 
-  const handleRemove = (id: string) => {
+  const handleRemove = async (id: string) => {
+    await deleteBudget(id);
     setBudgets((prev) => prev.filter((item) => item.id !== id));
+    window.dispatchEvent(new Event("finanzapp:data-updated"));
   };
 
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-          <Pencil className="h-4 w-4" />
+        <Button
+          variant={triggerVariant ?? (hasLabel ? "outline" : "ghost")}
+          size={triggerSize ?? (hasLabel ? "sm" : "icon")}
+          className={cn(hasLabel ? "w-full" : "h-8 w-8 p-0", triggerClassName)}
+          aria-label={hasLabel ? undefined : "Gestionar presupuestos"}
+        >
+          {hasLabel ? triggerLabel : <Pencil className="h-4 w-4" />}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-3xl">
@@ -246,11 +270,17 @@ export function BudgetManager() {
                   setFormData((prev) => ({ ...prev, category: event.target.value }))
                 }
               >
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
+                {expenseCategories.length > 0 ? (
+                  expenseCategories.map((category) => (
+                    <option key={category.id} value={category.name}>
+                      {category.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>
+                    Sin categorías de gasto disponibles
                   </option>
-                ))}
+                )}
               </select>
             </div>
 
@@ -265,6 +295,9 @@ export function BudgetManager() {
             />
 
             <Button onClick={handleAddBudget}>Guardar presupuesto</Button>
+            {statusMessage && (
+              <p className="text-xs text-muted-foreground">{statusMessage}</p>
+            )}
           </div>
         </div>
       </DialogContent>

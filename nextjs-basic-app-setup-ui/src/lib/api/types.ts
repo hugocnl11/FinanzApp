@@ -8,6 +8,7 @@ export type ApiResponse<T> = {
 export type AuthPayload = {
   email: string;
   password: string;
+  name?: string;
 };
 
 export type AuthResponse = {

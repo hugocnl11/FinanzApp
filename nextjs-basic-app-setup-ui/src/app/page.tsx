@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
 const features = [
   {
@@ -26,6 +27,16 @@ const stats = [
   { label: "Ahorro promedio", value: "18%" },
   { label: "Usuarios activos", value: "12.6k" },
 ];
+
+const demoBreakdown = [
+  { name: "Vivienda", value: 38 },
+  { name: "Alimentación", value: 22 },
+  { name: "Ocio", value: 16 },
+  { name: "Transporte", value: 12 },
+  { name: "Otros", value: 12 },
+];
+
+const demoColors = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#0ea5e9"];
 
 export default function Home() {
   return (
@@ -103,15 +114,50 @@ export default function Home() {
                   +12.4%
                 </span>
               </div>
-              <div className="h-32 rounded-2xl bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-blue-500/20" />
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-2xl border border-border bg-white/70 p-4 dark:bg-slate-900/60">
                   <p className="text-xs text-muted-foreground">Ingresos</p>
                   <p className="text-lg font-semibold text-emerald-600">€ 6.320</p>
+                  <div className="mt-3 h-1.5 w-full rounded-full bg-emerald-100">
+                    <div className="h-full w-[72%] rounded-full bg-emerald-500" />
+                  </div>
                 </div>
                 <div className="rounded-2xl border border-border bg-white/70 p-4 dark:bg-slate-900/60">
                   <p className="text-xs text-muted-foreground">Gastos</p>
                   <p className="text-lg font-semibold text-rose-500">€ 4.110</p>
+                  <div className="mt-3 h-1.5 w-full rounded-full bg-rose-100">
+                    <div className="h-full w-[58%] rounded-full bg-rose-500" />
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border bg-white/70 p-4 dark:bg-slate-900/60">
+                <p className="text-xs text-muted-foreground">Distribución de gastos</p>
+                <div className="mt-3 h-36">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={demoBreakdown}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={35}
+                        outerRadius={60}
+                        paddingAngle={3}
+                        cornerRadius={6}
+                      >
+                        {demoBreakdown.map((entry, index) => (
+                          <Cell key={entry.name} fill={demoColors[index % demoColors.length]} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                  {demoBreakdown.map((entry, index) => (
+                    <div key={entry.name} className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full" style={{ background: demoColors[index] }} />
+                      <span>{entry.name}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

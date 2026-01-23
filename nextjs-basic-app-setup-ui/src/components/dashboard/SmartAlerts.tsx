@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { loadFromStorage } from "@/lib/storage";
-import { DASHBOARD_MOCK } from "@/lib/dashboard/mock";
 import { last, previous, percentChange } from "@/lib/dashboard/selectors";
 import { AlertTriangle, TrendingUp, TrendingDown, Target, Sparkles, CheckCircle2 } from "lucide-react";
+import { useDashboardData } from "@/hooks/useDashboardData";
 
 type AlertType = "warning" | "success" | "info" | "danger" | "recommendation";
 
@@ -34,13 +33,14 @@ type GoalItem = {
 
 export function SmartAlerts() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const { data } = useDashboardData();
 
   useEffect(() => {
     const generateAlerts = () => {
       const newAlerts: Alert[] = [];
 
       // 1. Análisis de Presupuestos
-      const budgets = loadFromStorage<BudgetItem[]>("budgets", []);
+      const budgets = (data.budgets ?? []) as BudgetItem[];
       budgets.forEach((budget) => {
         const percentage = (budget.spent / budget.limit) * 100;
         
@@ -64,8 +64,11 @@ export function SmartAlerts() {
       });
 
       // 2. Análisis de Objetivos
-      const goals = loadFromStorage<GoalItem[]>("goals", []);
-      const primaryGoalId = loadFromStorage<string>("primaryGoalId", "");
+      const goals = (data.goals ?? []) as GoalItem[];
+      const primaryGoalId =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem("finanzapp:primary-goal")
+          : "";
       
       goals.forEach((goal) => {
         const percentage = (goal.saved / goal.target) * 100;
@@ -119,7 +122,7 @@ export function SmartAlerts() {
       });
 
       // 3. Análisis de Tendencias de Ingresos
-      const { ingresosMensuales } = DASHBOARD_MOCK;
+      const { ingresosMensuales } = data;
       const currentIncome = last(ingresosMensuales)?.valor ?? 0;
       const previousIncome = previous(ingresosMensuales)?.valor ?? 0;
       const incomeChange = percentChange(currentIncome, previousIncome);
@@ -143,7 +146,7 @@ export function SmartAlerts() {
       }
 
       // 4. Análisis de Tendencias de Gastos
-      const { gastosMensuales } = DASHBOARD_MOCK;
+      const { gastosMensuales } = data;
       const currentExpenses = last(gastosMensuales)?.valor ?? 0;
       const previousExpenses = previous(gastosMensuales)?.valor ?? 0;
       const expensesChange = percentChange(currentExpenses, previousExpenses);
@@ -216,7 +219,7 @@ export function SmartAlerts() {
         
         if (daysRemaining > 0) {
           const projectedExpenses = currentExpenses + (dailyAverage * daysRemaining);
-          const lastMonthExpenses = previous(DASHBOARD_MOCK.gastosMensuales)?.valor ?? currentExpenses;
+          const lastMonthExpenses = previous(data.gastosMensuales)?.valor ?? currentExpenses;
           
           if (projectedExpenses > lastMonthExpenses * 1.15) {
             newAlerts.push({
@@ -250,7 +253,7 @@ export function SmartAlerts() {
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
-      const recentMovements = DASHBOARD_MOCK.movimientos.filter((m) => {
+      const recentMovements = data.movimientos.filter((m) => {
         const movDate = new Date(m.fecha);
         return movDate.getMonth() === currentMonth && 
                movDate.getFullYear() === currentYear &&
@@ -275,14 +278,12 @@ export function SmartAlerts() {
     
     // Escuchar cambios en los datos
     const handler = () => generateAlerts();
-    window.addEventListener("finanzapp:goals-updated", handler);
-    window.addEventListener("storage", handler);
+    window.addEventListener("finanzapp:data-updated", handler);
     
     return () => {
-      window.removeEventListener("finanzapp:goals-updated", handler);
-      window.removeEventListener("storage", handler);
+      window.removeEventListener("finanzapp:data-updated", handler);
     };
-  }, []);
+  }, [data]);
 
   const getAlertStyles = (type: AlertType) => {
     switch (type) {

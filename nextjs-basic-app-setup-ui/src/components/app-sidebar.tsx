@@ -18,6 +18,8 @@ import { SidebarLogo } from "@/components/brand/SidebarLogo";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, List, BarChart2, Settings } from "lucide-react";
+import { useEffect, useState } from "react";
+import { getSession } from "@/lib/auth";
 
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
@@ -28,6 +30,24 @@ const items = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const [userName, setUserName] = useState("Usuario");
+  const [userEmail, setUserEmail] = useState("usuario@finanzapp.com");
+
+  useEffect(() => {
+    const load = () => {
+      const session = getSession();
+      if (session) {
+        setUserName(session.user.name);
+        setUserEmail(session.user.email);
+      } else {
+        setUserName("Usuario");
+        setUserEmail("usuario@finanzapp.com");
+      }
+    };
+    load();
+    window.addEventListener("finanzapp:auth-changed", load);
+    return () => window.removeEventListener("finanzapp:auth-changed", load);
+  }, []);
   return (
     <Sidebar collapsible="icon" className="border-r border-border/40">
       <SidebarHeader className="border-b border-border/40 bg-gradient-to-br from-sidebar/80 via-sidebar/50 to-sidebar/80 backdrop-blur-md">
@@ -72,8 +92,8 @@ export function AppSidebar() {
             </span>
           </Avatar>
           <div className="flex flex-col">
-            <span className="text-xs font-medium text-sidebar-foreground">Usuario</span>
-            <span className="text-xs text-sidebar-foreground/60">usuario@finanzapp.com</span>
+            <span className="text-xs font-medium text-sidebar-foreground">{userName}</span>
+            <span className="text-xs text-sidebar-foreground/60">{userEmail}</span>
           </div>
         </div>
         <div className="mt-3 pt-3 border-t border-border/40 group-data-[collapsible=icon]:hidden">

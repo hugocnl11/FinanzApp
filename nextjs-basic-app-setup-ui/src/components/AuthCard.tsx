@@ -9,6 +9,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { login, register } from "@/lib/api/auth";
+import { saveSession } from "@/lib/auth";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -35,6 +37,7 @@ type RegisterValues = z.infer<typeof registerSchema>;
 
 export function AuthCard() {
   const [tab, setTab] = useState("login");
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const router = useRouter();
 
   // Login form
@@ -57,15 +60,29 @@ export function AuthCard() {
     mode: "onTouched",
   });
 
-  // Fake login
   const onLogin = async (data: LoginValues) => {
-    await new Promise((r) => setTimeout(r, 1000));
+    try {
+      const response = await login({ email: data.email, password: data.password });
+      saveSession(response.data);
     router.push("/dashboard");
+    } catch (error) {
+      console.error(error);
+      setStatusMessage("No se pudo iniciar sesión. Verifica credenciales o email.");
+    }
   };
-  // Fake register
   const onRegister = async (data: RegisterValues) => {
-    await new Promise((r) => setTimeout(r, 1000));
-    router.push("/welcome");
+    try {
+      await register({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+      });
+      setStatusMessage("Te enviamos un correo para verificar tu cuenta.");
+      setTimeout(() => router.push("/login"), 1500);
+    } catch (error) {
+      console.error(error);
+      setStatusMessage("No se pudo crear la cuenta. Revisa los datos.");
+    }
   };
 
   return (
@@ -129,6 +146,9 @@ export function AuthCard() {
             <Button type="submit" isLoading={loginLoading}>
               Entrar
             </Button>
+            {statusMessage && (
+              <p className="text-sm text-muted-foreground text-center">{statusMessage}</p>
+            )}
           </motion.form>
         ) : (
           <motion.form
@@ -186,6 +206,9 @@ export function AuthCard() {
             <Button type="submit" isLoading={regLoading}>
               Crear cuenta
             </Button>
+            {statusMessage && (
+              <p className="text-sm text-muted-foreground text-center">{statusMessage}</p>
+            )}
           </motion.form>
         )}
       </AnimatePresence>

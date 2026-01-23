@@ -19,6 +19,8 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
+import { login } from "@/lib/api/auth";
+import { saveSession } from "@/lib/auth";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -30,6 +32,7 @@ type LoginValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const router = useRouter();
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -40,8 +43,14 @@ export default function LoginPage() {
   });
 
   const onLogin = async (data: LoginValues) => {
-    await new Promise((r) => setTimeout(r, 1000));
-    router.push("/dashboard");
+    try {
+      const response = await login({ email: data.email, password: data.password });
+      saveSession(response.data);
+      router.push("/dashboard");
+    } catch (error) {
+      console.error(error);
+      setStatusMessage("No se pudo iniciar sesión. Verifica tus credenciales o tu email.");
+    }
   };
 
   return (
@@ -127,6 +136,9 @@ export default function LoginPage() {
           <Button type="submit" className="w-full" isLoading={isSubmitting}>
             Entrar
           </Button>
+          {statusMessage && (
+            <p className="text-sm text-muted-foreground text-center">{statusMessage}</p>
+          )}
           <div className="text-center text-sm text-muted-foreground">
             ¿No tienes cuenta?{" "}
             <Link href="/register" className="text-purple-600 hover:text-purple-500 dark:text-purple-400 font-medium">

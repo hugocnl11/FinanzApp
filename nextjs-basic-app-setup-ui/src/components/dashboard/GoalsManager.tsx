@@ -12,31 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { loadFromStorage, saveToStorage } from "@/lib/storage";
 import { GoalEditorDialog, type EditableGoal } from "@/components/dashboard/GoalEditorDialog";
+import { fetchGoals, createGoal, updateGoal, deleteGoal } from "@/lib/api/goals";
+import { getUserId } from "@/lib/auth";
 
 type GoalItem = EditableGoal;
 
-const initialGoals: GoalItem[] = [
-  {
-    id: "goal-1",
-    title: "Fondo de emergencia",
-    target: 5000,
-    saved: 2350,
-    type: "ahorro",
-    dueDate: "2026-06-30",
-    description: "Ahorro para imprevistos",
-  },
-  {
-    id: "goal-2",
-    title: "Reducir gastos en ocio",
-    target: 300,
-    saved: 120,
-    type: "reducir-gasto",
-    dueDate: "2026-03-31",
-    description: "Controlar gastos no esenciales",
-  },
-];
+const initialGoals: GoalItem[] = [];
 
 const typeLabels = {
   ahorro: "Ahorro",
@@ -60,60 +42,77 @@ export function GoalsManager() {
   }, [goals]);
 
   useEffect(() => {
-    const stored = loadFromStorage<GoalItem[]>("goals", initialGoals);
-    const goalsSource = stored.length > 0 ? stored : initialGoals;
-    setGoals(goalsSource);
-    const storedPrimary = loadFromStorage<string>("primaryGoalId", "");
-    setPrimaryGoalId(storedPrimary || goalsSource[0]?.id || "");
+    const load = async () => {
+      try {
+        if (!getUserId()) {
+          setGoals([]);
+          return;
+        }
+        const response = await fetchGoals();
+        setGoals(response.data as GoalItem[]);
+        const storedPrimary =
+          typeof window !== "undefined"
+            ? window.localStorage.getItem("finanzapp:primary-goal")
+            : "";
+        setPrimaryGoalId(storedPrimary || response.data[0]?.id || "");
+      } catch {
+        setGoals([]);
+      }
+    };
+    void load();
   }, []);
 
   useEffect(() => {
-    if (goals.length > 0) {
-      saveToStorage("goals", goals);
-      if (!primaryGoalId) {
+    if (!primaryGoalId && goals.length > 0) {
         setPrimaryGoalId(goals[0]?.id ?? "");
-      }
-      window.dispatchEvent(new Event("finanzapp:goals-updated"));
     }
   }, [goals, primaryGoalId]);
 
   useEffect(() => {
     if (primaryGoalId) {
-      saveToStorage("primaryGoalId", primaryGoalId);
-      window.dispatchEvent(new Event("finanzapp:goals-updated"));
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("finanzapp:primary-goal", primaryGoalId);
+      }
+      window.dispatchEvent(new Event("finanzapp:data-updated"));
     }
   }, [primaryGoalId]);
 
-  const handleAddGoal = () => {
+  const handleAddGoal = async () => {
     const target = Number(formData.target);
     if (!formData.title.trim() || !target || !formData.dueDate) return;
-    const newGoal: GoalItem = {
-      id: `goal-${Date.now()}`,
+    const created = await createGoal({
       title: formData.title.trim(),
       target,
       saved: 0,
       type: formData.type,
       dueDate: formData.dueDate,
-    };
-    setGoals((prev) => [...prev, newGoal]);
+    });
+    setGoals((prev) => [...prev, created.data as GoalItem]);
     if (!primaryGoalId) {
-      setPrimaryGoalId(newGoal.id);
+      setPrimaryGoalId((created.data as GoalItem).id);
     }
     setFormData({ title: "", target: "", type: "ahorro", dueDate: "" });
+    window.dispatchEvent(new Event("finanzapp:data-updated"));
   };
 
-  const handleUpdateSaved = (id: string, value: number) => {
+  const handleUpdateSaved = async (id: string, value: number) => {
+    const updated = await updateGoal(id, { saved: value });
     setGoals((prev) =>
-      prev.map((goal) => (goal.id === id ? { ...goal, saved: value } : goal))
+      prev.map((goal) => (goal.id === id ? (updated.data as GoalItem) : goal))
     );
+    window.dispatchEvent(new Event("finanzapp:data-updated"));
   };
 
-  const handleEditGoal = (updated: GoalItem) => {
-    setGoals((prev) => prev.map((goal) => (goal.id === updated.id ? updated : goal)));
+  const handleEditGoal = async (updated: GoalItem) => {
+    const saved = await updateGoal(updated.id, updated);
+    setGoals((prev) => prev.map((goal) => (goal.id === updated.id ? (saved.data as GoalItem) : goal)));
+    window.dispatchEvent(new Event("finanzapp:data-updated"));
   };
 
-  const handleRemove = (id: string) => {
+  const handleRemove = async (id: string) => {
+    await deleteGoal(id);
     setGoals((prev) => prev.filter((goal) => goal.id !== id));
+    window.dispatchEvent(new Event("finanzapp:data-updated"));
   };
 
   return (

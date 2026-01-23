@@ -4,31 +4,35 @@ import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { Movement, MovementType } from "@/lib/dashboard/types";
-import { Plus, X } from "lucide-react";
+import type { Category, Movement, MovementType } from "@/lib/dashboard/types";
+import { X } from "lucide-react";
 
-const categoriasPorTipo: Record<MovementType, string[]> = {
-  Ingreso: ["Nómina", "Intereses", "Ventas", "Freelance", "Otros"],
-  Gasto: ["Vivienda", "Alimentación", "Ocio", "Transporte", "Salud", "Educación", "Otros"],
-  Inversión: ["Acciones", "Fondos", "Crypto", "Bonos", "PIAS", "Otros"],
-};
-
-const tipos: MovementType[] = ["Ingreso", "Gasto", "Inversión"];
+const tipos: MovementType[] = ["Ingreso", "Gasto", "Inversión", "Ahorro"];
 
 type MovementFormProps = {
   movement?: Movement;
+  categories: Category[];
   onSave: (movement: Omit<Movement, "id">) => void;
   onCancel: () => void;
 };
 
-export function MovementForm({ movement, onSave, onCancel }: MovementFormProps) {
+const typeToCategoryType = (type: MovementType) => {
+  if (type === "Ingreso") return "income";
+  if (type === "Gasto") return "expense";
+  if (type === "Inversión") return "investment";
+  return "savings";
+};
+
+export function MovementForm({ movement, categories, onSave, onCancel }: MovementFormProps) {
   const [fecha, setFecha] = useState(movement?.fecha || new Date().toISOString().split("T")[0]);
   const [concepto, setConcepto] = useState(movement?.concepto || "");
   const [tipo, setTipo] = useState<MovementType>(movement?.tipo || "Gasto");
   const [categoria, setCategoria] = useState(movement?.categoria || "");
   const [cantidad, setCantidad] = useState(movement?.cantidad.toString() || "");
 
-  const categoriasDisponibles = categoriasPorTipo[tipo] || [];
+  const categoriasDisponibles = categories
+    .filter((category) => category.type === typeToCategoryType(tipo))
+    .map((category) => category.name);
 
   useEffect(() => {
     if (!categoriasDisponibles.includes(categoria)) {
@@ -38,6 +42,7 @@ export function MovementForm({ movement, onSave, onCancel }: MovementFormProps) 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (categoriasDisponibles.length === 0) return;
     const cantidadNum = parseFloat(cantidad);
     if (!concepto.trim() || isNaN(cantidadNum) || cantidadNum === 0) return;
 
@@ -129,6 +134,11 @@ export function MovementForm({ movement, onSave, onCancel }: MovementFormProps) 
                   </option>
                 ))}
               </select>
+              {categoriasDisponibles.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Crea una categoría antes de registrar movimientos.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -151,7 +161,7 @@ export function MovementForm({ movement, onSave, onCancel }: MovementFormProps) 
                 Cancelar
               </Button>
             )}
-            <Button type="submit">
+            <Button type="submit" disabled={categoriasDisponibles.length === 0}>
               {movement ? "Guardar Cambios" : "Añadir Movimiento"}
             </Button>
           </div>

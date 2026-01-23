@@ -30,14 +30,18 @@ export type CategoryAmount = {
 export type Goal = {
   id: string;
   title: string;
-  objetivo: number;
-  ahorrado: number;
+  target: number;
+  saved: number;
+  type: "ahorro" | "reducir-gasto" | "aumentar-ingreso";
+  dueDate?: string;
   description?: string;
 };
 
 export type Budget = {
-  categoryId: string;
-  amount: number;
+  id: string;
+  category: string;
+  limit: number;
+  spent: number;
   period: string;
 };
 
@@ -57,13 +61,13 @@ export type RecurringMovement = Movement & {
 export type Category = {
   id: string;
   name: string;
-  type: "income" | "expense" | "investment";
+  type: "income" | "expense" | "investment" | "savings";
   icon: string;
   color: string;
   active: boolean;
 };
 
-export type MovementType = "Ingreso" | "Gasto" | "Inversión";
+export type MovementType = "Ingreso" | "Gasto" | "Inversión" | "Ahorro";
 
 export type Movement = {
   id?: string; // ID único para identificar movimientos
@@ -77,7 +81,7 @@ export type Movement = {
 export type DashboardData = {
   ingresosMensuales: MoneyByMonth[];
   gastosMensuales: MoneyByMonth[];
-  goal: Goal;
+  goal: Goal | null;
   goals: Goal[];
   budgets: Budget[];
   notifications: Notification[];

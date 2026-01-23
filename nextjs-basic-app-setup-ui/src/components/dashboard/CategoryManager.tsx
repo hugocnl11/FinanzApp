@@ -12,10 +12,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { loadFromStorage, saveToStorage } from "@/lib/storage";
 import { CATEGORY_ICON_MAP, type CategoryIconKey } from "@/lib/category-icons";
+import { fetchCategories, createCategory, updateCategory, deleteCategory } from "@/lib/api/categories";
+import { getUserId } from "@/lib/auth";
 
-type CategoryType = "income" | "expense" | "investment";
+type CategoryType = "income" | "expense" | "investment" | "savings";
 
 type CategoryItem = {
   id: string;
@@ -28,21 +29,14 @@ type CategoryItem = {
 
 const iconMap = CATEGORY_ICON_MAP;
 
-const defaultCategories: CategoryItem[] = [
-  { id: "cat-1", name: "Vivienda", type: "expense", icon: "Home", color: "#6366f1", active: true },
-  { id: "cat-2", name: "Comida", type: "expense", icon: "Utensils", color: "#22c55e", active: true },
-  { id: "cat-3", name: "Compras", type: "expense", icon: "ShoppingCart", color: "#f59e0b", active: true },
-  { id: "cat-4", name: "Transporte", type: "expense", icon: "Car", color: "#ef4444", active: true },
-  { id: "cat-5", name: "Servicios", type: "expense", icon: "Smartphone", color: "#06b6d4", active: true },
-  { id: "cat-6", name: "Sueldo", type: "income", icon: "Briefcase", color: "#16a34a", active: true },
-  { id: "cat-7", name: "Ahorro", type: "income", icon: "PiggyBank", color: "#8b5cf6", active: true },
-];
+const defaultCategories: CategoryItem[] = [];
 
 const colorOptions = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#8b5cf6"];
 
 export function CategoryManager() {
   const [categories, setCategories] = useState<CategoryItem[]>(defaultCategories);
   const [editing, setEditing] = useState<CategoryItem | null>(null);
+  const [filterType, setFilterType] = useState<"all" | CategoryType>("all");
   const [formData, setFormData] = useState({
     name: "",
     type: "expense" as CategoryType,
@@ -55,45 +49,59 @@ export function CategoryManager() {
     const active = categories.filter((cat) => cat.active).length;
     const incomes = categories.filter((cat) => cat.type === "income").length;
     const investments = categories.filter((cat) => cat.type === "investment").length;
-    return { total, active, incomes, investments };
+    const savings = categories.filter((cat) => cat.type === "savings").length;
+    return { total, active, incomes, investments, savings };
   }, [categories]);
 
+  const filteredCategories = useMemo(() => {
+    if (filterType === "all") return categories;
+    return categories.filter((cat) => cat.type === filterType);
+  }, [categories, filterType]);
+
   useEffect(() => {
-    const stored = loadFromStorage<CategoryItem[]>("categories", defaultCategories);
-    if (stored.length > 0) {
-      setCategories(stored);
+    const load = async () => {
+      try {
+        if (!getUserId()) {
+          setCategories([]);
+          return;
+        }
+        const response = await fetchCategories();
+        setCategories(response.data as CategoryItem[]);
+      } catch {
+        setCategories([]);
     }
+    };
+    void load();
   }, []);
-
-  useEffect(() => {
-    if (categories.length > 0) {
-      saveToStorage("categories", categories);
-    }
-  }, [categories]);
 
   const resetForm = () => {
     setEditing(null);
     setFormData({ name: "", type: "expense", icon: "Home", color: "#6366f1" });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!getUserId()) {
+      alert("Inicia sesión para gestionar categorías.");
+      return;
+    }
     if (!formData.name.trim()) return;
     if (editing) {
+      const updated = await updateCategory(editing.id, formData);
       setCategories((prev) =>
-        prev.map((cat) => (cat.id === editing.id ? { ...cat, ...formData } : cat))
+        prev.map((cat) => (cat.id === editing.id ? (updated.data as CategoryItem) : cat))
       );
     } else {
-      const newCategory: CategoryItem = {
-        id: `cat-${Date.now()}`,
+      const created = await createCategory({
         name: formData.name.trim(),
         type: formData.type,
         icon: formData.icon,
         color: formData.color,
         active: true,
-      };
-      setCategories((prev) => [newCategory, ...prev]);
+      });
+      setCategories((prev) => [created.data as CategoryItem, ...prev]);
     }
     resetForm();
+    window.dispatchEvent(new Event("finanzapp:data-updated"));
   };
 
   const handleEdit = (category: CategoryItem) => {
@@ -106,14 +114,20 @@ export function CategoryManager() {
     });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    await deleteCategory(id);
     setCategories((prev) => prev.filter((cat) => cat.id !== id));
+    window.dispatchEvent(new Event("finanzapp:data-updated"));
   };
 
-  const toggleActive = (id: string) => {
+  const toggleActive = async (id: string) => {
+    const current = categories.find((cat) => cat.id === id);
+    if (!current) return;
+    const updated = await updateCategory(id, { active: !current.active });
     setCategories((prev) =>
-      prev.map((cat) => (cat.id === id ? { ...cat, active: !cat.active } : cat))
+      prev.map((cat) => (cat.id === id ? (updated.data as CategoryItem) : cat))
     );
+    window.dispatchEvent(new Event("finanzapp:data-updated"));
   };
 
   return (
@@ -134,14 +148,30 @@ export function CategoryManager() {
         <div className="grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">Total: {usageStats.total}</Badge>
-              <Badge variant="secondary">Activas: {usageStats.active}</Badge>
-              <Badge variant="secondary">Ingresos: {usageStats.incomes}</Badge>
-              <Badge variant="secondary">Inversión: {usageStats.investments}</Badge>
+              {[
+                { key: "all" as const, label: "Total", value: usageStats.total },
+                { key: "expense" as const, label: "Activas", value: usageStats.active },
+                { key: "income" as const, label: "Ingresos", value: usageStats.incomes },
+                { key: "investment" as const, label: "Inversión", value: usageStats.investments },
+                { key: "savings" as const, label: "Ahorro", value: usageStats.savings },
+              ].map((pill) => (
+                <button
+                  key={pill.key}
+                  type="button"
+                  onClick={() => setFilterType(pill.key)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                    filterType === pill.key
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {pill.label}: {pill.value}
+                </button>
+              ))}
             </div>
 
-            <div className="space-y-3">
-              {categories.map((category) => {
+            <div className="space-y-3 max-h-[520px] overflow-y-auto pr-2">
+              {filteredCategories.map((category) => {
                 const Icon = iconMap[category.icon];
                 return (
                   <div
@@ -153,7 +183,7 @@ export function CategoryManager() {
                         className="flex h-9 w-9 items-center justify-center rounded-lg"
                         style={{ backgroundColor: `${category.color}20`, color: category.color }}
                       >
-                        <Icon className="h-4 w-4" />
+                        {Icon ? <Icon className="h-4 w-4" /> : <span className="text-xs">•</span>}
                       </div>
                       <div>
                         <p className="text-sm font-semibold">{category.name}</p>
@@ -162,6 +192,8 @@ export function CategoryManager() {
                             ? "Ingreso"
                             : category.type === "investment"
                             ? "Inversión"
+                            : category.type === "savings"
+                            ? "Ahorro"
                             : "Gasto"}
                         </p>
                       </div>
@@ -208,16 +240,29 @@ export function CategoryManager() {
 
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">Tipo</p>
-              <div className="flex gap-2">
-                {(["expense", "income", "investment"] as CategoryType[]).map((type) => (
-                  <Button
+              <div className="inline-flex items-center gap-1 rounded-full bg-muted p-1">
+                {(["expense", "income", "investment", "savings"] as CategoryType[]).map((type) => (
+                  <button
                     key={type}
-                    variant={formData.type === type ? "default" : "outline"}
-                    size="sm"
                     onClick={() => setFormData((prev) => ({ ...prev, type }))}
+                    type="button"
+                    className={`relative px-3 py-1 text-xs font-medium transition ${
+                      formData.type === type ? "text-foreground" : "text-muted-foreground"
+                    }`}
                   >
-                    {type === "income" ? "Ingreso" : type === "investment" ? "Inversión" : "Gasto"}
-                  </Button>
+                    {formData.type === type && (
+                      <span className="absolute inset-0 rounded-full bg-background shadow-sm" />
+                    )}
+                    <span className="relative">
+                      {type === "income"
+                        ? "Ingreso"
+                        : type === "investment"
+                        ? "Inversión"
+                        : type === "savings"
+                        ? "Ahorro"
+                        : "Gasto"}
+                    </span>
+                  </button>
                 ))}
               </div>
             </div>

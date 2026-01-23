@@ -1,0 +1,141 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+  INVESTMENT
+  SAVINGS
+}
+
+enum MovementType {
+  INCOME
+  EXPENSE
+  INVESTMENT
+  SAVINGS
+}
+
+enum GoalType {
+  AHORRO
+  REDUCIR_GASTO
+  AUMENTAR_INGRESO
+}
+
+enum NotificationType {
+  SUCCESS
+  WARNING
+  INFO
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  passwordHash String
+  name         String
+  emailVerified Boolean       @default(false)
+  emailVerificationToken String?
+  emailVerificationExpires DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  categories   Category[]
+  movements    Movement[]
+  budgets      Budget[]
+  goals        Goal[]
+  notifications Notification[]
+}
+
+model Category {
+  id        String       @id @default(cuid())
+  userId    String
+  name      String
+  type      CategoryType
+  icon      String
+  color     String
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movements Movement[]
+  budgets   Budget[]
+
+  @@unique([userId, name])
+  @@index([userId, type])
+}
+
+model Movement {
+  id         String       @id @default(cuid())
+  userId     String
+  categoryId String
+  date       DateTime
+  concept    String
+  type       MovementType
+  amount     Decimal      @db.Decimal(14, 2)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([userId, date])
+  @@index([categoryId, date])
+}
+
+model Budget {
+  id         String   @id @default(cuid())
+  userId     String
+  categoryId String
+  limit      Decimal  @db.Decimal(14, 2)
+  spent      Decimal  @db.Decimal(14, 2) @default(0)
+  period     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId, period])
+}
+
+model Goal {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  target      Decimal  @db.Decimal(14, 2)
+  saved       Decimal  @db.Decimal(14, 2) @default(0)
+  type        GoalType
+  dueDate     DateTime
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, dueDate])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  message   String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}

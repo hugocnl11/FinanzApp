@@ -8,7 +8,7 @@ export function fetchCategories() {
   return apiFetch<ApiResponse<Category[]>>("/categories");
 }
 
-export function createCategory(payload: Category) {
+export function createCategory(payload: Omit<Category, "id">) {
   return apiFetch<ApiResponse<Category>>("/categories", { method: "POST", json: payload });
 }
 

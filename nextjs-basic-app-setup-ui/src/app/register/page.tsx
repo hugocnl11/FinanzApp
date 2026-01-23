@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useForm } from "react-hook-form";
@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { register as registerUser } from "@/lib/api/auth";
 
 const registerSchema = z
   .object({
@@ -28,6 +29,7 @@ type RegisterValues = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -41,8 +43,18 @@ export default function RegisterPage() {
   const passwordValue = watch("password", "");
 
   const onRegister = async (data: RegisterValues) => {
-    await new Promise((r) => setTimeout(r, 1000));
-    router.push("/welcome");
+    try {
+      await registerUser({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+      });
+      setStatusMessage("Te enviamos un correo para verificar tu cuenta. Revisa tu bandeja.");
+      setTimeout(() => router.push("/login"), 1500);
+    } catch (error) {
+      console.error(error);
+      setStatusMessage("No se pudo crear la cuenta. Verifica los datos o intenta más tarde.");
+    }
   };
 
   const getPasswordStrength = (password: string) => {
@@ -146,6 +158,9 @@ export default function RegisterPage() {
           <Button type="submit" className="w-full" isLoading={isSubmitting}>
             Crear cuenta
           </Button>
+          {statusMessage && (
+            <p className="text-sm text-muted-foreground text-center">{statusMessage}</p>
+          )}
           <div className="text-center text-sm text-muted-foreground">
             ¿Ya tienes cuenta?{" "}
             <Link href="/login" className="text-purple-600 hover:text-purple-500 dark:text-purple-400 font-medium">

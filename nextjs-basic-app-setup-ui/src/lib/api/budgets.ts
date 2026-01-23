@@ -8,7 +8,7 @@ export function fetchBudgets() {
   return apiFetch<ApiResponse<Budget[]>>("/budgets");
 }
 
-export function createBudget(payload: Budget) {
+export function createBudget(payload: Omit<Budget, "id">) {
   return apiFetch<ApiResponse<Budget>>("/budgets", { method: "POST", json: payload });
 }
 

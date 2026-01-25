@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils";
 type AnimatedProgressProps = {
   value: number;
   className?: string;
+  indicatorClassName?: string;
 };
 
-export function AnimatedProgress({ value, className }: AnimatedProgressProps) {
+export function AnimatedProgress({ value, className, indicatorClassName }: AnimatedProgressProps) {
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
@@ -23,6 +24,7 @@ export function AnimatedProgress({ value, className }: AnimatedProgressProps) {
     <Progress
       value={current}
       className={cn("transition-all duration-500 ease-out [&>div]:transition-all [&>div]:duration-1000", className)}
+      data-indicator-class={indicatorClassName}
     />
   );
 }

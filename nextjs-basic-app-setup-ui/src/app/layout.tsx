@@ -8,6 +8,14 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "FinanzApp - Gestiona tus finanzas",
   description: "Aplicación para gestionar tus finanzas personales",
+  icons: {
+    icon: [
+      { url: '/icon', type: 'image/png' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/icon',
+    apple: '/apple-icon',
+  },
 };
 
 export default function RootLayout({

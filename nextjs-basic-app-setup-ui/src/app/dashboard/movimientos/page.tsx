@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { MovementForm } from "@/components/dashboard/MovementForm";
 import { MovementsTable } from "@/components/dashboard/MovementsTable";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,9 @@ export default function MovimientosPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [editingMovement, setEditingMovement] = useState<Movement | undefined>();
   const [showForm, setShowForm] = useState(false);
+  const [visibleCategoriesCount, setVisibleCategoriesCount] = useState(8);
+  const categoryContainerRef = useRef<HTMLDivElement>(null);
+  const categoryPillRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [filters, setFilters] = useState({
     search: "",
     type: "Todos",
@@ -93,6 +96,70 @@ export default function MovimientosPage() {
   const categoryOptions = Array.from(
     new Set(movimientos.map((m) => m.categoria))
   ).sort();
+
+  // Calcular cuántas categorías caben en una fila
+  const calculateVisibleCategories = useCallback(() => {
+    if (!categoryContainerRef.current || categoryOptions.length === 0) {
+      setVisibleCategoriesCount(Math.min(8, categoryOptions.length));
+      return;
+    }
+
+    const container = categoryContainerRef.current;
+    const containerWidth = container.offsetWidth;
+    const gap = 4; // gap-1 = 4px
+    const padding = 12; // p-1.5 = 12px total (6px each side)
+    const selectorWidth = 110; // Ancho aproximado del selector "+X más"
+    const todasWidth = 50; // Ancho aproximado de "Todas" con padding
+    const availableWidth = containerWidth - padding - selectorWidth - gap - todasWidth - gap;
+
+    if (availableWidth <= 0) {
+      setVisibleCategoriesCount(0);
+      return;
+    }
+
+    // Crear un elemento temporal para medir el ancho real
+    const tempElement = document.createElement('button');
+    tempElement.className = 'relative px-2 py-1 text-xs font-medium whitespace-nowrap';
+    tempElement.style.visibility = 'hidden';
+    tempElement.style.position = 'absolute';
+    document.body.appendChild(tempElement);
+
+    let totalWidth = 0;
+    let count = 0;
+
+    // Medir cada categoría real
+    for (const category of categoryOptions) {
+      tempElement.textContent = category;
+      const categoryWidth = tempElement.offsetWidth;
+      
+      if (totalWidth + categoryWidth + gap <= availableWidth) {
+        totalWidth += categoryWidth + gap;
+        count++;
+      } else {
+        break;
+      }
+    }
+
+    document.body.removeChild(tempElement);
+
+    // Asegurar que al menos se muestren algunas categorías si hay espacio
+    setVisibleCategoriesCount(Math.max(0, Math.min(count, categoryOptions.length)));
+  }, [categoryOptions]);
+
+  useEffect(() => {
+    calculateVisibleCategories();
+    const resizeObserver = new ResizeObserver(() => {
+      calculateVisibleCategories();
+    });
+
+    if (categoryContainerRef.current) {
+      resizeObserver.observe(categoryContainerRef.current);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [calculateVisibleCategories]);
 
   const filteredMovements = movimientos.filter((movement) => {
     const searchMatch =
@@ -274,13 +341,39 @@ export default function MovimientosPage() {
           {/* Categoría como Pills (versión compacta) */}
           <div className="space-y-2 xl:col-span-2">
             <label className="text-xs font-medium text-muted-foreground">Categoría</label>
-            <div className="flex flex-wrap items-center gap-1 rounded-lg bg-muted p-1.5">
-              {["Todas", ...categoryOptions.slice(0, 5)].map((category) => (
+            <div 
+              ref={categoryContainerRef}
+              className="flex items-center gap-1 rounded-lg bg-muted p-1.5 overflow-hidden"
+            >
+              {/* Mostrar "Todas" siempre */}
+              <button
+                key="Todas"
+                type="button"
+                onClick={() => setFilters((prev) => ({ ...prev, category: "Todas" }))}
+                className="relative px-2 py-1 text-xs font-medium text-muted-foreground transition whitespace-nowrap flex-shrink-0"
+              >
+                {filters.category === "Todas" && (
+                  <motion.span
+                    layoutId="category-pill"
+                    className="absolute inset-0 rounded-md bg-background shadow-sm"
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+                <span className={filters.category === "Todas" ? "relative text-foreground" : "relative"}>
+                  Todas
+                </span>
+              </button>
+              
+              {/* Mostrar categorías visibles */}
+              {categoryOptions.slice(0, visibleCategoriesCount).map((category) => (
                 <button
                   key={category}
                   type="button"
                   onClick={() => setFilters((prev) => ({ ...prev, category }))}
-                  className="relative px-2 py-1 text-xs font-medium text-muted-foreground transition"
+                  className="relative px-2 py-1 text-xs font-medium text-muted-foreground transition whitespace-nowrap flex-shrink-0"
+                  ref={(el) => {
+                    if (el) categoryPillRefs.current.set(category, el);
+                  }}
                 >
                   {filters.category === category && (
                     <motion.span
@@ -290,22 +383,26 @@ export default function MovimientosPage() {
                     />
                   )}
                   <span className={filters.category === category ? "relative text-foreground" : "relative"}>
-                    {category.length > 8 ? category.slice(0, 8) + "..." : category}
+                    {category}
                   </span>
                 </button>
               ))}
-              {categoryOptions.length > 5 && (
+              
+              {/* Selector para categorías restantes */}
+              {categoryOptions.length > visibleCategoriesCount && (
                 <select
-                  className="px-2 py-1 text-xs border-0 bg-transparent text-muted-foreground rounded-md"
-                  value={filters.category}
-                  onChange={(event) =>
-                    setFilters((prev) => ({ ...prev, category: event.target.value }))
-                  }
+                  className="px-2 py-1 text-xs border-0 bg-transparent text-muted-foreground rounded-md flex-shrink-0 min-w-[100px] appearance-none cursor-pointer"
+                  value={categoryOptions.slice(visibleCategoriesCount).includes(filters.category) ? filters.category : ""}
+                  onChange={(event) => {
+                    if (event.target.value) {
+                      setFilters((prev) => ({ ...prev, category: event.target.value }));
+                    }
+                  }}
                 >
-                  <option value={filters.category}>
-                    {categoryOptions.length > 5 ? `+${categoryOptions.length - 5} más` : "Más"}
+                  <option value="" disabled>
+                    {categoryOptions.length > visibleCategoriesCount ? `+${categoryOptions.length - visibleCategoriesCount} más` : "Más"}
                   </option>
-                  {categoryOptions.slice(5).map((category) => (
+                  {categoryOptions.slice(visibleCategoriesCount).map((category) => (
                     <option key={category} value={category}>
                       {category}
                     </option>

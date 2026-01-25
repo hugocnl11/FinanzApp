@@ -364,8 +364,9 @@ export function BudgetSummary({
                         .map((budget) => {
                         const meta = categoryMap.get(budget.category) ?? FALLBACK_CATEGORY_META[budget.category];
                         const Icon = meta ? CATEGORY_ICON_MAP[meta.icon] : null;
+                        const isOver = budget.spent > budget.limit;
                         const percent = budget.limit
-                          ? Math.min((budget.spent / budget.limit) * 100, 120)
+                          ? Math.min((budget.spent / budget.limit) * 100, 100)
                           : 100;
                         return (
                           <div
@@ -404,8 +405,9 @@ export function BudgetSummary({
                               </span>
                             </div>
                             <AnimatedProgress
-                              value={percent}
-                              className={`mt-2 ${budget.spent > budget.limit ? "[&>div]:bg-rose-500" : ""}`}
+                              value={isOver ? 100 : percent}
+                              className="mt-2"
+                              indicatorClassName={isOver ? "!bg-rose-500" : undefined}
                             />
                           </div>
                         );
@@ -430,7 +432,8 @@ export function BudgetSummary({
                   .map((budget) => {
                   const meta = categoryMap.get(budget.category) ?? FALLBACK_CATEGORY_META[budget.category];
                   const Icon = meta ? CATEGORY_ICON_MAP[meta.icon] : null;
-                  const percent = Math.min((budget.spent / budget.limit) * 100, 120);
+                  const isOver = budget.spent > budget.limit;
+                  const percent = Math.min((budget.spent / budget.limit) * 100, 100);
                   return (
                     <div key={budget.id} className="rounded-lg border border-border/70 px-3 py-2">
                       <div className="flex items-center justify-between">
@@ -449,8 +452,9 @@ export function BudgetSummary({
                         </span>
                       </div>
                       <AnimatedProgress
-                        value={percent}
-                        className={`mt-2 ${budget.spent > budget.limit ? "[&>div]:bg-rose-500" : ""}`}
+                        value={isOver ? 100 : percent}
+                        className="mt-2"
+                        indicatorClassName={isOver ? "!bg-rose-500" : undefined}
                       />
                     </div>
                   );

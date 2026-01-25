@@ -1,7 +1,15 @@
 {
-  "buildCommand": "cd nextjs-basic-app-setup-ui && npm run build",
-  "outputDirectory": "nextjs-basic-app-setup-ui/.next",
-  "installCommand": "cd nextjs-basic-app-setup-ui && npm install",
-  "framework": "nextjs",
-  "rootDirectory": "nextjs-basic-app-setup-ui"
+  "version": 2,
+  "builds": [
+    {
+      "src": "nextjs-basic-app-setup-ui/package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "nextjs-basic-app-setup-ui/$1"
+    }
+  ]
 }

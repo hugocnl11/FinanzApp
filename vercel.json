@@ -1,6 +1,7 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "installCommand": "npm install",
-  "framework": "nextjs"
+  "buildCommand": "cd nextjs-basic-app-setup-ui && npm run build",
+  "outputDirectory": "nextjs-basic-app-setup-ui/.next",
+  "installCommand": "cd nextjs-basic-app-setup-ui && npm install",
+  "framework": "nextjs",
+  "rootDirectory": "nextjs-basic-app-setup-ui"
 }

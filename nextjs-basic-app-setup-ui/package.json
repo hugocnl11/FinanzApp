@@ -2,12 +2,15 @@
   "name": "nextjs-basic-app",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate || true",
     "db:up": "cd .. && docker compose up -d",
     "db:down": "cd .. && docker compose down",
     "db:migrate": "prisma migrate deploy",

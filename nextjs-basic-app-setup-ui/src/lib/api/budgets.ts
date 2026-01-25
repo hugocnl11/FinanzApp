@@ -25,5 +25,10 @@ export function updateBudget(id: string, payload: Partial<Budget>) {
 }
 
 export function deleteBudget(id: string) {
+  if (isDemoUser()) {
+    return Promise.resolve({
+      data: { success: true },
+    } as ApiResponse<{ success: boolean }>);
+  }
   return apiFetch<ApiResponse<{ success: boolean }>>(`/budgets/${id}`, { method: "DELETE" });
 }

@@ -368,10 +368,18 @@ export function BudgetSummary({
                         const percent = budget.limit
                           ? Math.min((budget.spent / budget.limit) * 100, 100)
                           : 100;
+                        const categoryColor = meta?.color || "#64748b";
                         return (
                           <div
                             key={budget.id}
-                            className="rounded-lg border border-border/70 bg-background/60 px-3 py-2 shadow-[0_1px_0_rgba(0,0,0,0.08)]"
+                            className="rounded-lg px-3 py-2 shadow-sm transition-all hover:shadow-md"
+                            style={{ 
+                              borderTop: `1px solid ${categoryColor}30`,
+                              borderRight: `1px solid ${categoryColor}30`,
+                              borderBottom: `1px solid ${categoryColor}30`,
+                              borderLeft: `1px solid ${categoryColor}30`,
+                              backgroundColor: `${categoryColor}08`
+                            }}
                             draggable
                             onDragStart={(event) => {
                               event.dataTransfer.setData(
@@ -434,8 +442,19 @@ export function BudgetSummary({
                   const Icon = meta ? CATEGORY_ICON_MAP[meta.icon] : null;
                   const isOver = budget.spent > budget.limit;
                   const percent = Math.min((budget.spent / budget.limit) * 100, 100);
+                  const categoryColor = meta?.color || "#64748b";
                   return (
-                    <div key={budget.id} className="rounded-lg border border-border/70 px-3 py-2">
+                    <div 
+                      key={budget.id} 
+                      className="rounded-lg px-3 py-2 shadow-sm transition-all hover:shadow-md"
+                      style={{ 
+                        borderTop: `1px solid ${categoryColor}30`,
+                        borderRight: `1px solid ${categoryColor}30`,
+                        borderBottom: `1px solid ${categoryColor}30`,
+                        borderLeft: `1px solid ${categoryColor}30`,
+                        backgroundColor: `${categoryColor}08`
+                      }}
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 min-w-0">
                           <span

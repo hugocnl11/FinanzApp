@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { LinePath } from "@visx/shape";
 import { scaleLinear, scalePoint } from "@visx/scale";
@@ -7,10 +7,11 @@ import { curveMonotoneX } from "d3-shape";
 import { ParentSize } from "@visx/responsive";
 import { motion } from "framer-motion";
 import { last, previous, patrimonioAcumulado, percentChange, filterMonthsByPeriod, getDailyIncomeAndExpenses } from "@/lib/dashboard/selectors";
-import type { MoneyByMonth, MoneyByDay } from "@/lib/dashboard/types";
+import type { MoneyByMonth, MoneyByDay, Movement } from "@/lib/dashboard/types";
 import { formatNumber } from "@/lib/format";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { cn } from "@/lib/utils";
 
 type DataPoint = {
   month?: string;
@@ -168,13 +169,28 @@ function ChartCard<T extends Record<string, any>>({ title, value, percent, subti
 function CombinedChartCard({ 
   ingresos, 
   gastos,
-  isDailyView = false
+  isDailyView = false,
+  movimientos = []
 }: { 
   ingresos: MoneyByMonth[] | MoneyByDay[], 
   gastos: MoneyByMonth[] | MoneyByDay[],
-  isDailyView?: boolean
+  isDailyView?: boolean,
+  movimientos?: Movement[]
 }) {
   const margin = { top: 36, right: 20, bottom: 30, left: 20 };
+  const [hoveredDay, setHoveredDay] = useState<string | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Función para obtener movimientos de un día específico
+  const getMovementsByDay = (day: string): Movement[] => {
+    if (!isDailyView) return [];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${day.padStart(2, "0")}`;
+    return movimientos.filter(m => m.fecha === dateStr);
+  };
   
   // Determinar labels y valores según el tipo de vista
   const labels = isDailyView 
@@ -193,7 +209,7 @@ function CombinedChartCard({
   }
 
   return (
-    <Card className="p-6 min-h-[320px]">
+    <Card className="p-6 min-h-[320px] relative">
       <div className="flex flex-col space-y-2">
         <h3 className="text-sm font-medium text-muted-foreground">Ingresos y Gastos {isDailyView ? 'Diarios' : 'Totales'}</h3>
         <div className="flex gap-6 items-end">
@@ -202,7 +218,7 @@ function CombinedChartCard({
         </div>
         <p className="text-xs text-muted-foreground">{isDailyView ? 'Evolución diaria del mes actual' : 'Evolución mensual'}</p>
       </div>
-      <div className="mt-4 h-[200px]">
+      <div className="mt-4 h-[200px] relative" ref={chartContainerRef}>
         <ParentSize>
           {({ width, height }) => {
             const innerWidth = width - margin.left - margin.right;
@@ -254,20 +270,42 @@ function CombinedChartCard({
                     const labelYOffset = isIngresoMayor ? -36 : 8;
                     const showLabel = d.valor > 0; // Solo mostrar si hay valor
                     
+                    const dayMovements = isDailyView ? getMovementsByDay(label) : [];
+                    const hasMovements = dayMovements.length > 0;
+                    const xPos = xScale(label) as number;
+                    
                     return (
                       <g key={"ingreso-"+i}>
                         <motion.circle
-                          cx={xScale(label)}
+                          cx={xPos}
                           cy={yIngreso}
-                          r={4}
+                          r={hasMovements && isDailyView ? 6 : 4}
                           fill="#22c55e"
                           initial={{ scale: 0, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
                           transition={{ duration: 0.3, ease: "easeOut", delay: 0.2 + i * 0.07 }}
+                          className={hasMovements && isDailyView ? "cursor-pointer" : ""}
+                          onMouseEnter={(e) => {
+                            if (isDailyView && hasMovements && chartContainerRef.current) {
+                              setHoveredDay(label);
+                              const rect = (e.currentTarget as SVGCircleElement).getBoundingClientRect();
+                              const containerRect = chartContainerRef.current.getBoundingClientRect();
+                              setTooltipPosition({
+                                x: rect.left - containerRect.left + rect.width / 2,
+                                y: rect.top - containerRect.top - 10
+                              });
+                            }
+                          }}
+                          onMouseLeave={() => {
+                            if (isDailyView) {
+                              setHoveredDay(null);
+                              setTooltipPosition(null);
+                            }
+                          }}
                         />
                         {showLabel && (
                           <foreignObject
-                            x={(xScale(label) as number) - 24}
+                            x={xPos - 24}
                             y={yIngreso + labelYOffset}
                             width={48}
                             height={20}
@@ -312,20 +350,42 @@ function CombinedChartCard({
                     const labelYOffset = isGastoMayor ? -36 : 8;
                     const showLabel = d.valor > 0; // Solo mostrar si hay valor
                     
+                    const dayMovements = isDailyView ? getMovementsByDay(label) : [];
+                    const hasMovements = dayMovements.length > 0;
+                    const xPos = xScale(label) as number;
+                    
                     return (
                       <g key={"gasto-"+i}>
                         <motion.circle
-                          cx={xScale(label)}
+                          cx={xPos}
                           cy={yGasto}
-                          r={4}
+                          r={hasMovements && isDailyView ? 6 : 4}
                           fill="#ef4444"
                           initial={{ scale: 0, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
                           transition={{ duration: 0.3, ease: "easeOut", delay: 0.3 + i * 0.07 }}
+                          className={hasMovements && isDailyView ? "cursor-pointer" : ""}
+                          onMouseEnter={(e) => {
+                            if (isDailyView && hasMovements && chartContainerRef.current) {
+                              setHoveredDay(label);
+                              const rect = (e.currentTarget as SVGCircleElement).getBoundingClientRect();
+                              const containerRect = chartContainerRef.current.getBoundingClientRect();
+                              setTooltipPosition({
+                                x: rect.left - containerRect.left + rect.width / 2,
+                                y: rect.top - containerRect.top - 10
+                              });
+                            }
+                          }}
+                          onMouseLeave={() => {
+                            if (isDailyView) {
+                              setHoveredDay(null);
+                              setTooltipPosition(null);
+                            }
+                          }}
                         />
                         {showLabel && (
                           <foreignObject
-                            x={(xScale(label) as number) - 24}
+                            x={xPos - 24}
                             y={yGasto + labelYOffset}
                             width={48}
                             height={20}
@@ -374,12 +434,82 @@ function CombinedChartCard({
             );
           }}
         </ParentSize>
+        {/* Tooltip personalizado para movimientos del día */}
+        {hoveredDay && tooltipPosition && isDailyView && (() => {
+          const dayMovements = getMovementsByDay(hoveredDay);
+          if (dayMovements.length === 0) return null;
+          return (
+            <div
+              className="absolute z-50 max-w-xs p-3 bg-popover border border-border rounded-lg shadow-lg pointer-events-none"
+              style={{
+                left: `${tooltipPosition.x}px`,
+                top: `${tooltipPosition.y}px`,
+                transform: 'translateX(-50%) translateY(-100%)',
+              }}
+            >
+              <DayMovementsTooltip day={hoveredDay} movements={dayMovements} />
+            </div>
+          );
+        })()}
       </div>
       <div className="flex gap-4 mt-2 justify-center">
         <div className="flex items-center gap-1 text-xs text-green-600"><span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> Ingresos</div>
         <div className="flex items-center gap-1 text-xs text-red-500"><span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> Gastos</div>
       </div>
     </Card>
+  );
+}
+
+// Componente para mostrar movimientos del día en el tooltip
+function DayMovementsTooltip({ day, movements }: { day: string; movements: Movement[] }) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${day.padStart(2, "0")}`;
+  const date = new Date(dateStr);
+  const formattedDate = date.toLocaleDateString("es-ES", { day: "numeric", month: "long" });
+  
+  const ingresos = movements.filter(m => m.tipo === "Ingreso");
+  const gastos = movements.filter(m => m.tipo === "Gasto");
+  const totalIngresos = ingresos.reduce((acc, m) => acc + m.cantidad, 0);
+  const totalGastos = Math.abs(gastos.reduce((acc, m) => acc + m.cantidad, 0));
+  
+  const displayedMovements = movements.slice(0, 7);
+  const hasMore = movements.length > 7;
+  
+  return (
+    <div className="space-y-2">
+      <div className="font-semibold text-sm border-b border-border pb-1">
+        {formattedDate}
+      </div>
+      <div className="space-y-1 text-xs">
+        {displayedMovements.map((movement, idx) => {
+          const isIngreso = movement.tipo === "Ingreso";
+          const color = isIngreso ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
+          return (
+            <div key={movement.id || idx} className="flex items-center justify-between gap-2">
+              <span className="truncate">{movement.concepto}</span>
+              <span className={cn("font-medium shrink-0", color)}>
+                {isIngreso ? "+" : "-"}{formatNumber(Math.abs(movement.cantidad))} €
+              </span>
+            </div>
+          );
+        })}
+        {hasMore && (
+          <div className="text-muted-foreground text-xs pt-1 border-t border-border">
+            +{movements.length - 7} movimientos más
+          </div>
+        )}
+      </div>
+      <div className="flex items-center justify-between gap-4 pt-2 border-t border-border text-xs">
+        <div className="text-green-600 dark:text-green-400 font-medium">
+          Ingresos: +{formatNumber(totalIngresos)} €
+        </div>
+        <div className="text-red-600 dark:text-red-400 font-medium">
+          Gastos: -{formatNumber(totalGastos)} €
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -445,6 +575,7 @@ export function AnalyticsCharts({ type = "combined" }: AnalyticsChartsProps) {
         ingresos={chartIngresos} 
         gastos={chartGastos}
         isDailyView={isDailyView}
+        movimientos={isDailyView ? movimientos : []}
       />
     </div>
   );

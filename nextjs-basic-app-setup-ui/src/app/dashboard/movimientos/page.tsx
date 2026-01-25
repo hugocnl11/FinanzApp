@@ -285,169 +285,206 @@ export default function MovimientosPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-4">
+      <div className="rounded-2xl border border-border/60 bg-[#f6f6f7] dark:bg-[#111112] p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-border/40">
           <div>
-            <h2 className="text-lg font-semibold">Filtros avanzados</h2>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="text-lg font-semibold text-foreground">Filtros avanzados</h2>
+            <p className="text-sm text-muted-foreground mt-1">
               Segmenta los movimientos y exporta resultados.
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={exportCSV}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={resetFilters}
+              className="border-blue-500/50 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:border-blue-400/50 dark:text-blue-400 dark:hover:bg-blue-950/30 dark:hover:text-blue-300"
+            >
+              Limpiar filtros
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={exportCSV}
+              className="border-green-500/50 text-green-600 hover:bg-green-50 hover:text-green-700 dark:border-green-400/50 dark:text-green-400 dark:hover:bg-green-950/30 dark:hover:text-green-300"
+            >
               Exportar CSV
             </Button>
-            <Button variant="outline" size="sm" onClick={exportPDF}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={exportPDF}
+              className="border-purple-500/50 text-purple-600 hover:bg-purple-50 hover:text-purple-700 dark:border-purple-400/50 dark:text-purple-400 dark:hover:bg-purple-950/30 dark:hover:text-purple-300"
+            >
               Exportar PDF
             </Button>
           </div>
         </div>
-        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
-          <Input
-            label="Buscar"
-            placeholder="Concepto o categoría"
-            value={filters.search}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, search: event.target.value }))
-            }
-          />
-          
-          {/* Tipo como Pills */}
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">Tipo</label>
-            <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
-              {["Todos", "Ingreso", "Gasto", "Inversión", "Ahorro"].map((tipo) => (
-                <button
-                  key={tipo}
-                  type="button"
-                  onClick={() => setFilters((prev) => ({ ...prev, type: tipo }))}
-                  className="relative flex-1 px-2 py-1 text-xs font-medium text-muted-foreground transition"
-                >
-                  {filters.type === tipo && (
-                    <motion.span
-                      layoutId="tipo-pill"
-                      className="absolute inset-0 rounded-md bg-background shadow-sm"
-                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    />
-                  )}
-                  <span className={filters.type === tipo ? "relative text-foreground" : "relative"}>
-                    {tipo === "Todos" ? "Todos" : tipo.slice(0, 3)}
-                  </span>
-                </button>
-              ))}
+        <div className="space-y-4 pt-4">
+          {/* Primera fila: Buscar, Desde/Hasta, Cantidad mín/máx */}
+          <div className="flex flex-wrap items-end gap-3">
+            {/* Buscar */}
+            <div className="flex-1 min-w-[200px]">
+              <Input
+                label="Buscar"
+                placeholder="Concepto o categoría"
+                value={filters.search}
+                onChange={(event) =>
+                  setFilters((prev) => ({ ...prev, search: event.target.value }))
+                }
+              />
+            </div>
+            
+            {/* Desde y Hasta juntos */}
+            <div className="flex-1 min-w-[200px]">
+              <div className="grid grid-cols-2 gap-2.5">
+                <Input
+                  label=""
+                  type="date"
+                  value={filters.dateFrom}
+                  onChange={(event) =>
+                    setFilters((prev) => ({ ...prev, dateFrom: event.target.value }))
+                  }
+                  placeholder="Desde"
+                />
+                <Input
+                  label=""
+                  type="date"
+                  value={filters.dateTo}
+                  onChange={(event) =>
+                    setFilters((prev) => ({ ...prev, dateTo: event.target.value }))
+                  }
+                  placeholder="Hasta"
+                />
+              </div>
+            </div>
+            
+            {/* Cantidad mínima y máxima juntas */}
+            <div className="flex-1 min-w-[200px]">
+              <div className="grid grid-cols-2 gap-2.5">
+                <Input
+                  label=""
+                  type="number"
+                  value={filters.amountMin}
+                  onChange={(event) =>
+                    setFilters((prev) => ({ ...prev, amountMin: event.target.value }))
+                  }
+                  placeholder="Min"
+                />
+                <Input
+                  label=""
+                  type="number"
+                  value={filters.amountMax}
+                  onChange={(event) =>
+                    setFilters((prev) => ({ ...prev, amountMax: event.target.value }))
+                  }
+                  placeholder="Max"
+                />
+              </div>
             </div>
           </div>
+          
+          {/* Segunda fila: Tipo y Categoría */}
+          <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
+            {/* Tipo como Pills */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">Tipo</label>
+              <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1 border border-border/40">
+                {["Todos", "Ingreso", "Gasto", "Inversión", "Ahorro"].map((tipo) => (
+                  <button
+                    key={tipo}
+                    type="button"
+                    onClick={() => setFilters((prev) => ({ ...prev, type: tipo }))}
+                    className="relative flex-1 px-2 py-1 text-xs font-medium text-muted-foreground transition"
+                  >
+                    {filters.type === tipo && (
+                      <motion.span
+                        layoutId="tipo-pill"
+                        className="absolute inset-0 rounded-md bg-background shadow-sm border border-border/50"
+                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                      />
+                    )}
+                    <span className={filters.type === tipo ? "relative text-foreground font-medium" : "relative"}>
+                      {tipo === "Todos" ? "Todos" : tipo.slice(0, 3)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          {/* Categoría como Pills (versión compacta) */}
-          <div className="space-y-2 xl:col-span-2">
-            <label className="text-xs font-medium text-muted-foreground">Categoría</label>
-            <div 
-              ref={categoryContainerRef}
-              className="flex items-center gap-1 rounded-lg bg-muted p-1.5 overflow-hidden"
-            >
-              {/* Mostrar "Todas" siempre */}
-              <button
-                key="Todas"
-                type="button"
-                onClick={() => setFilters((prev) => ({ ...prev, category: "Todas" }))}
-                className="relative px-2 py-1 text-xs font-medium text-muted-foreground transition whitespace-nowrap flex-shrink-0"
+            {/* Categoría como Pills (versión compacta) */}
+            <div className="space-y-2 md:col-span-2 xl:col-span-3">
+              <label className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">Categoría</label>
+              <div 
+                ref={categoryContainerRef}
+                className="flex items-center gap-1 rounded-lg bg-muted/50 p-1.5 overflow-hidden border border-border/40"
               >
-                {filters.category === "Todas" && (
-                  <motion.span
-                    layoutId="category-pill"
-                    className="absolute inset-0 rounded-md bg-background shadow-sm"
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  />
-                )}
-                <span className={filters.category === "Todas" ? "relative text-foreground" : "relative"}>
-                  Todas
-                </span>
-              </button>
-              
-              {/* Mostrar categorías visibles */}
-              {categoryOptions.slice(0, visibleCategoriesCount).map((category) => (
+                {/* Mostrar "Todas" siempre */}
                 <button
-                  key={category}
+                  key="Todas"
                   type="button"
-                  onClick={() => setFilters((prev) => ({ ...prev, category }))}
+                  onClick={() => setFilters((prev) => ({ ...prev, category: "Todas" }))}
                   className="relative px-2 py-1 text-xs font-medium text-muted-foreground transition whitespace-nowrap flex-shrink-0"
-                  ref={(el) => {
-                    if (el) categoryPillRefs.current.set(category, el);
-                  }}
                 >
-                  {filters.category === category && (
+                  {filters.category === "Todas" && (
                     <motion.span
                       layoutId="category-pill"
-                      className="absolute inset-0 rounded-md bg-background shadow-sm"
+                      className="absolute inset-0 rounded-md bg-background shadow-sm border border-border/50"
                       transition={{ type: "spring", stiffness: 400, damping: 30 }}
                     />
                   )}
-                  <span className={filters.category === category ? "relative text-foreground" : "relative"}>
-                    {category}
+                  <span className={filters.category === "Todas" ? "relative text-foreground font-medium" : "relative"}>
+                    Todas
                   </span>
                 </button>
-              ))}
-              
-              {/* Selector para categorías restantes */}
-              {categoryOptions.length > visibleCategoriesCount && (
-                <select
-                  className="px-2 py-1 text-xs border-0 bg-transparent text-muted-foreground rounded-md flex-shrink-0 min-w-[100px] appearance-none cursor-pointer"
-                  value={categoryOptions.slice(visibleCategoriesCount).includes(filters.category) ? filters.category : ""}
-                  onChange={(event) => {
-                    if (event.target.value) {
-                      setFilters((prev) => ({ ...prev, category: event.target.value }));
-                    }
-                  }}
-                >
-                  <option value="" disabled>
-                    {categoryOptions.length > visibleCategoriesCount ? `+${categoryOptions.length - visibleCategoriesCount} más` : "Más"}
-                  </option>
-                  {categoryOptions.slice(visibleCategoriesCount).map((category) => (
-                    <option key={category} value={category}>
+                
+                {/* Mostrar categorías visibles */}
+                {categoryOptions.slice(0, visibleCategoriesCount).map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => setFilters((prev) => ({ ...prev, category }))}
+                    className="relative px-2 py-1 text-xs font-medium text-muted-foreground transition whitespace-nowrap flex-shrink-0"
+                    ref={(el) => {
+                      if (el) categoryPillRefs.current.set(category, el);
+                    }}
+                  >
+                    {filters.category === category && (
+                      <motion.span
+                        layoutId="category-pill"
+                        className="absolute inset-0 rounded-md bg-background shadow-sm border border-border/50"
+                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                      />
+                    )}
+                    <span className={filters.category === category ? "relative text-foreground font-medium" : "relative"}>
                       {category}
+                    </span>
+                  </button>
+                ))}
+                
+                {/* Selector para categorías restantes */}
+                {categoryOptions.length > visibleCategoriesCount && (
+                  <select
+                    className="px-2 py-1 text-xs border border-border/40 bg-background/50 text-foreground rounded-md flex-shrink-0 min-w-[100px] appearance-none cursor-pointer hover:bg-background transition-colors"
+                    value={categoryOptions.slice(visibleCategoriesCount).includes(filters.category) ? filters.category : ""}
+                    onChange={(event) => {
+                      if (event.target.value) {
+                        setFilters((prev) => ({ ...prev, category: event.target.value }));
+                      }
+                    }}
+                  >
+                    <option value="" disabled>
+                      {categoryOptions.length > visibleCategoriesCount ? `+${categoryOptions.length - visibleCategoriesCount} más` : "Más"}
                     </option>
-                  ))}
-                </select>
-              )}
+                    {categoryOptions.slice(visibleCategoriesCount).map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
-          </div>
-
-          <Input
-            label="Desde"
-            type="date"
-            value={filters.dateFrom}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, dateFrom: event.target.value }))
-            }
-          />
-          <Input
-            label="Hasta"
-            type="date"
-            value={filters.dateTo}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, dateTo: event.target.value }))
-            }
-          />
-          <Input
-            label="Cantidad mínima"
-            type="number"
-            value={filters.amountMin}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, amountMin: event.target.value }))
-            }
-          />
-          <Input
-            label="Cantidad máxima"
-            type="number"
-            value={filters.amountMax}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, amountMax: event.target.value }))
-            }
-          />
-          <div className="flex items-end">
-            <Button variant="outline" onClick={resetFilters} className="w-full" size="sm">
-              Limpiar filtros
-            </Button>
           </div>
         </div>
       </div>

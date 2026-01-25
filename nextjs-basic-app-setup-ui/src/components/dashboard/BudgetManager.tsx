@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,13 +12,39 @@ import {
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Pencil } from "lucide-react";
+import { Pencil, ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getUserId } from "@/lib/auth";
 import { fetchBudgets, createBudget, updateBudget, deleteBudget } from "@/lib/api/budgets";
 import { fetchCategories } from "@/lib/api/categories";
 import type { Category } from "@/lib/dashboard/types";
+import { CATEGORY_ICON_MAP, type CategoryIconKey } from "@/lib/category-icons";
+
+// Mapeo de iconos y colores por defecto para cada categoría
+const FALLBACK_CATEGORY_META: Record<string, { icon: CategoryIconKey; color: string }> = {
+  // Fijos
+  Vivienda: { icon: "Home", color: "#6366f1" },
+  Alquiler: { icon: "Home", color: "#6366f1" },
+  Garaje: { icon: "Car", color: "#ef4444" },
+  Gimnasio: { icon: "HeartPulse", color: "#f97316" },
+  Inversiones: { icon: "LineChart", color: "#22c55e" },
+  Inversión: { icon: "LineChart", color: "#22c55e" },
+  Seguros: { icon: "ShieldCheck", color: "#0ea5e9" },
+  Servicios: { icon: "Smartphone", color: "#06b6d4" },
+  Suscripciones: { icon: "CreditCard", color: "#f59e0b" },
+  // Variables
+  Alimentación: { icon: "Utensils", color: "#22c55e" },
+  Comida: { icon: "Utensils", color: "#22c55e" },
+  Ocio: { icon: "Film", color: "#ec4899" },
+  Ropa: { icon: "ShoppingCart", color: "#f59e0b" },
+  Transporte: { icon: "Fuel", color: "#ef4444" },
+  Salud: { icon: "HeartPulse", color: "#e11d48" },
+  Educación: { icon: "GraduationCap", color: "#6366f1" },
+  Viajes: { icon: "Plane", color: "#38bdf8" },
+  Regalos: { icon: "Gift", color: "#f97316" },
+  Otros: { icon: "Wallet", color: "#64748b" },
+};
 
 type BudgetItem = {
   id: string;
@@ -69,8 +95,17 @@ export function BudgetManager({
     category: categories[0] ?? "",
     limit: "",
   });
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const hasLabel = Boolean(triggerLabel);
   const expenseCategories = categoriesData.filter((category) => category.type === "expense");
+  
+  const selectedCategory = expenseCategories.find((cat) => cat.name === formData.category);
+
+  // Mapa de categorías para búsqueda rápida
+  const categoryMap = useMemo(() => {
+    return new Map(categoriesData.map((cat) => [cat.name, cat]));
+  }, [categoriesData]);
 
   // Filtrar presupuestos según tipo (basado en period)
   const filteredBudgets = useMemo(() => {
@@ -120,6 +155,21 @@ export function BudgetManager({
       setFormData((prev) => ({ ...prev, category: expenseCategories[0].name }));
     }
   }, [expenseCategories, formData.category]);
+
+  // Cerrar dropdown al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setIsCategoryDropdownOpen(false);
+      }
+    };
+    if (isCategoryDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isCategoryDropdownOpen]);
 
   const handleAddBudget = async () => {
     const limitValue = Number(formData.limit);
@@ -220,14 +270,43 @@ export function BudgetManager({
                 filteredBudgets.map((budget) => {
                   const percent = Math.min((budget.spent / budget.limit) * 100, 130);
                   const isOver = budget.spent > budget.limit;
+                  const categoryMeta = categoryMap.get(budget.category);
+                  const meta = categoryMeta 
+                    ? { icon: categoryMeta.icon as CategoryIconKey, color: categoryMeta.color }
+                    : FALLBACK_CATEGORY_META[budget.category];
+                  const Icon = meta ? CATEGORY_ICON_MAP[meta.icon] : null;
+                  const categoryColor = meta?.color || "#64748b";
                   return (
-                    <div key={budget.id} className="rounded-2xl border border-border p-4">
+                    <div 
+                      key={budget.id} 
+                      className="rounded-2xl p-4 shadow-sm transition-all hover:shadow-md"
+                      style={{ 
+                        borderTop: `1px solid ${categoryColor}30`,
+                        borderRight: `1px solid ${categoryColor}30`,
+                        borderBottom: `1px solid ${categoryColor}30`,
+                        borderLeft: `1px solid ${categoryColor}30`,
+                        backgroundColor: `${categoryColor}08`
+                      }}
+                    >
                       <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-semibold">{budget.category}</p>
-                          <p className="text-xs text-muted-foreground">
-                            € {budget.spent} de € {budget.limit}
-                          </p>
+                        <div className="flex items-center gap-2 min-w-0">
+                          {Icon && (
+                            <span
+                              className="flex h-7 w-7 items-center justify-center rounded-md shrink-0"
+                              style={{ 
+                                backgroundColor: meta ? `${meta.color}25` : "hsl(var(--muted))", 
+                                color: meta?.color 
+                              }}
+                            >
+                              <Icon className="h-4 w-4" />
+                            </span>
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold truncate">{budget.category}</p>
+                            <p className="text-xs text-muted-foreground">
+                              € {budget.spent} de € {budget.limit}
+                            </p>
+                          </div>
                         </div>
                         <Button variant="ghost" size="sm" onClick={() => handleRemove(budget.id)}>
                           Quitar
@@ -263,25 +342,72 @@ export function BudgetManager({
 
             <div className="space-y-2">
               <label className="text-xs font-medium text-muted-foreground">Categoría</label>
-              <select
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                value={formData.category}
-                onChange={(event) =>
-                  setFormData((prev) => ({ ...prev, category: event.target.value }))
-                }
-              >
-                {expenseCategories.length > 0 ? (
-                  expenseCategories.map((category) => (
-                    <option key={category.id} value={category.name}>
-                      {category.name}
-                    </option>
-                  ))
-                ) : (
-                  <option value="" disabled>
-                    Sin categorías de gasto disponibles
-                  </option>
+              <div className="relative" ref={categoryDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm flex items-center justify-between hover:bg-muted/50 transition-colors"
+                >
+                  {selectedCategory ? (
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="flex h-5 w-5 items-center justify-center rounded-md shrink-0"
+                        style={{ 
+                          backgroundColor: `${selectedCategory.color}25`, 
+                          color: selectedCategory.color 
+                        }}
+                      >
+                        {(() => {
+                          const Icon = CATEGORY_ICON_MAP[selectedCategory.icon as CategoryIconKey];
+                          return Icon ? <Icon className="h-3 w-3" /> : <span className="text-xs">€</span>;
+                        })()}
+                      </span>
+                      <span className="text-left truncate">{selectedCategory.name}</span>
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">Selecciona una categoría</span>
+                  )}
+                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isCategoryDropdownOpen && "rotate-180")} />
+                </button>
+                {isCategoryDropdownOpen && expenseCategories.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 rounded-lg border border-border bg-background shadow-lg max-h-60 overflow-auto">
+                    {expenseCategories.map((category) => {
+                      const Icon = CATEGORY_ICON_MAP[category.icon as CategoryIconKey];
+                      const isSelected = formData.category === category.name;
+                      return (
+                        <button
+                          key={category.id}
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({ ...prev, category: category.name }));
+                            setIsCategoryDropdownOpen(false);
+                          }}
+                          className={cn(
+                            "w-full px-3 py-2 text-sm flex items-center gap-2 hover:bg-muted transition-colors",
+                            isSelected && "bg-muted"
+                          )}
+                        >
+                          <span
+                            className="flex h-5 w-5 items-center justify-center rounded-md shrink-0"
+                            style={{ 
+                              backgroundColor: `${category.color}25`, 
+                              color: category.color 
+                            }}
+                          >
+                            {Icon ? <Icon className="h-3 w-3" /> : <span className="text-xs">€</span>}
+                          </span>
+                          <span className="text-left">{category.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-              </select>
+                {expenseCategories.length === 0 && (
+                  <div className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground text-center">
+                    Sin categorías de gasto disponibles
+                  </div>
+                )}
+              </div>
             </div>
 
             <Input

@@ -25,10 +25,6 @@ export async function POST(request: Request) {
   const { email: rawEmail, password, name, mode } = payload;
   // Normalizar email: trim y lowercase
   const email = rawEmail?.trim().toLowerCase() || rawEmail;
-  // #region agent log
-  console.log('[DEBUG] POST /api/auth entry', { rawEmail, email, passwordLength: password?.length, mode, hasName: !!name });
-  const fs = await import('fs/promises'); const logPath = '/Users/hugonavima/Desktop/projects/FinanzApp/.cursor/debug.log'; await fs.appendFile(logPath, JSON.stringify({location:'route.ts:25',message:'POST entry',data:{rawEmail,email,passwordLength:password?.length,mode,hasName:!!name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})+'\n').catch(()=>{});
-  // #endregion
   if (!email || !password) {
     return jsonError("Email y contraseña son obligatorios");
   }
@@ -52,9 +48,6 @@ export async function POST(request: Request) {
         emailVerificationExpires: expires,
       },
     });
-    // #region agent log
-    console.log('[DEBUG] User registered successfully', { userId: user.id, email: user.email, emailVerified: user.emailVerified });
-    // #endregion
 
     const defaultCategories = [
       { name: "Alquiler", type: "EXPENSE", icon: "Home", color: "#6366f1" },
@@ -103,13 +96,8 @@ export async function POST(request: Request) {
           </div>
         `,
       });
-      // #region agent log
-      console.log('[DEBUG] Verification email sent', { email: user.email, verifyUrl });
-      // #endregion
     } catch (error) {
-      // #region agent log
-      console.error('[DEBUG] Error enviando email de verificación', error);
-      // #endregion
+      console.error('Error enviando email de verificación', error);
       await prisma.user.delete({ where: { id: user.id } });
       return jsonError("No se pudo enviar el email de verificación", 500);
     }
@@ -124,48 +112,16 @@ export async function POST(request: Request) {
 
   const user = await prisma.user.findUnique({ where: { email } });
   const passwordHash = hashPassword(password);
-  // #region agent log
-  console.log('[DEBUG] User lookup result', { 
-    userExists: !!user, 
-    userEmail: user?.email, 
-    emailSearched: email,
-    emailMatch: user?.email === email,
-    storedHashPrefix: user?.passwordHash?.substring(0, 10), 
-    computedHashPrefix: passwordHash.substring(0, 10), 
-    hashesMatch: user?.passwordHash === passwordHash,
-    emailVerified: user?.emailVerified,
-    passwordLength: password?.length
-  });
-  // Verificar todos los usuarios para debug
-  const allUsers = await prisma.user.findMany({ select: { email: true, emailVerified: true } });
-  console.log('[DEBUG] All users in DB', { count: allUsers.length, emails: allUsers.map(u => ({ email: u.email, verified: u.emailVerified })) });
-  const fs2 = await import('fs/promises'); const logPath2 = '/Users/hugonavima/Desktop/projects/FinanzApp/.cursor/debug.log'; await fs2.appendFile(logPath2, JSON.stringify({location:'route.ts:115',message:'User lookup result',data:{userExists:!!user,userEmail:user?.email,emailSearched:email,storedHash:user?.passwordHash?.substring(0,10)+'...',computedHash:passwordHash.substring(0,10)+'...',hashesMatch:user?.passwordHash===passwordHash,emailVerified:user?.emailVerified,allUsersCount:allUsers.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})+'\n').catch(()=>{});
-  // #endregion
+  
   if (!user) {
-    // #region agent log
-    console.log('[DEBUG] User not found', { email, allUsersCount: (await prisma.user.findMany()).length });
-    const fs3 = await import('fs/promises'); const logPath3 = '/Users/hugonavima/Desktop/projects/FinanzApp/.cursor/debug.log'; await fs3.appendFile(logPath3, JSON.stringify({location:'route.ts:129',message:'User not found',data:{email,allUsersCount:(await prisma.user.findMany()).length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})+'\n').catch(()=>{});
-    // #endregion
     return jsonError("Credenciales inválidas", 401);
   }
 
   if (user.passwordHash !== passwordHash) {
-    // #region agent log
-    console.log('[DEBUG] Password hash mismatch', { 
-      userEmail: user.email,
-      storedHashPrefix: user.passwordHash.substring(0, 10), 
-      computedHashPrefix: passwordHash.substring(0, 10)
-    });
-    const fs4 = await import('fs/promises'); const logPath4 = '/Users/hugonavima/Desktop/projects/FinanzApp/.cursor/debug.log'; await fs4.appendFile(logPath4, JSON.stringify({location:'route.ts:137',message:'Password hash mismatch',data:{userEmail:user.email,storedHashPrefix:user.passwordHash.substring(0,10),computedHashPrefix:passwordHash.substring(0,10)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})+'\n').catch(()=>{});
-    // #endregion
     return jsonError("Credenciales inválidas", 401);
   }
 
   if (!user.emailVerified) {
-    // #region agent log
-    console.log('[DEBUG] Email not verified', { emailVerified: user.emailVerified });
-    const fs4 = await import('fs/promises'); const logPath4 = '/Users/hugonavima/Desktop/projects/FinanzApp/.cursor/debug.log'; await fs4.appendFile(logPath4, JSON.stringify({location:'route.ts:129',message:'Email not verified',data:{emailVerified:user.emailVerified},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})+'\n').catch(()=>{});
-    // #endregion
     return jsonError("Email no verificado", 403);
   }
 

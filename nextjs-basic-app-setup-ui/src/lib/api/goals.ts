@@ -3,8 +3,24 @@
 import { apiFetch } from "./client";
 import type { ApiResponse } from "./types";
 import type { Goal } from "@/lib/dashboard/types";
+import { isDemoUser } from "@/lib/auth";
+import { DASHBOARD_MOCK } from "@/lib/dashboard/mock";
 
 export function fetchGoals() {
+  // Si es usuario demo, devolver objetivos mockeados
+  if (isDemoUser()) {
+    return Promise.resolve({
+      data: DASHBOARD_MOCK.goals.map((g) => ({
+        id: g.id,
+        title: g.title,
+        target: g.target,
+        saved: g.saved,
+        type: g.type as Goal["type"],
+        dueDate: g.dueDate,
+        description: g.description,
+      })),
+    } as ApiResponse<Goal[]>);
+  }
   return apiFetch<ApiResponse<Goal[]>>("/goals");
 }
 

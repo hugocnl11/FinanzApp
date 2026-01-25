@@ -35,3 +35,23 @@ export function clearSession() {
 export function getUserId() {
   return getSession()?.user.id ?? null;
 }
+
+export function isDemoUser(): boolean {
+  const session = getSession();
+  return session?.user.id === "demo" || session?.user.email === "demo@finanzapp.com";
+}
+
+export function startDemoSession() {
+  if (typeof window === "undefined") return;
+  // Crear token base64 manualmente para evitar usar Buffer en el cliente
+  const demoToken = btoa("demo");
+  const demoSession: AuthSession = {
+    token: demoToken,
+    user: {
+      id: "demo",
+      name: "Demo",
+      email: "demo@finanzapp.com",
+    },
+  };
+  saveSession(demoSession);
+}

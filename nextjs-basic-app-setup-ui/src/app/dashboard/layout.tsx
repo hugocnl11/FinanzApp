@@ -7,7 +7,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <SidebarProvider>
       <SessionGuard>
         <AppSidebar />
-        <SidebarInset>
+        <SidebarInset className="bg-[#f6f6f7] dark:bg-[#111112]">
           <main className="flex-1 overflow-auto p-4 md:p-8">{children}</main>
         </SidebarInset>
       </SessionGuard>

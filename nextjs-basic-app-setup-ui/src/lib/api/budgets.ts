@@ -3,8 +3,16 @@
 import { apiFetch } from "./client";
 import type { ApiResponse } from "./types";
 import type { Budget } from "@/lib/dashboard/types";
+import { isDemoUser } from "@/lib/auth";
+import { DASHBOARD_MOCK } from "@/lib/dashboard/mock";
 
 export function fetchBudgets() {
+  // Si es usuario demo, devolver presupuestos mockeados
+  if (isDemoUser()) {
+    return Promise.resolve({
+      data: DASHBOARD_MOCK.budgets,
+    } as ApiResponse<Budget[]>);
+  }
   return apiFetch<ApiResponse<Budget[]>>("/budgets");
 }
 

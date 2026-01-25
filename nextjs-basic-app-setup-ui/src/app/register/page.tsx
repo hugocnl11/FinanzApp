@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { register as registerUser } from "@/lib/api/auth";
+import { AppLogo } from "@/components/brand/AppLogo";
 
 const registerSchema = z
   .object({
@@ -69,9 +70,17 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black p-4">
       <Card className="w-full max-w-[420px] p-6 sm:p-8">
-        {/* Logo placeholder */}
-        <div className="w-12 h-12 mx-auto mb-6 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center text-white text-xl font-bold select-none">
-          FZ
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-3 mb-6">
+          <AppLogo size="lg" showText={false} variant="minimal" />
+          <div className="flex flex-col">
+            <span className="font-bold text-xl bg-gradient-to-r from-blue-600 to-green-600 dark:from-blue-400 dark:to-green-400 bg-clip-text text-transparent">
+              FinanzApp
+            </span>
+            <span className="text-[10px] text-muted-foreground tracking-wide">
+              Gestión Inteligente
+            </span>
+          </div>
         </div>
         
         <div className="mb-6">
@@ -79,15 +88,6 @@ export default function RegisterPage() {
           <p className="text-sm text-muted-foreground text-center">
             Regístrate para comenzar a gestionar tus finanzas
           </p>
-        </div>
-
-        <div className="grid gap-3 mb-4">
-          <Button variant="outline" className="w-full">
-            Registrarse con Google
-          </Button>
-          <Button variant="outline" className="w-full">
-            Registrarse con GitHub
-          </Button>
         </div>
 
         <motion.form
@@ -139,12 +139,12 @@ export default function RegisterPage() {
             <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input
                 type="checkbox"
-                className="h-4 w-4 mt-0.5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded dark:border-gray-700 dark:bg-gray-800"
+                className="h-4 w-4 mt-0.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded dark:border-gray-700 dark:bg-gray-800"
                 {...register("terms")}
               />
               <span>
                 Acepto los{" "}
-                <Link href="#" className="text-purple-600 hover:text-purple-500 dark:text-purple-400">
+                <Link href="#" className="text-blue-600 hover:text-green-600 dark:text-blue-400 dark:hover:text-green-400">
                   Términos y Condiciones
                 </Link>
               </span>
@@ -163,7 +163,7 @@ export default function RegisterPage() {
           )}
           <div className="text-center text-sm text-muted-foreground">
             ¿Ya tienes cuenta?{" "}
-            <Link href="/login" className="text-purple-600 hover:text-purple-500 dark:text-purple-400 font-medium">
+            <Link href="/login" className="text-blue-600 hover:text-green-600 dark:text-blue-400 dark:hover:text-green-400 font-medium">
               Inicia sesión
             </Link>
           </div>

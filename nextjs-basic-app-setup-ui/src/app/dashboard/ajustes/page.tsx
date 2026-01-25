@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,8 +21,16 @@ import {
 import { Bell, Shield, Database, Download, Upload, User, Mail, Globe, Moon, Sun, Target, DollarSign, Calendar, Wallet } from "lucide-react";
 import { useTheme } from "next-themes";
 import { loadFromStorage, saveToStorage } from "@/lib/storage";
+import { isDemoUser } from "@/lib/auth";
 
 export default function AjustesPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isDemoUser()) {
+      router.replace("/dashboard");
+    }
+  }, [router]);
   const { theme, setTheme } = useTheme();
   const [formData, setFormData] = useState({
     nombre: "",

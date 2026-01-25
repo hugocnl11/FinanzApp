@@ -19,9 +19,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, List, BarChart2, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getSession } from "@/lib/auth";
+import { getSession, isDemoUser } from "@/lib/auth";
 
-const items = [
+const allItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Movimientos", url: "/dashboard/movimientos", icon: List },
   { title: "Gráficas", url: "/dashboard/graficas", icon: BarChart2 },
@@ -32,6 +32,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const [userName, setUserName] = useState("Usuario");
   const [userEmail, setUserEmail] = useState("usuario@finanzapp.com");
+  const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
     const load = () => {
@@ -39,15 +40,20 @@ export function AppSidebar() {
       if (session) {
         setUserName(session.user.name);
         setUserEmail(session.user.email);
+        setIsDemo(isDemoUser());
       } else {
         setUserName("Usuario");
         setUserEmail("usuario@finanzapp.com");
+        setIsDemo(false);
       }
     };
     load();
     window.addEventListener("finanzapp:auth-changed", load);
     return () => window.removeEventListener("finanzapp:auth-changed", load);
   }, []);
+
+  // Filtrar items: si es demo, ocultar Ajustes
+  const items = isDemo ? allItems.filter(item => item.title !== "Ajustes") : allItems;
   return (
     <Sidebar collapsible="icon" className="border-r border-border/40">
       <SidebarHeader className="border-b border-border/40 bg-gradient-to-br from-sidebar/80 via-sidebar/50 to-sidebar/80 backdrop-blur-md">

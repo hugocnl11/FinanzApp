@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { login } from "@/lib/api/auth";
 import { saveSession } from "@/lib/auth";
+import { AppLogo } from "@/components/brand/AppLogo";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -43,22 +44,46 @@ export default function LoginPage() {
   });
 
   const onLogin = async (data: LoginValues) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:45',message:'onLogin entry',data:{email:data.email,passwordLength:data.password?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     try {
       const response = await login({ email: data.email, password: data.password });
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:48',message:'onLogin success',data:{hasResponse:!!response},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       saveSession(response.data);
       router.push("/dashboard");
     } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:52',message:'onLogin error',data:{errorMessage:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       console.error(error);
-      setStatusMessage("No se pudo iniciar sesión. Verifica tus credenciales o tu email.");
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("Credenciales inválidas")) {
+        setStatusMessage("Credenciales incorrectas o cuenta no registrada. ¿No tienes cuenta? Regístrate aquí.");
+      } else if (errorMessage.includes("Email no verificado")) {
+        setStatusMessage("Por favor, verifica tu email antes de iniciar sesión.");
+      } else {
+        setStatusMessage("No se pudo iniciar sesión. Verifica tus credenciales o tu email.");
+      }
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black p-4">
       <Card className="w-full max-w-[420px] p-6 sm:p-8">
-        {/* Logo placeholder */}
-        <div className="w-12 h-12 mx-auto mb-6 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center text-white text-xl font-bold select-none">
-          FZ
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-3 mb-6">
+          <AppLogo size="lg" showText={false} variant="minimal" />
+          <div className="flex flex-col">
+            <span className="font-bold text-xl bg-gradient-to-r from-blue-600 to-green-600 dark:from-blue-400 dark:to-green-400 bg-clip-text text-transparent">
+              FinanzApp
+            </span>
+            <span className="text-[10px] text-muted-foreground tracking-wide">
+              Gestión Inteligente
+            </span>
+          </div>
         </div>
         
         <div className="mb-6">
@@ -66,15 +91,6 @@ export default function LoginPage() {
           <p className="text-sm text-muted-foreground text-center">
             Accede a tu cuenta para continuar
           </p>
-        </div>
-
-        <div className="grid gap-3 mb-4">
-          <Button variant="outline" className="w-full">
-            Continuar con Google
-          </Button>
-          <Button variant="outline" className="w-full">
-            Continuar con GitHub
-          </Button>
         </div>
 
         <motion.form
@@ -102,7 +118,7 @@ export default function LoginPage() {
             <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input
                 type="checkbox"
-                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded dark:border-gray-700 dark:bg-gray-800"
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded dark:border-gray-700 dark:bg-gray-800"
                 {...register("remember")}
               />
               Recuérdame
@@ -111,7 +127,7 @@ export default function LoginPage() {
               <DialogTrigger asChild>
                 <button
                   type="button"
-                  className="text-sm text-purple-600 hover:text-purple-500 dark:text-purple-400 dark:hover:text-purple-300"
+                  className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
                 >
                   ¿Olvidaste la contraseña?
                 </button>
@@ -141,7 +157,7 @@ export default function LoginPage() {
           )}
           <div className="text-center text-sm text-muted-foreground">
             ¿No tienes cuenta?{" "}
-            <Link href="/register" className="text-purple-600 hover:text-purple-500 dark:text-purple-400 font-medium">
+            <Link href="/register" className="text-blue-600 hover:text-green-600 dark:text-blue-400 dark:hover:text-green-400 font-medium">
               Regístrate
             </Link>
           </div>

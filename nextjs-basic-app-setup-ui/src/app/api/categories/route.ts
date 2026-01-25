@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId, jsonError } from "@/app/api/_helpers";
-import type { CategoryType } from "@/generated/prisma/client";
+import type { CategoryType } from "@prisma/client";
 
 type CategoryPayload = {
   name: string;

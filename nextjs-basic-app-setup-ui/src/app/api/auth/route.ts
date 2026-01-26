@@ -81,7 +81,17 @@ export async function POST(request: Request) {
       skipDuplicates: true,
     });
 
-    const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+    // Usar APP_URL si está configurada, sino VERCEL_URL (proporcionada por Vercel), sino localhost
+    let appUrl = process.env.APP_URL;
+    if (!appUrl) {
+      const vercelUrl = process.env.VERCEL_URL;
+      if (vercelUrl) {
+        // Vercel proporciona VERCEL_URL sin protocolo, agregamos https
+        appUrl = `https://${vercelUrl}`;
+      } else {
+        appUrl = "http://localhost:3000";
+      }
+    }
     const verifyUrl = `${appUrl}/verify-email?token=${token}`;
     try {
       await sendMail({

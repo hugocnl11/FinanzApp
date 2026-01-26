@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = 'force-dynamic';
-
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppLogo } from "@/components/brand/AppLogo";
@@ -13,6 +11,9 @@ import { LinePath } from "@visx/shape";
 import { scaleLinear, scalePoint } from "@visx/scale";
 import { curveMonotoneX } from "d3-shape";
 import { motion } from "framer-motion";
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const features = [
   {

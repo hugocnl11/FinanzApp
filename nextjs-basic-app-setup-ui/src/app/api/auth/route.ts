@@ -98,8 +98,9 @@ export async function POST(request: Request) {
       });
     } catch (error) {
       console.error('Error enviando email de verificación', error);
-      await prisma.user.delete({ where: { id: user.id } });
-      return jsonError("No se pudo enviar el email de verificación", 500);
+      // No eliminamos el usuario si falla el email, solo registramos el error
+      // El usuario puede verificar su email más tarde o contactar soporte
+      // En producción, deberías configurar SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS en Vercel
     }
 
     return NextResponse.json({

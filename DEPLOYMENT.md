@@ -64,8 +64,20 @@ Vercel **NO** aloja bases de datos. Necesitas una base de datos PostgreSQL exter
    - Formato: `postgresql://user:password@host:port/database?sslmode=require`
    - Obtén este valor de tu proveedor de base de datos
 
-2. **SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS** (opcional, solo si usas verificación por email)
-   - Puedes usar servicios como SendGrid, Mailgun, o Resend
+2. **SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS** (opcional, pero recomendado para verificación por email)
+   - **SMTP_HOST**: El servidor SMTP (ej: `smtp.gmail.com`, `smtp.sendgrid.net`)
+   - **SMTP_PORT**: Puerto SMTP (generalmente `587` para TLS o `465` para SSL)
+   - **SMTP_USER**: Usuario/email del servicio SMTP
+   - **SMTP_PASS**: Contraseña o API key del servicio SMTP
+   - **SMTP_FROM**: (opcional) Email remitente, por defecto `FinanzApp <no-reply@finanzapp.com>`
+   - **APP_URL**: (opcional) URL de tu aplicación para los enlaces de verificación, por defecto `http://localhost:3000`
+   
+   **Servicios recomendados:**
+   - **Resend** (gratis hasta 3,000 emails/mes): https://resend.com
+   - **SendGrid** (gratis hasta 100 emails/día): https://sendgrid.com
+   - **Mailgun** (gratis hasta 5,000 emails/mes): https://mailgun.com
+   
+   **Nota:** Sin estas variables, el registro funcionará pero los usuarios no recibirán emails de verificación.
 
 ### Ejecutar Migraciones
 

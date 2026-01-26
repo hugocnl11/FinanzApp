@@ -13,7 +13,6 @@ import { curveMonotoneX } from "d3-shape";
 import { motion } from "framer-motion";
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 const features = [
   {

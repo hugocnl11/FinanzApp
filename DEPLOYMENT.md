@@ -70,7 +70,7 @@ Vercel **NO** aloja bases de datos. Necesitas una base de datos PostgreSQL exter
    - **SMTP_USER**: Usuario/email del servicio SMTP
    - **SMTP_PASS**: Contraseña o API key del servicio SMTP
    - **SMTP_FROM**: (opcional) Email remitente, por defecto `FinanzApp <no-reply@finanzapp.com>`
-   - **APP_URL**: (opcional) URL de tu aplicación para los enlaces de verificación, por defecto `http://localhost:3000`
+   - **APP_URL**: (opcional) URL de tu aplicación para los enlaces de verificación. Si no está configurada, se usará automáticamente `VERCEL_URL` (proporcionada por Vercel). Solo necesitas configurarla si quieres usar un dominio personalizado.
    
    **Servicios recomendados:**
    - **Resend** (gratis hasta 3,000 emails/mes): https://resend.com

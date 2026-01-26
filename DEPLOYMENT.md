@@ -4,17 +4,30 @@
 
 Vercel **NO** aloja bases de datos. Necesitas una base de datos PostgreSQL externa.
 
-### Opción 1: Vercel Postgres (Recomendado)
+### Opción 1: Vercel Postgres (Recomendado) ⭐
+
+**Esta es la opción más fácil porque está integrada con Vercel.**
 
 1. Ve a tu proyecto en Vercel
-2. Ve a la pestaña **Storage**
-3. Haz clic en **Create Database** → **Postgres**
-4. Elige un plan (hay un plan gratuito)
-5. Vercel creará automáticamente la variable de entorno `POSTGRES_URL`
-6. En **Settings → Environment Variables**, verifica que `POSTGRES_URL` esté configurada
-7. Si tu Prisma usa `DATABASE_URL`, puedes crear un alias:
-   - Variable: `DATABASE_URL`
-   - Valor: `$(POSTGRES_URL)` (o copia el valor de POSTGRES_URL)
+2. Ve a la pestaña **Storage** (en el menú lateral)
+3. Haz clic en **Create Database**
+4. Selecciona **Postgres** (o "Vercel Postgres" si aparece así)
+5. Elige un plan:
+   - **Hobby** (Gratis): 256 MB, suficiente para empezar
+   - **Pro**: Para producción con más recursos
+6. Espera a que se cree la base de datos (1-2 minutos)
+7. Vercel creará automáticamente la variable `POSTGRES_URL`
+
+**Configurar DATABASE_URL para Prisma:**
+8. Ve a **Settings → Environment Variables**
+9. Haz clic en **Add New**
+10. Agrega:
+    - **Variable Name**: `DATABASE_URL`
+    - **Value**: Haz clic en el icono de referencia y selecciona `POSTGRES_URL`, o copia directamente el valor de `POSTGRES_URL`
+    - **Environment**: Selecciona todas (Production, Preview, Development)
+11. Guarda los cambios
+
+**Nota:** Prisma usa `DATABASE_URL` por defecto, así que necesitas esta variable aunque Vercel cree `POSTGRES_URL`.
 
 ### Opción 2: Supabase (Gratis)
 

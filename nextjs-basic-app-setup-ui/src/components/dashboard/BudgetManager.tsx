@@ -23,20 +23,6 @@ import type { Category } from "@/lib/dashboard/types";
 import type { Movement } from "@/lib/dashboard/types";
 import { CATEGORY_ICON_MAP, type CategoryIconKey } from "@/lib/category-icons";
 
-// Categorías variables (solo estas en el desplegable cuando pestaña Variable)
-const VARIABLE_CATEGORIES = [
-  "Alimentación",
-  "Comida",
-  "Ocio",
-  "Ropa",
-  "Transporte",
-  "Salud",
-  "Educación",
-  "Viajes",
-  "Regalos",
-  "Otros",
-];
-
 // Mapeo de iconos y colores por defecto para cada categoría
 const FALLBACK_CATEGORY_META: Record<string, { icon: CategoryIconKey; color: string }> = {
   // Fijos
@@ -74,8 +60,6 @@ const initialBudgets: BudgetItem[] = [];
 
 const categories: string[] = [];
 
-type BudgetType = "Fijo" | "Variable";
-
 type BudgetManagerProps = {
   triggerLabel?: string;
   triggerVariant?: ButtonProps["variant"];
@@ -93,11 +77,12 @@ export function BudgetManager({
   const [categoriesData, setCategoriesData] = useState<Category[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [budgetType, setBudgetType] = useState<BudgetType>("Fijo");
   const [formData, setFormData] = useState({
     category: categories[0] ?? "",
     limit: "",
+    period: "variable" as "fixed" | "variable",
   });
+  const [implicitPeriodOverrides, setImplicitPeriodOverrides] = useState<Record<string, "fixed" | "variable">>({});
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
   const [editingLimit, setEditingLimit] = useState("");
@@ -110,8 +95,6 @@ export function BudgetManager({
   const categoryMap = useMemo(() => {
     return new Map(categoriesData.map((cat) => [cat.name, cat]));
   }, [categoriesData]);
-
-  const periodKey = budgetType === "Fijo" ? "fixed" : "variable";
 
   // Gastado por categoría en el mes actual (para alinear con el widget del dashboard)
   const spentByCategory = useMemo(() => {
@@ -138,33 +121,28 @@ export function BudgetManager({
     [budgets, spentByCategory]
   );
 
-  const filteredBudgets = useMemo(
-    () => budgetsWithSpent.filter((b) => (b.period ?? "").toLowerCase() === periodKey),
-    [budgetsWithSpent, periodKey]
+  // Categorías con gasto este mes que no tienen ningún presupuesto (ni fijo ni variable)
+  const categoriesWithAnyBudget = useMemo(
+    () => new Set(budgets.map((b) => b.category)),
+    [budgets]
   );
-
-  // En Variable: añadir categorías con gasto este mes pero sin presupuesto variable (igual que en el widget)
-  const implicitVariableBudgets = useMemo(() => {
-    if (budgetType !== "Variable" || movements.length === 0) return [];
-    const budgetedVariable = new Set(
-      budgets.filter((b) => (b.period ?? "").toLowerCase() === "variable").map((b) => b.category)
-    );
+  const implicitBudgets = useMemo(() => {
+    if (movements.length === 0) return [];
     return Array.from(spentByCategory.entries())
-      .filter(([category]) => !budgetedVariable.has(category))
+      .filter(([category]) => !categoriesWithAnyBudget.has(category))
       .map(([category, spent]) => ({
         id: `implicit-${category}`,
         category,
         limit: 0,
         spent,
-        period: "variable" as const,
+        period: (implicitPeriodOverrides[category] ?? "variable") as "fixed" | "variable",
       }));
-  }, [budgetType, movements.length, budgets, spentByCategory]);
+  }, [movements.length, spentByCategory, categoriesWithAnyBudget, implicitPeriodOverrides]);
 
-  const isDay1 = new Date().getDate() === 1;
-  const displayBudgets =
-    budgetType === "Variable"
-      ? [...filteredBudgets, ...implicitVariableBudgets]
-      : filteredBudgets;
+  const displayBudgets = useMemo(
+    () => [...budgetsWithSpent, ...implicitBudgets],
+    [budgetsWithSpent, implicitBudgets]
+  );
 
   const totalLimit = useMemo(
     () => displayBudgets.reduce((acc, item) => acc + item.limit, 0),
@@ -208,27 +186,19 @@ export function BudgetManager({
     return () => window.removeEventListener("finanzapp:data-updated", onUpdate);
   }, []);
 
-  // Categorías para el desplegable: en Variable solo las consideradas variables
-  const dropdownCategories = useMemo(() => {
-    if (budgetType === "Variable") {
-      return expenseCategories.filter((c) => VARIABLE_CATEGORIES.includes(c.name));
-    }
-    return expenseCategories;
-  }, [budgetType, expenseCategories]);
-
-  const selectedCategory = dropdownCategories.find((cat) => cat.name === formData.category);
+  const selectedCategory = expenseCategories.find((cat) => cat.name === formData.category);
 
   useEffect(() => {
-    if (!formData.category && dropdownCategories.length > 0) {
-      setFormData((prev) => ({ ...prev, category: dropdownCategories[0].name }));
+    if (!formData.category && expenseCategories.length > 0) {
+      setFormData((prev) => ({ ...prev, category: expenseCategories[0].name }));
     }
-    if (formData.category && !dropdownCategories.some((c) => c.name === formData.category)) {
+    if (formData.category && !expenseCategories.some((c) => c.name === formData.category)) {
       setFormData((prev) => ({
         ...prev,
-        category: dropdownCategories[0]?.name ?? "",
+        category: expenseCategories[0]?.name ?? "",
       }));
     }
-  }, [dropdownCategories, formData.category]);
+  }, [expenseCategories, formData.category]);
 
   // Cerrar dropdown al hacer click fuera
   useEffect(() => {
@@ -252,8 +222,9 @@ export function BudgetManager({
       return;
     }
     try {
+      const period = formData.period;
       const existing = budgets.find(
-        (item) => item.category === formData.category && item.period === (budgetType === "Fijo" ? "fixed" : "variable")
+        (item) => item.category === formData.category && (item.period ?? "").toLowerCase() === period
       );
       if (existing) {
         const updated = await updateBudget(existing.id, { limit: limitValue });
@@ -265,7 +236,7 @@ export function BudgetManager({
           category: formData.category,
           limit: limitValue,
           spent: 0,
-          period: budgetType === "Fijo" ? "fixed" : "variable",
+          period,
         });
         setBudgets((prev) => [...prev, created.data as BudgetItem]);
       }
@@ -275,6 +246,24 @@ export function BudgetManager({
     } catch (error) {
       console.error(error);
       setStatusMessage("No se pudo guardar el presupuesto.");
+    }
+  };
+
+  const handlePeriodChange = async (budget: BudgetItem & { spent: number }, newPeriod: "fixed" | "variable") => {
+    if (budget.id.startsWith("implicit-")) {
+      setImplicitPeriodOverrides((prev) => ({ ...prev, [budget.category]: newPeriod }));
+      return;
+    }
+    if (budget.id.startsWith("new-")) return;
+    try {
+      const updated = await updateBudget(budget.id, { period: newPeriod });
+      setBudgets((prev) =>
+        prev.map((item) => (item.id === budget.id ? (updated.data as BudgetItem) : item))
+      );
+      window.dispatchEvent(new Event("finanzapp:data-updated"));
+    } catch (error) {
+      console.error(error);
+      setStatusMessage("No se pudo actualizar el tipo.");
     }
   };
 
@@ -288,11 +277,11 @@ export function BudgetManager({
     window.dispatchEvent(new Event("finanzapp:data-updated"));
   };
 
-  const handleStartEdit = (budget: BudgetItem) => {
+  const handleStartEdit = (budget: BudgetItem & { period?: string }) => {
     setEditingBudgetId(budget.id);
     setEditingLimit(String(budget.limit));
     setEditingPeriod(
-      budget.id.startsWith("new-") ? null : (budget.period === "fixed" ? "fixed" : "variable")
+      budget.id.startsWith("new-") ? null : ((budget.period ?? "variable").toLowerCase() === "fixed" ? "fixed" : "variable")
     );
   };
 
@@ -316,27 +305,33 @@ export function BudgetManager({
       : isImplicit
         ? editingBudgetId.replace(/^implicit-/, "")
         : undefined;
+    const periodForImplicit = isImplicit && categoryName
+      ? (implicitPeriodOverrides[categoryName] ?? "variable")
+      : "variable";
     try {
       if ((isNew || isImplicit) && categoryName) {
         const created = await createBudget({
           category: categoryName,
           limit: limitValue,
           spent: 0,
-          period: isImplicit ? "variable" : budgetType === "Fijo" ? "fixed" : "variable",
+          period: isImplicit ? periodForImplicit : (editingPeriod ?? "variable"),
         });
         setBudgets((prev) => [...prev, created.data as BudgetItem]);
+        setImplicitPeriodOverrides((prev) => {
+          const next = { ...prev };
+          delete next[categoryName];
+          return next;
+        });
         setStatusMessage("Presupuesto creado.");
       } else {
-        const newPeriod = editingPeriod ?? periodKey;
-        const updated = await updateBudget(editingBudgetId, { limit: limitValue, period: newPeriod });
+        const newPeriod = editingPeriod ?? (displayBudgets.find((b) => b.id === editingBudgetId)?.period ?? "variable");
+        const normalizedPeriod = (newPeriod ?? "variable").toString().toLowerCase() === "fixed" ? "fixed" : "variable";
+        const updated = await updateBudget(editingBudgetId, { limit: limitValue, period: normalizedPeriod });
         const updatedItem = updated.data as BudgetItem;
         setBudgets((prev) =>
           prev.map((item) => (item.id === editingBudgetId ? updatedItem : item))
         );
         setStatusMessage("Presupuesto actualizado.");
-        if (newPeriod !== periodKey) {
-          setBudgetType(newPeriod === "fixed" ? "Fijo" : "Variable");
-        }
       }
       setEditingBudgetId(null);
       setEditingLimit("");
@@ -362,36 +357,10 @@ export function BudgetManager({
       </DialogTrigger>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle>Presupuestos mensuales</DialogTitle>
-              <DialogDescription>
-                Define límites por categoría y visualiza tu consumo actual.
-              </DialogDescription>
-            </div>
-            {/* Selector Fijo/Variable */}
-            <div className="flex items-center gap-1 rounded-full bg-muted p-1">
-              {(["Fijo", "Variable"] as BudgetType[]).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setBudgetType(type)}
-                  className="relative px-3 py-1 text-xs font-medium text-muted-foreground transition"
-                >
-                  {budgetType === type && (
-                    <motion.span
-                      layoutId="budget-manager-pill"
-                      className="absolute inset-0 rounded-full bg-background shadow-sm"
-                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    />
-                  )}
-                  <span className={budgetType === type ? "relative text-foreground" : "relative"}>
-                    {type}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
+          <DialogTitle>Presupuestos mensuales</DialogTitle>
+          <DialogDescription>
+            Define límites por categoría y visualiza tu consumo actual. Cada fila indica si es Fijo o Variable.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
@@ -448,28 +417,6 @@ export function BudgetManager({
                             <p className="text-sm font-semibold truncate">{budget.category}</p>
                             {isEditing ? (
                               <div className="mt-2 flex flex-col gap-3">
-                                {!budget.id.startsWith("new-") && !budget.id.startsWith("implicit-") && (
-                                  <div className="flex flex-col gap-1">
-                                    <label className="text-xs font-medium text-muted-foreground">Tipo</label>
-                                    <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
-                                      {(["fixed", "variable"] as const).map((p) => (
-                                        <button
-                                          key={p}
-                                          type="button"
-                                          onClick={() => setEditingPeriod(p)}
-                                          className={cn(
-                                            "px-2 py-1 text-xs font-medium rounded-md transition",
-                                            editingPeriod === p
-                                              ? "bg-background shadow-sm text-foreground"
-                                              : "text-muted-foreground hover:text-foreground"
-                                          )}
-                                        >
-                                          {p === "fixed" ? "Fijo" : "Variable"}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
                                 <div className="flex flex-col gap-1">
                                   <label className="text-xs font-medium text-muted-foreground">Límite (€)</label>
                                   <div className="flex items-center gap-2">
@@ -498,30 +445,53 @@ export function BudgetManager({
                             )}
                           </div>
                         </div>
-                        {!isEditing && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => handleStartEdit(budget)}
-                              aria-label="Editar límite"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            {!budget.id.startsWith("new-") && !budget.id.startsWith("implicit-") && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex gap-0.5 rounded-lg bg-muted p-0.5">
+                            {(["fixed", "variable"] as const).map((p) => {
+                              const rowPeriod = (budget.period ?? "variable").toLowerCase() === "fixed" ? "fixed" : "variable";
+                              const isSelected = rowPeriod === p;
+                              return (
+                                <button
+                                  key={p}
+                                  type="button"
+                                  onClick={() => handlePeriodChange(budget, p)}
+                                  className={cn(
+                                    "px-2 py-1 text-xs font-medium rounded-md transition",
+                                    isSelected
+                                      ? "bg-background shadow-sm text-foreground"
+                                      : "text-muted-foreground hover:text-foreground"
+                                  )}
+                                >
+                                  {p === "fixed" ? "Fijo" : "Variable"}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {!isEditing && (
+                            <>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                onClick={() => handleRemove(budget.id)}
-                                aria-label="Quitar presupuesto"
+                                className="h-8 w-8 p-0"
+                                onClick={() => handleStartEdit(budget)}
+                                aria-label="Editar límite"
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <Pencil className="h-3.5 w-3.5" />
                               </Button>
-                            )}
-                          </div>
-                        )}
+                              {!budget.id.startsWith("new-") && !budget.id.startsWith("implicit-") && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                  onClick={() => handleRemove(budget.id)}
+                                  aria-label="Quitar presupuesto"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
                       {!isEditing && (
                         <>
@@ -542,9 +512,7 @@ export function BudgetManager({
                 </div>
               ) : (
                 <div className="text-center text-sm text-muted-foreground py-8">
-                  {budgetType === "Variable" && isDay1
-                    ? "Reinicio mensual: crea tus presupuestos variables para este mes."
-                    : `No hay presupuestos en ${budgetType === "Fijo" ? "fijo" : "variable"}. Crea uno con el formulario de la derecha.`}
+                  No hay presupuestos. Crea uno con el formulario de la derecha.
                 </div>
               )}
             </div>
@@ -587,9 +555,9 @@ export function BudgetManager({
                   )}
                   <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isCategoryDropdownOpen && "rotate-180")} />
                 </button>
-                {isCategoryDropdownOpen && dropdownCategories.length > 0 && (
+                {isCategoryDropdownOpen && expenseCategories.length > 0 && (
                   <div className="absolute z-50 w-full mt-1 rounded-lg border border-border bg-background shadow-lg max-h-60 overflow-auto">
-                    {dropdownCategories.map((category) => {
+                    {expenseCategories.map((category) => {
                       const Icon = CATEGORY_ICON_MAP[category.icon as CategoryIconKey];
                       const isSelected = formData.category === category.name;
                       return (
@@ -620,11 +588,32 @@ export function BudgetManager({
                     })}
                   </div>
                 )}
-                {dropdownCategories.length === 0 && (
+                {expenseCategories.length === 0 && (
                   <div className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground text-center">
-                    {budgetType === "Variable" ? "Sin categorías variables. Crea categorías en Ajustes." : "Sin categorías de gasto. Crea categorías en Ajustes."}
+                    Sin categorías de gasto. Crea categorías en Ajustes.
                   </div>
                 )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Tipo</label>
+              <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
+                {(["fixed", "variable"] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, period: p }))}
+                    className={cn(
+                      "px-2 py-1 text-xs font-medium rounded-md transition",
+                      formData.period === p
+                        ? "bg-background shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {p === "fixed" ? "Fijo" : "Variable"}
+                  </button>
+                ))}
               </div>
             </div>
 

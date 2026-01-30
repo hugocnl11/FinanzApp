@@ -201,6 +201,7 @@ export const DASHBOARD_MOCK: DashboardData = {
     { mes: "Diciembre", valor: 2100 },
     { mes: "Enero", valor: 1890 },
   ],
+  activosPorMes: [],
   goal: {
     id: "emergency-fund",
     title: "Fondo de emergencia",

@@ -6,7 +6,7 @@ import { scaleLinear, scalePoint } from "@visx/scale";
 import { curveMonotoneX } from "d3-shape";
 import { ParentSize } from "@visx/responsive";
 import { motion } from "framer-motion";
-import { last, previous, patrimonioAcumulado, percentChange, filterMonthsByPeriod, getDailyIncomeAndExpenses } from "@/lib/dashboard/selectors";
+import { last, previous, patrimonioConActivos, percentChange, filterMonthsByPeriod, getDailyIncomeAndExpenses } from "@/lib/dashboard/selectors";
 import { buildMonthlySeries } from "@/lib/dashboard/derive";
 import type { MoneyByMonth, MoneyByDay, Movement } from "@/lib/dashboard/types";
 import { formatNumber } from "@/lib/format";
@@ -217,19 +217,17 @@ function CombinedChartCard({
   return (
     <Card className="p-6 min-h-[320px] relative">
       <div className="flex flex-col space-y-2">
-        <h3 className="text-sm font-medium text-muted-foreground">Ingresos y Gastos {isDailyView ? 'Diarios' : 'Totales'}</h3>
+        <h3 className="text-sm font-medium text-muted-foreground">Ingresos / Gastos / Inversión {isDailyView ? "Diarios" : "Totales"}</h3>
         <div className="flex flex-wrap gap-x-6 gap-y-1 items-end">
-          <div className="text-2xl font-bold text-green-600">{formatNumber(ingresosVals.reduce((a, b) => a + b, 0))} €</div>
-          <div className="text-2xl font-bold text-red-500">{formatNumber(gastosVals.reduce((a, b) => a + b, 0))} €</div>
+          <span className="text-2xl font-bold text-green-600">{formatNumber(ingresosVals.reduce((a, b) => a + b, 0))} €</span>
+          <span className="text-muted-foreground">·</span>
+          <span className="text-2xl font-bold text-red-500">{formatNumber(gastosVals.reduce((a, b) => a + b, 0))} €</span>
+          <span className="text-muted-foreground">·</span>
+          <span className="text-2xl font-bold" style={{ color: INVERSIONES_COLOR }}>
+            {formatNumber(inversionesVals.reduce((a, b) => a + b, 0))} €
+          </span>
         </div>
-        {inversiones.length > 0 && (
-          <div className="flex flex-wrap gap-x-6 gap-y-1 items-end">
-            <span className="text-sm font-semibold" style={{ color: INVERSIONES_COLOR }}>
-              Inversiones: {formatNumber(inversionesVals.reduce((a, b) => a + b, 0))} €
-            </span>
-          </div>
-        )}
-        <p className="text-xs text-muted-foreground">{isDailyView ? 'Evolución diaria del mes actual' : 'Evolución mensual'}</p>
+        <p className="text-xs text-muted-foreground">{isDailyView ? "Evolución diaria del mes actual" : "Evolución mensual"}</p>
       </div>
       <div className="mt-4 h-[200px] relative" ref={chartContainerRef}>
         <ParentSize>
@@ -599,7 +597,7 @@ type AnalyticsChartsProps = {
 
 export function AnalyticsCharts({ type = "combined" }: AnalyticsChartsProps) {
   const { data } = useDashboardData();
-  const { ingresosMensuales, gastosMensuales, movimientos } = data;
+  const { ingresosMensuales, gastosMensuales, activosPorMes, movimientos } = data;
   const { period, getMonthCount } = usePeriod();
 
   useEffect(() => {
@@ -628,11 +626,14 @@ export function AnalyticsCharts({ type = "combined" }: AnalyticsChartsProps) {
     chartInversiones = filterMonthsByPeriod(inversionesMensuales, monthCount);
   }
   
-  // Patrimonio: SIEMPRE mostrar los últimos 12 meses
-  const patrimonioMensual12 = patrimonioAcumulado(
-    filterMonthsByPeriod(ingresosMensuales, 12),
-    filterMonthsByPeriod(gastosMensuales, 12)
-  );
+  // Patrimonio: activos + ingresos − gastos (últimos 12 meses)
+  const ingresos12 = filterMonthsByPeriod(ingresosMensuales, 12);
+  const gastos12 = filterMonthsByPeriod(gastosMensuales, 12);
+  const activos12 = ingresos12.map((m, i) => ({
+    mes: m.mes,
+    valor: activosPorMes?.[i]?.valor ?? 0,
+  }));
+  const patrimonioMensual12 = patrimonioConActivos(ingresos12, gastos12, activos12);
   const patrimonioActual = last(patrimonioMensual12)?.valor ?? 0;
   const patrimonioPrevio = previous(patrimonioMensual12)?.valor ?? 0;
   const patrimonioPercent = percentChange(patrimonioActual, patrimonioPrevio);

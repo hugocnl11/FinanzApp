@@ -82,6 +82,7 @@ export type Movement = {
 export type DashboardData = {
   ingresosMensuales: MoneyByMonth[];
   gastosMensuales: MoneyByMonth[];
+  activosPorMes: MoneyByMonth[];
   goal: Goal | null;
   goals: Goal[];
   budgets: Budget[];

@@ -30,6 +30,20 @@ export function patrimonioAcumulado(ingresos: MoneyByMonth[], gastos: MoneyByMon
   });
 }
 
+/** Patrimonio = total activos a fin de mes + (ingresos acumulados − gastos acumulados). */
+export function patrimonioConActivos(
+  ingresos: MoneyByMonth[],
+  gastos: MoneyByMonth[],
+  activosPorMes: MoneyByMonth[]
+): MoneyByMonth[] {
+  let acumIngresosMenosGastos = 0;
+  return ingresos.map((ing, i) => {
+    acumIngresosMenosGastos += ing.valor - (gastos[i]?.valor ?? 0);
+    const activos = activosPorMes[i]?.valor ?? 0;
+    return { mes: ing.mes, valor: activos + acumIngresosMenosGastos };
+  });
+}
+
 export function gastosPorCategoriaDesdeMovimientos(movimientos: Movement[]): CategoryAmount[] {
   const map = new Map<string, number>();
   for (const m of movimientos) {

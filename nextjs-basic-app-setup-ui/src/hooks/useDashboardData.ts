@@ -3,6 +3,7 @@ import type { DashboardData, Goal, Movement } from "@/lib/dashboard/types";
 import { fetchMovements } from "@/lib/api/movements";
 import { fetchBudgets } from "@/lib/api/budgets";
 import { fetchGoals } from "@/lib/api/goals";
+import { fetchAssetSnapshotsByMonth } from "@/lib/api/asset-snapshots";
 import { buildMonthlySeries, latestByCategory, totalsByCategory } from "@/lib/dashboard/derive";
 import { getSession, isDemoUser, saveSession } from "@/lib/auth";
 import { restoreSessionFromCookie } from "@/lib/api/auth";
@@ -11,6 +12,7 @@ import { DASHBOARD_MOCK } from "@/lib/dashboard/mock";
 const emptyData: DashboardData = {
   ingresosMensuales: [],
   gastosMensuales: [],
+  activosPorMes: [],
   goal: null,
   goals: [],
   budgets: [],
@@ -94,6 +96,7 @@ export function useDashboardData() {
         setData({
           ingresosMensuales,
           gastosMensuales,
+          activosPorMes: [],
           goal: selectedGoal,
           goals: mockGoals,
           budgets: DASHBOARD_MOCK.budgets,
@@ -121,14 +124,16 @@ export function useDashboardData() {
     try {
       setLoading(true);
       setError(null);
-      const [movementsRes, budgetsRes, goalsRes] = await Promise.all([
+      const [movementsRes, budgetsRes, goalsRes, assetSnapshotsRes] = await Promise.all([
         fetchMovements(),
         fetchBudgets(),
         fetchGoals(),
+        fetchAssetSnapshotsByMonth(12).catch(() => ({ data: [] as { mes: string; valor: number }[] })),
       ]);
 
       const movements = movementsRes.data;
       const goals = goalsRes.data;
+      const activosPorMes = (assetSnapshotsRes.data ?? []).map((d) => ({ mes: d.mes as import("@/lib/dashboard/types").MonthLabel, valor: d.valor }));
       const primaryGoalId =
         typeof window !== "undefined"
           ? window.localStorage.getItem("finanzapp:primary-goal")
@@ -155,6 +160,7 @@ export function useDashboardData() {
       setData({
         ingresosMensuales,
         gastosMensuales,
+        activosPorMes,
         goal: selectedGoal as Goal | null,
         goals,
         budgets: budgetsRes.data,

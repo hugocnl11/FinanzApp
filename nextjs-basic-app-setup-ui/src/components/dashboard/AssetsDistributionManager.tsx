@@ -15,7 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { fetchMovements, createMovement, updateMovement } from "@/lib/api/movements";
 import { fetchCategories, createCategory, updateCategory } from "@/lib/api/categories";
-import { type CategoryIconKey } from "@/lib/category-icons";
+import { fetchAssetSnapshotsLatest, createAssetSnapshot } from "@/lib/api/asset-snapshots";
+import { CATEGORY_ICON_MAP, type CategoryIconKey } from "@/lib/category-icons";
 import type { Movement, Category } from "@/lib/dashboard/types";
 import { getUserId } from "@/lib/auth";
 
@@ -24,6 +25,7 @@ type InvestmentRow = {
   categoryId?: string;
   name: string;
   value: string;
+  currentValue: string;
   icon: CategoryIconKey;
   color: string;
   movementId?: string;
@@ -34,6 +36,7 @@ type SavingsRow = {
   categoryId?: string;
   name: string;
   value: string;
+  currentValue: string;
   icon: CategoryIconKey;
   color: string;
   movementId?: string;
@@ -92,6 +95,7 @@ const buildInvestmentRows = (movements: Movement[], categories: Category[]) => {
       categoryId: category.id,
       name: category.name,
       value: movement ? Math.abs(movement.cantidad).toString() : "",
+      currentValue: "",
       icon: (category.icon as CategoryIconKey) ?? DEFAULT_INVESTMENT_ICON,
       color: category.color ?? INVESTMENT_COLORS[index % INVESTMENT_COLORS.length],
       movementId: movement?.id,
@@ -104,6 +108,7 @@ const buildInvestmentRows = (movements: Movement[], categories: Category[]) => {
         id: movement.id ?? `inv-${movement.categoria}`,
         name: movement.categoria,
         value: Math.abs(movement.cantidad).toString(),
+        currentValue: "",
         icon: DEFAULT_INVESTMENT_ICON,
         color: INVESTMENT_COLORS[rows.length % INVESTMENT_COLORS.length],
         movementId: movement.id,
@@ -117,13 +122,14 @@ const buildInvestmentRows = (movements: Movement[], categories: Category[]) => {
 const buildSavingsRows = (movements: Movement[], categories: Category[]) => {
   const savingsCategories = categories.filter((cat) => cat.type === "savings");
   const latestByCategory = buildLatestByCategory(movements, "Ahorro");
-  const rows = savingsCategories.map((category, index) => {
+  const rows: SavingsRow[] = savingsCategories.map((category, index) => {
     const movement = latestByCategory.get(category.name);
     return {
       id: movement?.id ?? category.id,
       categoryId: category.id,
       name: category.name,
       value: movement ? Math.abs(movement.cantidad).toString() : "",
+      currentValue: "",
       icon: (category.icon as CategoryIconKey) ?? DEFAULT_SAVINGS_ICON,
       color: category.color ?? SAVINGS_COLORS[index % SAVINGS_COLORS.length],
       movementId: movement?.id,
@@ -136,6 +142,7 @@ const buildSavingsRows = (movements: Movement[], categories: Category[]) => {
         id: movement.id ?? `sav-${movement.categoria}`,
         name: movement.categoria,
         value: Math.abs(movement.cantidad).toString(),
+        currentValue: "",
         icon: DEFAULT_SAVINGS_ICON,
         color: SAVINGS_COLORS[rows.length % SAVINGS_COLORS.length],
         movementId: movement.id,
@@ -177,13 +184,29 @@ export function AssetsDistributionManager() {
           setRemovedSavings([]);
           return;
         }
-        const [movementsRes, categoriesRes] = await Promise.all([
+        const [movementsRes, categoriesRes, snapshotsRes] = await Promise.all([
           fetchMovements(),
           fetchCategories(),
+          fetchAssetSnapshotsLatest().catch(() => ({ data: [] as { categoryId: string; value: number }[] })),
         ]);
         const categories = categoriesRes.data as Category[];
-        setInvestmentRows(buildInvestmentRows(movementsRes.data, categories));
-        setSavingsRows(buildSavingsRows(movementsRes.data, categories));
+        const snapshotByCategory = new Map(
+          (snapshotsRes.data ?? []).map((s) => [s.categoryId, s.value])
+        );
+        const invRows = buildInvestmentRows(movementsRes.data, categories).map((row) => ({
+          ...row,
+          currentValue: row.categoryId && snapshotByCategory.has(row.categoryId)
+            ? String(snapshotByCategory.get(row.categoryId))
+            : "",
+        }));
+        const savRows = buildSavingsRows(movementsRes.data, categories).map((row) => ({
+          ...row,
+          currentValue: row.categoryId && snapshotByCategory.has(row.categoryId)
+            ? String(snapshotByCategory.get(row.categoryId))
+            : "",
+        }));
+        setInvestmentRows(invRows);
+        setSavingsRows(savRows);
         setRemovedInvestments([]);
         setRemovedSavings([]);
       } catch {
@@ -229,6 +252,7 @@ export function AssetsDistributionManager() {
         id: createRowId("sav"),
         name: "",
         value: "",
+        currentValue: "",
         icon: DEFAULT_SAVINGS_ICON,
         color: SAVINGS_COLORS[prev.length % SAVINGS_COLORS.length],
       },
@@ -242,10 +266,70 @@ export function AssetsDistributionManager() {
         id: createRowId("inv"),
         name: "",
         value: "",
+        currentValue: "",
         icon: DEFAULT_INVESTMENT_ICON,
         color: INVESTMENT_COLORS[prev.length % INVESTMENT_COLORS.length],
       },
     ]);
+  };
+
+  const handleInvestmentCurrentValueChange = (index: number, value: string) => {
+    setInvestmentRows((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, currentValue: value } : row))
+    );
+  };
+
+  const handleSavingsCurrentValueChange = (index: number, value: string) => {
+    setSavingsRows((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, currentValue: value } : row))
+    );
+  };
+
+  const [iconDialogOpen, setIconDialogOpen] = useState(false);
+  const [iconDialogTarget, setIconDialogTarget] = useState<
+    { type: "investment"; index: number } | { type: "savings"; index: number } | null
+  >(null);
+  const [iconDialogIcon, setIconDialogIcon] = useState<CategoryIconKey>(DEFAULT_INVESTMENT_ICON);
+  const [iconDialogColor, setIconDialogColor] = useState(INVESTMENT_COLORS[0]);
+
+  const openIconDialog = (
+    type: "investment" | "savings",
+    index: number,
+    icon: CategoryIconKey,
+    color: string
+  ) => {
+    setIconDialogTarget({ type, index });
+    setIconDialogIcon(icon);
+    setIconDialogColor(color);
+    setIconDialogOpen(true);
+  };
+
+  const saveIconDialog = async () => {
+    if (!iconDialogTarget) return;
+    const { type, index } = iconDialogTarget;
+    if (type === "investment") {
+      const row = investmentRows[index];
+      if (row?.categoryId) {
+        await updateCategory(row.categoryId, { icon: iconDialogIcon, color: iconDialogColor });
+      }
+      setInvestmentRows((prev) =>
+        prev.map((r, i) =>
+          i === index ? { ...r, icon: iconDialogIcon, color: iconDialogColor } : r
+        )
+      );
+    } else {
+      const row = savingsRows[index];
+      if (row?.categoryId) {
+        await updateCategory(row.categoryId, { icon: iconDialogIcon, color: iconDialogColor });
+      }
+      setSavingsRows((prev) =>
+        prev.map((r, i) =>
+          i === index ? { ...r, icon: iconDialogIcon, color: iconDialogColor } : r
+        )
+      );
+    }
+    setIconDialogOpen(false);
+    setIconDialogTarget(null);
   };
 
   const handleRemoveInvestmentRow = (index: number) => {
@@ -345,6 +429,10 @@ export function AssetsDistributionManager() {
         } else {
           await createMovement(payload);
         }
+        const currentVal = Number(row.currentValue || 0);
+        if (currentVal > 0 && categoryId) {
+          await createAssetSnapshot({ categoryId, value: currentVal, date: today });
+        }
       }
 
       for (const row of savingsRows) {
@@ -382,6 +470,10 @@ export function AssetsDistributionManager() {
           await updateMovement(row.movementId, payload);
         } else {
           await createMovement(payload);
+        }
+        const currentVal = Number(row.currentValue || 0);
+        if (currentVal > 0 && categoryId) {
+          await createAssetSnapshot({ categoryId, value: currentVal, date: today });
         }
       }
 
@@ -439,25 +531,43 @@ export function AssetsDistributionManager() {
                 </div>
               ) : (
                 <div className="grid gap-3">
-                  {investmentRows.map((row, index) => (
-                    <div key={row.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_220px]">
-                      {row.categoryId ? (
-                        <div className="flex items-center text-sm font-medium">{row.name}</div>
-                      ) : (
+                  {investmentRows.map((row, index) => {
+                    const IconComponent = CATEGORY_ICON_MAP[row.icon];
+                    return (
+                      <div key={row.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_1fr_1fr_36px] sm:items-end">
+                        <button
+                          type="button"
+                          onClick={() => openIconDialog("investment", index, row.icon, row.color)}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-input transition-colors hover:bg-muted"
+                          style={{ backgroundColor: `${row.color}20`, color: row.color }}
+                          title="Editar icono y color"
+                        >
+                          {IconComponent ? <IconComponent className="h-4 w-4" /> : null}
+                        </button>
+                        {row.categoryId ? (
+                          <div className="flex items-center text-sm font-medium">{row.name}</div>
+                        ) : (
+                          <Input
+                            label="Activo"
+                            value={row.name}
+                            onChange={(e) => handleInvestmentNameChange(index, e.target.value)}
+                          />
+                        )}
                         <Input
-                          label="Activo"
-                          value={row.name}
-                          onChange={(event) => handleInvestmentNameChange(index, event.target.value)}
-                        />
-                      )}
-                      <div className="grid grid-cols-[1fr_36px] items-center gap-2">
-                        <Input
-                          label="Valor (€)"
+                          label="Valor ingresado (€)"
                           type="number"
                           min="0"
                           step="0.01"
                           value={row.value}
-                          onChange={(event) => handleInvestmentValueChange(index, event.target.value)}
+                          onChange={(e) => handleInvestmentValueChange(index, e.target.value)}
+                        />
+                        <Input
+                          label="Valor actual (€)"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={row.currentValue}
+                          onChange={(e) => handleInvestmentCurrentValueChange(index, e.target.value)}
                         />
                         <Button
                           variant="ghost"
@@ -467,8 +577,8 @@ export function AssetsDistributionManager() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -488,25 +598,43 @@ export function AssetsDistributionManager() {
                 </div>
               ) : (
                 <div className="grid gap-3">
-                  {savingsRows.map((row, index) => (
-                    <div key={row.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_220px]">
-                      {row.categoryId ? (
-                        <div className="flex items-center text-sm font-medium">{row.name}</div>
-                      ) : (
-                        <Input
-                          label="Cuenta"
-                          value={row.name}
-                          onChange={(event) => handleSavingsNameChange(index, event.target.value)}
-                        />
-                      )}
-                      <div className="grid grid-cols-[1fr_36px] items-center gap-2">
+                  {savingsRows.map((row, index) => {
+                    const IconComponent = CATEGORY_ICON_MAP[row.icon];
+                    return (
+                      <div key={row.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_1fr_1fr_36px] sm:items-end">
+                        <button
+                          type="button"
+                          onClick={() => openIconDialog("savings", index, row.icon, row.color)}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-input transition-colors hover:bg-muted"
+                          style={{ backgroundColor: `${row.color}20`, color: row.color }}
+                          title="Editar icono y color"
+                        >
+                          {IconComponent ? <IconComponent className="h-4 w-4" /> : null}
+                        </button>
+                        {row.categoryId ? (
+                          <div className="flex items-center text-sm font-medium">{row.name}</div>
+                        ) : (
+                          <Input
+                            label="Cuenta"
+                            value={row.name}
+                            onChange={(e) => handleSavingsNameChange(index, e.target.value)}
+                          />
+                        )}
                         <Input
                           label="Saldo (€)"
                           type="number"
                           min="0"
                           step="0.01"
                           value={row.value}
-                          onChange={(event) => handleSavingsValueChange(index, event.target.value)}
+                          onChange={(e) => handleSavingsValueChange(index, e.target.value)}
+                        />
+                        <Input
+                          label="Valor actual (€)"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={row.currentValue}
+                          onChange={(e) => handleSavingsCurrentValueChange(index, e.target.value)}
                         />
                         <Button
                           variant="ghost"
@@ -516,8 +644,8 @@ export function AssetsDistributionManager() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -538,6 +666,58 @@ export function AssetsDistributionManager() {
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <Dialog open={iconDialogOpen} onOpenChange={setIconDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Icono y color</DialogTitle>
+            <DialogDescription>Elige un icono y un color para este activo.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Icono</label>
+              <div className="mt-2 grid grid-cols-5 gap-2">
+                {(Object.keys(CATEGORY_ICON_MAP) as CategoryIconKey[]).map((key) => {
+                  const Icon = CATEGORY_ICON_MAP[key];
+                  const isSelected = iconDialogIcon === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setIconDialogIcon(key)}
+                      className={`flex h-9 w-9 items-center justify-center rounded-md border transition-colors ${
+                        isSelected ? "border-primary bg-primary/10" : "border-input hover:bg-muted"
+                      }`}
+                      style={isSelected ? { color: iconDialogColor } : undefined}
+                      title={key}
+                    >
+                      {Icon ? <Icon className="h-4 w-4" /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Color</label>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="color"
+                  value={iconDialogColor}
+                  onChange={(e) => setIconDialogColor(e.target.value)}
+                  className="h-9 w-14 cursor-pointer rounded border border-input"
+                />
+                <span className="text-sm text-muted-foreground">{iconDialogColor}</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIconDialogOpen(false)}>
+              Cerrar
+            </Button>
+            <Button onClick={saveIconDialog}>Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

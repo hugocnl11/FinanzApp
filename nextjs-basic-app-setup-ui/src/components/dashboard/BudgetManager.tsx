@@ -23,6 +23,20 @@ import type { Category } from "@/lib/dashboard/types";
 import type { Movement } from "@/lib/dashboard/types";
 import { CATEGORY_ICON_MAP, type CategoryIconKey } from "@/lib/category-icons";
 
+// Categorías variables (solo estas en el desplegable cuando pestaña Variable)
+const VARIABLE_CATEGORIES = [
+  "Alimentación",
+  "Comida",
+  "Ocio",
+  "Ropa",
+  "Transporte",
+  "Salud",
+  "Educación",
+  "Viajes",
+  "Regalos",
+  "Otros",
+];
+
 // Mapeo de iconos y colores por defecto para cada categoría
 const FALLBACK_CATEGORY_META: Record<string, { icon: CategoryIconKey; color: string }> = {
   // Fijos
@@ -125,7 +139,7 @@ export function BudgetManager({
   );
 
   const filteredBudgets = useMemo(
-    () => budgetsWithSpent.filter((b) => b.period === periodKey),
+    () => budgetsWithSpent.filter((b) => (b.period ?? "").toLowerCase() === periodKey),
     [budgetsWithSpent, periodKey]
   );
 
@@ -133,7 +147,7 @@ export function BudgetManager({
   const implicitVariableBudgets = useMemo(() => {
     if (budgetType !== "Variable" || movements.length === 0) return [];
     const budgetedVariable = new Set(
-      budgets.filter((b) => b.period === "variable").map((b) => b.category)
+      budgets.filter((b) => (b.period ?? "").toLowerCase() === "variable").map((b) => b.category)
     );
     return Array.from(spentByCategory.entries())
       .filter(([category]) => !budgetedVariable.has(category))
@@ -194,20 +208,27 @@ export function BudgetManager({
     return () => window.removeEventListener("finanzapp:data-updated", onUpdate);
   }, []);
 
-  // Todas las categorías de gasto para el desplegable "Nuevo presupuesto" (Fijo y Variable)
-  const selectedCategory = expenseCategories.find((cat) => cat.name === formData.category);
+  // Categorías para el desplegable: en Variable solo las consideradas variables
+  const dropdownCategories = useMemo(() => {
+    if (budgetType === "Variable") {
+      return expenseCategories.filter((c) => VARIABLE_CATEGORIES.includes(c.name));
+    }
+    return expenseCategories;
+  }, [budgetType, expenseCategories]);
+
+  const selectedCategory = dropdownCategories.find((cat) => cat.name === formData.category);
 
   useEffect(() => {
-    if (!formData.category && expenseCategories.length > 0) {
-      setFormData((prev) => ({ ...prev, category: expenseCategories[0].name }));
+    if (!formData.category && dropdownCategories.length > 0) {
+      setFormData((prev) => ({ ...prev, category: dropdownCategories[0].name }));
     }
-    if (formData.category && !expenseCategories.some((c) => c.name === formData.category)) {
+    if (formData.category && !dropdownCategories.some((c) => c.name === formData.category)) {
       setFormData((prev) => ({
         ...prev,
-        category: expenseCategories[0]?.name ?? "",
+        category: dropdownCategories[0]?.name ?? "",
       }));
     }
-  }, [expenseCategories, formData.category]);
+  }, [dropdownCategories, formData.category]);
 
   // Cerrar dropdown al hacer click fuera
   useEffect(() => {
@@ -386,7 +407,8 @@ export function BudgetManager({
 
             <div className="space-y-3">
               {displayBudgets.length > 0 ? (
-                displayBudgets.map((budget) => {
+                <div className="max-h-[28rem] overflow-y-auto space-y-3 pr-1">
+                {displayBudgets.map((budget) => {
                   const limitNum = budget.limit || 0;
                   const percent = limitNum > 0 ? Math.min((budget.spent / limitNum) * 100, 130) : 0;
                   const isOver = limitNum > 0 && budget.spent > limitNum;
@@ -516,7 +538,8 @@ export function BudgetManager({
                       )}
                     </div>
                   );
-                })
+                })}
+                </div>
               ) : (
                 <div className="text-center text-sm text-muted-foreground py-8">
                   {budgetType === "Variable" && isDay1
@@ -564,9 +587,9 @@ export function BudgetManager({
                   )}
                   <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isCategoryDropdownOpen && "rotate-180")} />
                 </button>
-                {isCategoryDropdownOpen && expenseCategories.length > 0 && (
+                {isCategoryDropdownOpen && dropdownCategories.length > 0 && (
                   <div className="absolute z-50 w-full mt-1 rounded-lg border border-border bg-background shadow-lg max-h-60 overflow-auto">
-                    {expenseCategories.map((category) => {
+                    {dropdownCategories.map((category) => {
                       const Icon = CATEGORY_ICON_MAP[category.icon as CategoryIconKey];
                       const isSelected = formData.category === category.name;
                       return (
@@ -597,9 +620,9 @@ export function BudgetManager({
                     })}
                   </div>
                 )}
-                {expenseCategories.length === 0 && (
+                {dropdownCategories.length === 0 && (
                   <div className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground text-center">
-                    Sin categorías de gasto. Crea categorías en Ajustes.
+                    {budgetType === "Variable" ? "Sin categorías variables. Crea categorías en Ajustes." : "Sin categorías de gasto. Crea categorías en Ajustes."}
                   </div>
                 )}
               </div>

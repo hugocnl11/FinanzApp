@@ -65,9 +65,9 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-border/40">
       <SidebarHeader className="border-b border-border/40 bg-gradient-to-br from-sidebar/80 via-sidebar/50 to-sidebar/80 backdrop-blur-md">
-        <div className="flex items-center justify-between gap-3 px-3 py-4">
+        <div className="flex items-center justify-between gap-3 px-3 py-4 group-data-[collapsible=icon]:justify-center">
           <SidebarLogo />
-          <div className="shrink-0">
+          <div className="shrink-0 group-data-[collapsible=icon]:hidden">
             <ThemeToggle />
           </div>
         </div>

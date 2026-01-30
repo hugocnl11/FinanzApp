@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { AppLogo } from "@/components/brand/AppLogo";
 import { Card } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -11,8 +12,6 @@ import { LinePath } from "@visx/shape";
 import { scaleLinear, scalePoint } from "@visx/scale";
 import { curveMonotoneX } from "d3-shape";
 import { motion } from "framer-motion";
-
-export const dynamic = 'force-dynamic';
 
 const features = [
   {
@@ -41,11 +40,7 @@ const features = [
   },
 ];
 
-const stats = [
-  { label: "Movimientos mensuales", value: "+2.4k" },
-  { label: "Ahorro promedio", value: "18%" },
-  { label: "Usuarios activos", value: "12.6k" },
-];
+type StatsData = { totalMovimientos?: number; totalUsuarios?: number } | null;
 
 // Datos de ejemplo para el gráfico de ingresos vs gastos diarios del mes
 const demoIngresos = [
@@ -68,6 +63,16 @@ const demoGastos = [
   { dia: "30", valor: 350 },
 ];
 
+const demoInversiones = [
+  { dia: "1", valor: 0 },
+  { dia: "5", valor: 200 },
+  { dia: "10", valor: 150 },
+  { dia: "15", valor: 400 },
+  { dia: "20", valor: 300 },
+  { dia: "25", valor: 250 },
+  { dia: "30", valor: 0 },
+];
+
 const formatNumber = (num: number) => {
   return new Intl.NumberFormat("es-ES", {
     minimumFractionDigits: 0,
@@ -77,6 +82,14 @@ const formatNumber = (num: number) => {
 
 export default function Home() {
   const router = useRouter();
+  const [stats, setStats] = useState<StatsData>(null);
+
+  useEffect(() => {
+    fetch("/api/stats")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: StatsData) => data && setStats(data))
+      .catch(() => {});
+  }, []);
 
   const handleDemoClick = () => {
     startDemoSession();
@@ -109,14 +122,14 @@ export default function Home() {
         <section className="grid items-center gap-10 py-12 md:grid-cols-2">
           <div className="space-y-6">
             <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
-              Nueva versión 2.0 disponible
+              Gratis para empezar · Sin tarjeta de crédito
             </span>
             <h1 className="text-4xl font-bold leading-tight text-foreground md:text-5xl">
-              Gestiona tu dinero con claridad y objetivos reales
+              Trackea tus movimientos, patrimonio y analiza tus datos
             </h1>
             <p className="text-base text-muted-foreground md:text-lg">
-              Dashboard, movimientos, gráficas avanzadas, presupuestos, objetivos, activos e integración con Notion.
-              Todo en un solo lugar para tu control financiero.
+              Registra ingresos, gastos e inversiones. Gráficas, presupuestos, objetivos y activos en un solo lugar.
+              Tu control financiero, sin humo.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
@@ -133,12 +146,18 @@ export default function Home() {
               </button>
             </div>
             <div className="flex flex-wrap gap-6 pt-2 text-sm text-muted-foreground">
-              {stats.map((stat) => (
-                <div key={stat.label} className="flex flex-col">
-                  <span className="text-xl font-semibold text-foreground">{stat.value}</span>
-                  <span>{stat.label}</span>
-                </div>
-              ))}
+              <div className="flex flex-col">
+                <span className="text-xl font-semibold text-foreground">
+                  {stats?.totalMovimientos != null ? formatNumber(stats.totalMovimientos) : "—"}
+                </span>
+                <span>Movimientos registrados</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xl font-semibold text-foreground">
+                  {stats?.totalUsuarios != null ? formatNumber(stats.totalUsuarios) : "—"}
+                </span>
+                <span>Cuentas creadas</span>
+              </div>
             </div>
           </div>
           <Card className="p-6">
@@ -170,9 +189,19 @@ export default function Home() {
               </div>
               <Card className="p-4">
                 <p className="text-xs text-muted-foreground mb-2">Gastos vs Ingresos del mes</p>
-                <div className="flex gap-4 items-end mb-2">
-                  <div className="text-lg font-bold text-green-600 dark:text-green-500">{formatNumber(demoIngresos.reduce((a, b) => a + b.valor, 0))} €</div>
-                  <div className="text-lg font-bold text-red-500 dark:text-red-400">{formatNumber(demoGastos.reduce((a, b) => a + b.valor, 0))} €</div>
+                <div className="flex gap-4 items-end mb-2 flex-wrap">
+                  <div>
+                    <span className="text-xs text-muted-foreground">Ingresos </span>
+                    <span className="text-lg font-bold text-green-600 dark:text-green-500">{formatNumber(demoIngresos.reduce((a, b) => a + b.valor, 0))} €</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Gastos </span>
+                    <span className="text-lg font-bold text-red-500 dark:text-red-400">{formatNumber(demoGastos.reduce((a, b) => a + b.valor, 0))} €</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Inversiones </span>
+                    <span className="text-lg font-bold text-blue-600 dark:text-blue-500">{formatNumber(demoInversiones.reduce((a, b) => a + b.valor, 0))} €</span>
+                  </div>
                 </div>
                 <div className="mt-3 h-48">
                   <ParentSize>
@@ -183,7 +212,8 @@ export default function Home() {
                       const labels = demoIngresos.map((d) => d.dia);
                       const ingresosVals = demoIngresos.map((d) => d.valor);
                       const gastosVals = demoGastos.map((d) => d.valor);
-                      const maxY = Math.max(...ingresosVals, ...gastosVals) * 1.15;
+                      const inversionesVals = demoInversiones.map((d) => d.valor);
+                      const maxY = Math.max(...ingresosVals, ...gastosVals, ...inversionesVals) * 1.15;
 
                       const xScale = scalePoint({
                         domain: labels,
@@ -206,6 +236,13 @@ export default function Home() {
 
                       const gastosLine = LinePath({
                         data: demoGastos,
+                        x: (d) => xScale(d.dia) || 0,
+                        y: (d) => yScale(d.valor),
+                        curve: curveMonotoneX,
+                      });
+
+                      const inversionesLine = LinePath({
+                        data: demoInversiones,
                         x: (d) => xScale(d.dia) || 0,
                         y: (d) => yScale(d.valor),
                         curve: curveMonotoneX,
@@ -262,6 +299,30 @@ export default function Home() {
                                 transition={{ duration: 0.3, ease: "easeOut", delay: 0.3 + i * 0.1 }}
                               />
                             ))}
+                            {/* Línea inversiones */}
+                            <motion.path
+                              d={inversionesLine?.props.d || ""}
+                              stroke="#3b82f6"
+                              strokeWidth={2.5}
+                              fill="none"
+                              strokeDasharray="4 2"
+                              initial={{ pathLength: 0 }}
+                              animate={{ pathLength: 1 }}
+                              transition={{ duration: 0.9, ease: "easeInOut", delay: 0.4 }}
+                            />
+                            {/* Puntos inversiones */}
+                            {demoInversiones.map((d, i) => (
+                              <motion.circle
+                                key={`inversion-${i}`}
+                                cx={xScale(d.dia)}
+                                cy={yScale(d.valor)}
+                                r={d.valor > 0 ? 4 : 0}
+                                fill="#3b82f6"
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{ duration: 0.3, ease: "easeOut", delay: 0.4 + i * 0.1 }}
+                              />
+                            ))}
                             {/* Etiquetas del eje X */}
                             {labels.map((label, i) => (
                               <text
@@ -282,12 +343,15 @@ export default function Home() {
                     }}
                   </ParentSize>
                 </div>
-                <div className="flex gap-4 mt-2 justify-center">
+                <div className="flex gap-4 mt-2 justify-center flex-wrap">
                   <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-500">
                     <span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> Ingresos
                   </div>
                   <div className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400">
                     <span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> Gastos
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-500">
+                    <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" /> Inversiones
                   </div>
                 </div>
               </Card>

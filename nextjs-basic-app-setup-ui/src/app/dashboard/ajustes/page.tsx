@@ -19,7 +19,7 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
-import { Bell, Shield, Database, Download, Upload, User, Mail, Globe, Moon, Sun, Target, DollarSign, Calendar, Wallet, Link2 } from "lucide-react";
+import { Bell, Shield, Database, Download, Upload, Mail, Globe, Moon, Sun, Target, DollarSign, Calendar, Wallet, Link2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { loadFromStorage, saveToStorage } from "@/lib/storage";
 import { isDemoUser } from "@/lib/auth";
@@ -99,19 +99,6 @@ export default function AjustesPage() {
     alert("Contraseña actualizada");
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.id]: e.target.value,
-    }));
-  };
-
-  const handleSave = () => {
-    // Aquí iría la lógica para guardar
-    console.log("Guardando:", formData);
-    alert("Cambios guardados");
-  };
-
   return (
     <div className="space-y-4">
       <div>
@@ -160,55 +147,8 @@ export default function AjustesPage() {
         </Card>
       </div>
 
-      {/* Perfil y Preferencias agrupados */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Perfil */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-primary" />
-              <CardTitle className="text-lg">Perfil</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Input 
-              id="nombre" 
-              label="Nombre" 
-              placeholder="Tu nombre" 
-              value={formData.nombre}
-              onChange={handleInputChange}
-            />
-            <Input 
-              id="apellidos" 
-              label="Apellidos" 
-              placeholder="Tus apellidos" 
-              value={formData.apellidos}
-              onChange={handleInputChange}
-            />
-            <Input 
-              id="email" 
-              label="Email" 
-              type="email" 
-              placeholder="tu@email.com" 
-              value={formData.email}
-              onChange={handleInputChange}
-            />
-            <Input 
-              id="telefono" 
-              label="Teléfono" 
-              type="tel" 
-              placeholder="+34 600 000 000" 
-              value={formData.telefono}
-              onChange={handleInputChange}
-            />
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={() => setFormData({ nombre: "", apellidos: "", email: "", telefono: "" })}>Cancelar</Button>
-              <Button size="sm" onClick={handleSave}>Guardar</Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Preferencias */}
+      {/* Preferencias */}
+      <div className="grid grid-cols-1 gap-4">
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">

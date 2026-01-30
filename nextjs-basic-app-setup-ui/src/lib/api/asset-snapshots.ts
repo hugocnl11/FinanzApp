@@ -19,6 +19,12 @@ export function fetchAssetSnapshotsLatest() {
   return apiFetch<ApiResponse<AssetSnapshotLatest[]>>("/asset-snapshots");
 }
 
+export function fetchAssetSnapshotsForDate(date: string) {
+  return apiFetch<ApiResponse<AssetSnapshotLatest[]>>(
+    `/asset-snapshots?date=${encodeURIComponent(date)}`
+  );
+}
+
 export function fetchAssetSnapshotsByMonth(months = 12) {
   return apiFetch<ApiResponse<AssetSnapshotByMonth[]>>(
     `/asset-snapshots?months=${months}`

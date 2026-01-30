@@ -13,11 +13,11 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { Avatar } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarLogo } from "@/components/brand/SidebarLogo";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, List, BarChart2, Settings } from "lucide-react";
+import { Home, List, BarChart2, Settings, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getSession, isDemoUser } from "@/lib/auth";
 
@@ -26,12 +26,14 @@ const allItems = [
   { title: "Movimientos", url: "/dashboard/movimientos", icon: List },
   { title: "Gráficas", url: "/dashboard/graficas", icon: BarChart2 },
   { title: "Ajustes", url: "/dashboard/ajustes", icon: Settings },
+  { title: "Perfil", url: "/dashboard/perfil", icon: User },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
   const [userName, setUserName] = useState("Usuario");
   const [userEmail, setUserEmail] = useState("usuario@finanzapp.com");
+  const [userImage, setUserImage] = useState<string | undefined>(undefined);
   const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
@@ -40,10 +42,12 @@ export function AppSidebar() {
       if (session) {
         setUserName(session.user.name);
         setUserEmail(session.user.email);
+        setUserImage(session.user.image);
         setIsDemo(isDemoUser());
       } else {
         setUserName("Usuario");
         setUserEmail("usuario@finanzapp.com");
+        setUserImage(undefined);
         setIsDemo(false);
       }
     };
@@ -51,6 +55,10 @@ export function AppSidebar() {
     window.addEventListener("finanzapp:auth-changed", load);
     return () => window.removeEventListener("finanzapp:auth-changed", load);
   }, []);
+
+  const initials = userName ? (userName.trim().split(/\s+/).length >= 2
+    ? (userName.trim().split(/\s+/)[0][0] + userName.trim().split(/\s+/).pop()![0]).toUpperCase()
+    : userName.slice(0, 2).toUpperCase()) : "?";
 
   // Filtrar items: si es demo, ocultar Ajustes
   const items = isDemo ? allItems.filter(item => item.title !== "Ajustes") : allItems;
@@ -91,17 +99,18 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-border/40 bg-gradient-to-br from-sidebar/80 via-sidebar/50 to-sidebar/80 backdrop-blur-md p-4">
-        <div className="flex items-center gap-3 group-data-[collapsible=icon]:hidden">
-          <Avatar className="h-8 w-8">
-            <span className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs font-bold flex items-center justify-center h-full w-full rounded-full">
-              FZ
-            </span>
+        <Link href="/dashboard/perfil" className="flex items-center gap-3 group-data-[collapsible=icon]:hidden rounded-lg p-1 -m-1 hover:bg-sidebar-accent/50 transition-colors">
+          <Avatar className="h-8 w-8 shrink-0">
+            <AvatarImage src={userImage} alt={userName} />
+            <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs font-bold">
+              {initials}
+            </AvatarFallback>
           </Avatar>
-          <div className="flex flex-col">
-            <span className="text-xs font-medium text-sidebar-foreground">{userName}</span>
-            <span className="text-xs text-sidebar-foreground/60">{userEmail}</span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-xs font-medium text-sidebar-foreground truncate">{userName}</span>
+            <span className="text-xs text-sidebar-foreground/60 truncate">{userEmail}</span>
           </div>
-        </div>
+        </Link>
         <div className="mt-3 pt-3 border-t border-border/40 group-data-[collapsible=icon]:hidden">
           <div className="text-xs text-sidebar-foreground/50">© 2024 FinanzApp</div>
         </div>

@@ -4,6 +4,7 @@ export type AuthSession = {
     id: string;
     name: string;
     email: string;
+    image?: string;
   };
 };
 
@@ -29,6 +30,15 @@ export function getSession(): AuthSession | null {
 export function clearSession() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(AUTH_KEY);
+  window.dispatchEvent(new Event("finanzapp:auth-changed"));
+}
+
+export function updateSessionUser(user: { id: string; name: string; email: string; image?: string }) {
+  if (typeof window === "undefined") return;
+  const session = getSession();
+  if (!session) return;
+  session.user = { ...session.user, ...user };
+  window.localStorage.setItem(AUTH_KEY, JSON.stringify(session));
   window.dispatchEvent(new Event("finanzapp:auth-changed"));
 }
 

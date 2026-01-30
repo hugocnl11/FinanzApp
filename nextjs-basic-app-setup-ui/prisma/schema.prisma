@@ -44,6 +44,7 @@ model User {
   email        String         @unique
   passwordHash String
   name         String
+  image        String?        // URL o data URL de foto de perfil
   emailVerified Boolean       @default(false)
   emailVerificationToken String?
   emailVerificationExpires DateTime?

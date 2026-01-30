@@ -56,7 +56,43 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: series });
   }
 
-  // GET sin params → último valor por categoría (para editor de activos)
+  // GET ?date=YYYY-MM-DD → valor por categoría para ese día (para editor de activos: valor actual del día)
+  const dateParam = searchParams.get("date");
+  if (dateParam) {
+    const dateStr = dateParam.trim();
+    const startOfDay = new Date(dateStr + "T00:00:00.000Z");
+    const endOfDay = new Date(dateStr + "T23:59:59.999Z");
+    if (Number.isNaN(startOfDay.getTime())) {
+      return jsonError("Parámetro date inválido (usar YYYY-MM-DD)");
+    }
+    const snapshotsForDay = await prisma.assetSnapshot.findMany({
+      where: {
+        userId,
+        date: { gte: startOfDay, lte: endOfDay },
+      },
+      orderBy: { date: "desc" },
+      include: { category: true },
+    });
+    const onePerCategory = new Map<
+      string,
+      { categoryId: string; categoryName: string; value: number; date: string }
+    >();
+    for (const s of snapshotsForDay) {
+      if (!onePerCategory.has(s.categoryId)) {
+        onePerCategory.set(s.categoryId, {
+          categoryId: s.categoryId,
+          categoryName: s.category.name,
+          value: Number(s.value),
+          date: s.date.toISOString().slice(0, 10),
+        });
+      }
+    }
+    return NextResponse.json({
+      data: Array.from(onePerCategory.values()),
+    });
+  }
+
+  // GET sin params → último valor por categoría (compatibilidad con evolución patrimonial, etc.)
   const snapshots = await prisma.assetSnapshot.findMany({
     where: { userId },
     orderBy: { date: "desc" },

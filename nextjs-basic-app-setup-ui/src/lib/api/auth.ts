@@ -44,3 +44,17 @@ export function resendVerification(email: string) {
     json: { email },
   });
 }
+
+export async function logout(): Promise<void> {
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
+  await fetch(`${API_BASE_URL}/auth/logout`, { method: "POST", credentials: "include" });
+}
+
+export type ProfileUpdatePayload = { name?: string; email?: string; image?: string | null };
+
+export async function updateProfile(payload: ProfileUpdatePayload) {
+  return apiFetch<ApiResponse<{ user: { id: string; name: string; email: string; image?: string } }>>("/user", {
+    method: "PATCH",
+    json: payload,
+  });
+}

@@ -1,20 +1,32 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
-import { patrimonioAcumulado, filterMonthsByPeriod, gastosPorCategoriaDesdeMovimientos } from "@/lib/dashboard/selectors";
+import { patrimonioAcumulado, filterMonthsByPeriod } from "@/lib/dashboard/selectors";
 import { formatNumber } from "@/lib/format";
 import { ParentSize } from "@visx/responsive";
-import { BarRounded, LinePath } from "@visx/shape";
+import { LinePath } from "@visx/shape";
 import { scaleLinear, scalePoint, scaleBand } from "@visx/scale";
 import { curveMonotoneX } from "d3-shape";
 import { motion } from "framer-motion";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { fetchAssetSnapshotsForDate } from "@/lib/api/asset-snapshots";
+import type { AssetSnapshotLatest } from "@/lib/api/asset-snapshots";
+
+const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 export default function GraficasPage() {
   const { data } = useDashboardData();
-  const { ingresosMensuales, gastosMensuales, gastosPorCategoria, ingresosPorCategoria } = data;
+  const { ingresosMensuales, gastosMensuales, gastosPorCategoria, ingresosPorCategoria, movimientos } = data;
+  const [snapshotsToday, setSnapshotsToday] = useState<AssetSnapshotLatest[]>([]);
+
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    fetchAssetSnapshotsForDate(today)
+      .then((res) => setSnapshotsToday(res.data ?? []))
+      .catch(() => setSnapshotsToday([]));
+  }, []);
 
   // 1. Flujo de Caja Mensual (últimos 12 meses)
   const flujoCaja = useMemo(() => {
@@ -67,6 +79,66 @@ export default function GraficasPage() {
     () => gastosPorCategoria.reduce((acc, item) => acc + item.value, 0),
     [gastosPorCategoria]
   );
+
+  // Rentabilidad por activo: invertido (suma movimientos Inversión/Ahorro) vs valor actual (snapshot hoy)
+  const rentabilidadPorActivo = useMemo(() => {
+    const invertidoByCategory = new Map<string, number>();
+    for (const m of movimientos) {
+      if (m.tipo !== "Inversión" && m.tipo !== "Ahorro") continue;
+      const current = invertidoByCategory.get(m.categoria) ?? 0;
+      invertidoByCategory.set(m.categoria, current + Math.abs(m.cantidad));
+    }
+    const valorActualByCategory = new Map<string, number>();
+    for (const s of snapshotsToday) {
+      valorActualByCategory.set(s.categoryName, s.value);
+    }
+    const categories = new Set([...invertidoByCategory.keys(), ...valorActualByCategory.keys()]);
+    return Array.from(categories)
+      .map((name) => {
+        const invertido = invertidoByCategory.get(name) ?? 0;
+        const valorActual = valorActualByCategory.get(name) ?? 0;
+        const rentabilidad =
+          invertido > 0 ? ((valorActual - invertido) / invertido) * 100 : (valorActual > 0 ? 100 : 0);
+        return { name, rentabilidad, invertido, valorActual };
+      })
+      .filter((r) => r.invertido > 0 || r.valorActual > 0)
+      .sort((a, b) => Math.abs(b.rentabilidad) - Math.abs(a.rentabilidad));
+  }, [movimientos, snapshotsToday]);
+
+  // Actividad por día del mes actual: gastado, ingresado, invertido por fecha
+  const actividadPorDia = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const byDay = new Map<
+      number,
+      { gastado: number; ingresado: number; invertido: number }
+    >();
+    for (let d = 1; d <= daysInMonth; d++) {
+      byDay.set(d, { gastado: 0, ingresado: 0, invertido: 0 });
+    }
+    for (const m of movimientos) {
+      const date = new Date(m.fecha);
+      if (date.getFullYear() !== year || date.getMonth() !== month) continue;
+      const day = date.getDate();
+      const entry = byDay.get(day)!;
+      if (m.tipo === "Gasto") entry.gastado += Math.abs(m.cantidad);
+      else if (m.tipo === "Ingreso") entry.ingresado += m.cantidad;
+      else if (m.tipo === "Inversión" || m.tipo === "Ahorro") entry.invertido += Math.abs(m.cantidad);
+    }
+    return { byDay, firstDay, daysInMonth };
+  }, [movimientos]);
+
+  const tooltipContentStyle = {
+    backgroundColor: "hsl(var(--card))",
+    color: "hsl(var(--card-foreground))",
+    border: "1px solid hsl(var(--border))",
+    borderRadius: "8px",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
+  };
 
   return (
     <div className="space-y-6 px-4 md:px-8">
@@ -571,6 +643,139 @@ export default function GraficasPage() {
           </div>
         </Card>
 
+        {/* Rentabilidad por activo */}
+        <Card className="p-6">
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground">Rentabilidad por activo</h3>
+              <p className="text-xs text-muted-foreground mt-1">Positiva o negativa respecto al valor ingresado</p>
+            </div>
+            {rentabilidadPorActivo.length === 0 ? (
+              <div className="h-[280px] flex items-center justify-center text-sm text-muted-foreground">
+                Sin datos suficientes. Añade activos y valor actual en Editar activos.
+              </div>
+            ) : (
+              <div className="h-[280px]">
+                <ParentSize>
+                  {({ width, height }) => {
+                    const margin = { top: 10, right: 60, bottom: 20, left: 100 };
+                    const innerWidth = width - margin.left - margin.right;
+                    const innerHeight = height - margin.top - margin.bottom;
+                    const maxAbs = Math.max(...rentabilidadPorActivo.map((d) => Math.abs(d.rentabilidad)), 1);
+                    const yScale = scaleBand({
+                      domain: rentabilidadPorActivo.map((d) => d.name),
+                      range: [0, innerHeight],
+                      padding: 0.25,
+                    });
+                    const xScale = scaleLinear({
+                      domain: [-maxAbs, maxAbs],
+                      range: [0, innerWidth],
+                      nice: true,
+                    });
+                    const zeroX = xScale(0);
+                    return (
+                      <svg width={width} height={height}>
+                        <g transform={`translate(${margin.left},${margin.top})`}>
+                          <line
+                            x1={zeroX}
+                            x2={zeroX}
+                            y1={0}
+                            y2={innerHeight}
+                            stroke="currentColor"
+                            strokeDasharray="4 2"
+                            className="text-muted-foreground/40"
+                          />
+                          {rentabilidadPorActivo.map((d, i) => {
+                            const barWidth = Math.abs(xScale(d.rentabilidad) - zeroX);
+                            const barX = d.rentabilidad >= 0 ? zeroX : xScale(d.rentabilidad);
+                            const labelY = (yScale(d.name) ?? 0) + yScale.bandwidth() / 2;
+                            return (
+                              <g key={d.name}>
+                                <motion.rect
+                                  x={barX}
+                                  y={yScale(d.name)}
+                                  width={barWidth}
+                                  height={yScale.bandwidth()}
+                                  fill={d.rentabilidad >= 0 ? "#22c55e" : "#ef4444"}
+                                  rx={4}
+                                  initial={{ scaleX: 0 }}
+                                  animate={{ scaleX: 1 }}
+                                  transition={{ duration: 0.5, delay: i * 0.05 }}
+                                  style={{ transformOrigin: d.rentabilidad >= 0 ? "left" : "right" }}
+                                />
+                                <text
+                                  x={zeroX + (d.rentabilidad >= 0 ? 1 : -1) * (barWidth + 6)}
+                                  y={labelY}
+                                  textAnchor={d.rentabilidad >= 0 ? "start" : "end"}
+                                  fontSize={10}
+                                  dominantBaseline="middle"
+                                  className="text-foreground"
+                                >
+                                  {d.rentabilidad >= 0 ? "+" : ""}
+                                  {d.rentabilidad.toFixed(1)}%
+                                </text>
+                                <foreignObject x={-96} y={(yScale(d.name) ?? 0) + 4} width={88} height={20} style={{ pointerEvents: "none" }}>
+                                  <div className="truncate text-[11px] font-medium text-foreground">{d.name}</div>
+                                </foreignObject>
+                              </g>
+                            );
+                          })}
+                        </g>
+                      </svg>
+                    );
+                  }}
+                </ParentSize>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Actividad por día (calendario del mes) */}
+        <Card className="p-6">
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground">Actividad por día</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Gastado, ingresos e inversiones en el mes actual
+              </p>
+            </div>
+            <div className="grid grid-cols-7 gap-1 text-center">
+              {WEEKDAYS.map((wd) => (
+                <div key={wd} className="text-[10px] font-medium text-muted-foreground py-1">
+                  {wd}
+                </div>
+              ))}
+              {Array.from({ length: (actividadPorDia.firstDay.getDay() + 6) % 7 }, (_, i) => (
+                <div key={`empty-${i}`} className="aspect-square" />
+              ))}
+              {Array.from({ length: actividadPorDia.daysInMonth }, (_, i) => {
+                const day = i + 1;
+                const entry = actividadPorDia.byDay.get(day)!;
+                const hasActivity = entry.gastado > 0 || entry.ingresado > 0 || entry.invertido > 0;
+                return (
+                  <div
+                    key={day}
+                    className="aspect-square rounded-md border border-border/60 flex flex-col items-center justify-center text-[11px] bg-muted/30 hover:bg-muted/50 transition-colors relative group"
+                    title={`Día ${day}: Gastado € ${formatNumber(entry.gastado)}, Ingresos € ${formatNumber(entry.ingresado)}, Inversiones € ${formatNumber(entry.invertido)}`}
+                  >
+                    <span className="font-medium text-foreground">{day}</span>
+                    {hasActivity && (
+                      <div className="flex gap-0.5 mt-0.5">
+                        {entry.gastado > 0 && <span className="w-1.5 h-1.5 rounded-full bg-red-500" title="Gastado" />}
+                        {entry.ingresado > 0 && <span className="w-1.5 h-1.5 rounded-full bg-green-500" title="Ingresos" />}
+                        {entry.invertido > 0 && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" title="Inversiones" />}
+                      </div>
+                    )}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded bg-popover border border-border shadow-md text-[10px] opacity-0 group-hover:opacity-100 pointer-events-none z-10 whitespace-nowrap transition-opacity">
+                      Gastado: € {formatNumber(entry.gastado)} | Ingresos: € {formatNumber(entry.ingresado)} | Inversiones: € {formatNumber(entry.invertido)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </Card>
+
         {/* 5. Ingresos por Categoría */}
         <Card className="p-6">
           <div className="space-y-3">
@@ -610,13 +815,8 @@ export default function GraficasPage() {
                   </Pie>
                   <Tooltip
                     formatter={(value: number) => `€ ${formatNumber(value)}`}
-                        cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }}
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                          boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
-                    }}
+                    cursor={{ fill: "transparent" }}
+                    contentStyle={tooltipContentStyle}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -682,13 +882,8 @@ export default function GraficasPage() {
                   </Pie>
                   <Tooltip
                     formatter={(value: number) => `€ ${formatNumber(value)}`}
-                        cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }}
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                          boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
-                    }}
+                    cursor={{ fill: "transparent" }}
+                    contentStyle={tooltipContentStyle}
                   />
                 </PieChart>
               </ResponsiveContainer>

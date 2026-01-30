@@ -152,7 +152,7 @@ export async function POST(request: Request) {
   const res = NextResponse.json({
     data: {
       token: Buffer.from(user.id).toString("base64"),
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email, image: user.image ?? undefined },
     },
   });
   setSessionCookie(res, user.id);

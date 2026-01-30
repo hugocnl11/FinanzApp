@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { fetchMovements, createMovement, updateMovement } from "@/lib/api/movements";
 import { fetchCategories, createCategory, updateCategory } from "@/lib/api/categories";
-import { fetchAssetSnapshotsLatest, createAssetSnapshot } from "@/lib/api/asset-snapshots";
+import { fetchAssetSnapshotsForDate, createAssetSnapshot } from "@/lib/api/asset-snapshots";
 import { CATEGORY_ICON_MAP, type CategoryIconKey } from "@/lib/category-icons";
 import type { Movement, Category } from "@/lib/dashboard/types";
 import { getUserId } from "@/lib/auth";
@@ -184,10 +184,11 @@ export function AssetsDistributionManager() {
           setRemovedSavings([]);
           return;
         }
+        const today = new Date().toISOString().slice(0, 10);
         const [movementsRes, categoriesRes, snapshotsRes] = await Promise.all([
           fetchMovements(),
           fetchCategories(),
-          fetchAssetSnapshotsLatest().catch(() => ({ data: [] as { categoryId: string; value: number }[] })),
+          fetchAssetSnapshotsForDate(today).catch(() => ({ data: [] as { categoryId: string; value: number }[] })),
         ]);
         const categories = categoriesRes.data as Category[];
         const snapshotByCategory = new Map(

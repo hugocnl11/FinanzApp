@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { CategoryManager } from "@/components/dashboard/CategoryManager";
 import { BudgetManager } from "@/components/dashboard/BudgetManager";
 import { GoalsManager } from "@/components/dashboard/GoalsManager";
+import { NotionIntegrationManager } from "@/components/dashboard/NotionIntegrationManager";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +19,7 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
-import { Bell, Shield, Database, Download, Upload, User, Mail, Globe, Moon, Sun, Target, DollarSign, Calendar, Wallet } from "lucide-react";
+import { Bell, Shield, Database, Download, Upload, User, Mail, Globe, Moon, Sun, Target, DollarSign, Calendar, Wallet, Link2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { loadFromStorage, saveToStorage } from "@/lib/storage";
 import { isDemoUser } from "@/lib/auth";
@@ -289,6 +290,19 @@ export default function AjustesPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Integraciones */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Link2 className="h-4 w-4 text-blue-500" />
+            <CardTitle className="text-lg">Integraciones</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <NotionIntegrationManager />
+        </CardContent>
+      </Card>
 
       {/* Seguridad y Datos agrupados */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

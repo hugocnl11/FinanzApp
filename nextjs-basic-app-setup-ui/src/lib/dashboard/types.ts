@@ -76,6 +76,7 @@ export type Movement = {
   categoria: string;
   tipo: MovementType;
   cantidad: number; // ingreso +, gasto -, inversión puede ser + o -
+  metodoPago?: string; // Revolut, Cajamar, Trade Republic, Efectivo (desde Notion)
 };
 
 export type DashboardData = {

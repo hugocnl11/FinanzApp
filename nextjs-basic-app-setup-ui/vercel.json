@@ -1,4 +1,10 @@
 {
   "installCommand": "npm install --legacy-peer-deps",
-  "buildCommand": "rm -rf node_modules/.prisma && prisma generate && npm run build"
+  "buildCommand": "rm -rf node_modules/.prisma && prisma generate && npm run build",
+  "crons": [
+    {
+      "path": "/api/cron/notion-sync",
+      "schedule": "* * * * *"
+    }
+  ]
 }

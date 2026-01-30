@@ -109,6 +109,7 @@ export function MovementsTable({ movimientos = [], total, onEdit, onDelete, onAd
                 <th className="text-left py-3 px-2 font-semibold text-muted-foreground">Tipo</th>
                 <th className="text-left py-3 px-2 font-semibold text-muted-foreground">Concepto</th>
                 <th className="text-left py-3 px-2 font-semibold text-muted-foreground">Categoría</th>
+                <th className="text-left py-3 px-2 font-semibold text-muted-foreground">Método de pago</th>
                 <th className="text-right py-3 px-2 font-semibold text-muted-foreground">Cantidad</th>
                 <th className="text-right py-3 px-2 font-semibold text-muted-foreground">Acciones</th>
               </tr>
@@ -146,6 +147,9 @@ export function MovementsTable({ movimientos = [], total, onEdit, onDelete, onAd
                         </div>
                       );
                     })()}
+                  </td>
+                  <td className="py-3 px-2 text-muted-foreground text-xs">
+                    {m.metodoPago ?? "—"}
                   </td>
                   <td className={`py-3 px-2 text-right font-semibold ${getTipoColor(m.tipo)}`}>
                     {m.cantidad > 0 ? "+" : ""}

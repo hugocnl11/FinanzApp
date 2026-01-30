@@ -14,6 +14,8 @@ type MovementPayload = {
   tipo?: string;
   amount?: number;
   cantidad?: number;
+  paymentMethod?: string;
+  metodoPago?: string;
 };
 
 const toMovementType = (value: string): MovementType | null => {
@@ -67,6 +69,8 @@ export async function PUT(request: Request, context: { params: { id: string } })
     if (!category) return jsonError("Categoría no encontrada", 404);
     data.categoryId = category.id;
   }
+  const paymentMethod = payload.paymentMethod ?? payload.metodoPago;
+  if (paymentMethod !== undefined) data.paymentMethod = paymentMethod?.trim() || null;
 
   const updated = await prisma.movement.updateMany({
     where: { id: context.params.id, userId },
@@ -86,6 +90,7 @@ export async function PUT(request: Request, context: { params: { id: string } })
       categoria: movement.category.name,
       tipo: fromMovementType(movement.type),
       cantidad: Number(movement.amount),
+      metodoPago: movement.paymentMethod ?? undefined,
     },
   });
 }

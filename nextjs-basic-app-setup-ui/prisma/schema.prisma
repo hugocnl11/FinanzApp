@@ -54,6 +54,7 @@ model User {
   budgets      Budget[]
   goals        Goal[]
   notifications Notification[]
+  notionIntegration NotionIntegration?
 }
 
 model Category {
@@ -76,15 +77,16 @@ model Category {
 }
 
 model Movement {
-  id         String       @id @default(cuid())
-  userId     String
-  categoryId String
-  date       DateTime
-  concept    String
-  type       MovementType
-  amount     Decimal      @db.Decimal(14, 2)
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  id             String       @id @default(cuid())
+  userId         String
+  categoryId     String
+  date           DateTime
+  concept        String
+  type           MovementType
+  amount         Decimal      @db.Decimal(14, 2)
+  paymentMethod  String?      // Revolut, Cajamar, Trade Republic, Efectivo (desde Notion)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
@@ -137,4 +139,20 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, read])
+}
+
+model NotionIntegration {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  integrationToken String   // Encriptado
+  databaseId      String
+  lastSyncAt      DateTime?
+  syncInterval    Int       @default(60) // minutos
+  enabled         Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, enabled])
 }

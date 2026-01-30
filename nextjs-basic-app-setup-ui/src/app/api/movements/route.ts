@@ -14,6 +14,8 @@ type MovementPayload = {
   tipo?: string;
   amount?: number;
   cantidad?: number;
+  paymentMethod?: string;
+  metodoPago?: string;
 };
 
 const toMovementType = (value: string): MovementType | null => {
@@ -54,6 +56,7 @@ export async function GET(request: Request) {
       categoria: movement.category.name,
       tipo: fromMovementType(movement.type),
       cantidad: Number(movement.amount),
+      metodoPago: movement.paymentMethod ?? undefined,
     })),
   });
 }
@@ -98,6 +101,7 @@ export async function POST(request: Request) {
 
   const normalizedAmount =
     mappedType === "EXPENSE" ? -Math.abs(amount) : Math.abs(amount);
+  const paymentMethod = payload.paymentMethod ?? payload.metodoPago;
 
   const movement = await prisma.movement.create({
     data: {
@@ -107,6 +111,7 @@ export async function POST(request: Request) {
       concept,
       type: mappedType,
       amount: normalizedAmount,
+      paymentMethod: paymentMethod?.trim() || null,
     },
     include: { category: true },
   });
@@ -120,6 +125,7 @@ export async function POST(request: Request) {
         categoria: movement.category.name,
         tipo: fromMovementType(movement.type),
         cantidad: Number(movement.amount),
+        metodoPago: movement.paymentMethod ?? undefined,
       },
     },
     { status: 201 }

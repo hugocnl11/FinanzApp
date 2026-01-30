@@ -1,6 +1,44 @@
 # Guía de Despliegue en Vercel
 
-## Base de Datos
+## Desarrollo local (PostgreSQL con Docker)
+
+La base de datos local se levanta con Docker desde la **raíz del repo** (`FinanzApp/`), no desde `nextjs-basic-app-setup-ui/`.
+
+**Credenciales (en `docker-compose.yml`):**
+- Usuario: `finanzapp`
+- Contraseña: `finanzapp_dev`
+- Base de datos: `finanzapp`
+- Puerto en el host: `5434` (usa 5434 para no chocar con otros Postgres en 5433)
+
+**1. Levantar la base de datos** (desde la raíz del repo):
+```bash
+cd /ruta/a/FinanzApp
+docker compose up -d
+```
+
+**2. Configurar `.env`** en `nextjs-basic-app-setup-ui/`:
+Copia `.env.example` a `.env` o asegúrate de tener:
+```
+DATABASE_URL="postgresql://finanzapp:finanzapp_dev@localhost:5434/finanzapp"
+```
+
+**3. Aplicar migraciones** (desde la carpeta del proyecto Next.js):
+```bash
+cd nextjs-basic-app-setup-ui
+npx prisma migrate deploy
+```
+
+**Si falla la autenticación (P1000):** el volumen de Docker puede tener credenciales antiguas. Reinicia la base de datos y el volumen:
+```bash
+cd /ruta/a/FinanzApp
+docker compose down -v
+docker compose up -d
+```
+Espera unos segundos a que Postgres arranque y luego ejecuta de nuevo `npx prisma migrate deploy` desde `nextjs-basic-app-setup-ui`.
+
+---
+
+## Base de Datos (producción)
 
 Vercel **NO** aloja bases de datos. Necesitas una base de datos PostgreSQL externa.
 

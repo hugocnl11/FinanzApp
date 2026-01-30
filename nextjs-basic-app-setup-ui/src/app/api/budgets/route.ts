@@ -12,22 +12,36 @@ type BudgetPayload = {
 
 export async function GET(request: Request) {
   const userId = getUserId(request);
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/budgets/route.ts:GET',message:'GET entry',data:{hasUserId:!!userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2,H5'})}).catch(()=>{});
+  // #endregion
   if (!userId) return jsonError("userId es obligatorio");
 
-  const budgets = await prisma.budget.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    include: { category: true },
-  });
-  return NextResponse.json({
-    data: budgets.map((budget) => ({
-      id: budget.id,
-      category: budget.category.name,
-      limit: Number(budget.limit),
-      spent: Number(budget.spent),
-      period: budget.period,
-    })),
-  });
+  try {
+    const budgets = await prisma.budget.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      include: { category: true },
+    });
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/budgets/route.ts:GET',message:'GET success',data:{count:budgets.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
+    // #endregion
+    return NextResponse.json({
+      data: budgets.map((budget) => ({
+        id: budget.id,
+        category: budget.category.name,
+        limit: Number(budget.limit),
+        spent: Number(budget.spent),
+        period: budget.period,
+      })),
+    });
+  } catch (e) {
+    // #region agent log
+    const err = e instanceof Error ? e : new Error(String(e));
+    fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/budgets/route.ts:GET',message:'GET catch',data:{errorMessage:err.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
+    // #endregion
+    throw e;
+  }
 }
 
 export async function POST(request: Request) {

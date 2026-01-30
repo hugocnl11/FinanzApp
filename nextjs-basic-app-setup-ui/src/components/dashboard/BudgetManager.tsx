@@ -12,7 +12,7 @@ import {
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Pencil, ChevronDown } from "lucide-react";
+import { Pencil, ChevronDown, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getUserId } from "@/lib/auth";
@@ -51,6 +51,7 @@ type BudgetItem = {
   category: string;
   limit: number;
   spent: number;
+  period?: string;
 };
 
 const initialBudgets: BudgetItem[] = [];
@@ -58,21 +59,6 @@ const initialBudgets: BudgetItem[] = [];
 const categories: string[] = [];
 
 type BudgetType = "Fijo" | "Variable";
-
-// Categorías fijas y variables
-const FIXED_CATEGORIES = ["Vivienda", "Alquiler", "Garaje", "Gimnasio", "Inversiones", "Seguros", "Servicios", "Suscripciones"];
-const VARIABLE_CATEGORIES = [
-  "Alimentación",
-  "Comida",
-  "Ocio",
-  "Ropa",
-  "Transporte",
-  "Salud",
-  "Educación",
-  "Viajes",
-  "Regalos",
-  "Ahorro",
-];
 
 type BudgetManagerProps = {
   triggerLabel?: string;
@@ -96,25 +82,26 @@ export function BudgetManager({
     limit: "",
   });
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
+  const [editingLimit, setEditingLimit] = useState("");
+  const [editingPeriod, setEditingPeriod] = useState<"fixed" | "variable" | null>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const hasLabel = Boolean(triggerLabel);
   const expenseCategories = categoriesData.filter((category) => category.type === "expense");
-  
-  const selectedCategory = expenseCategories.find((cat) => cat.name === formData.category);
 
   // Mapa de categorías para búsqueda rápida
   const categoryMap = useMemo(() => {
     return new Map(categoriesData.map((cat) => [cat.name, cat]));
   }, [categoriesData]);
 
-  // Filtrar presupuestos según tipo (basado en period)
+  // Filtrar presupuestos según tipo (period): solo los que coinciden con la pestaña (Fijo = fixed, Variable = variable)
+  const periodKey = budgetType === "Fijo" ? "fixed" : "variable";
   const filteredBudgets = useMemo(() => {
-    const periodKey = budgetType === "Fijo" ? "fixed" : "variable";
-    return budgets.filter((budget) => {
-      if (!budget.period) return true;
-      return budget.period === periodKey;
-    });
+    return budgets.filter((budget) => budget.period === periodKey);
   }, [budgets, budgetType]);
+
+  // Lista para mostrar: solo presupuestos reales creados por el usuario (sin filas "0 de 0")
+  const displayBudgets = filteredBudgets;
 
   const totalLimit = useMemo(
     () => filteredBudgets.reduce((acc, item) => acc + item.limit, 0),
@@ -128,7 +115,11 @@ export function BudgetManager({
 
   useEffect(() => {
     const load = async () => {
-      if (!getUserId()) {
+      const uid = getUserId();
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BudgetManager.tsx:load',message:'load start',data:{hasUserId:!!uid},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+      // #endregion
+      if (!uid) {
         setBudgets([]);
         setCategoriesData([]);
         return;
@@ -138,9 +129,16 @@ export function BudgetManager({
           fetchBudgets(),
           fetchCategories(),
         ]);
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BudgetManager.tsx:load',message:'load success',data:{budgetsLen:budgetsRes?.data?.length,categoriesLen:categoriesRes?.data?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
+        // #endregion
         setBudgets(budgetsRes.data as BudgetItem[]);
         setCategoriesData(categoriesRes.data as Category[]);
       } catch (error) {
+        // #region agent log
+        const err = error instanceof Error ? error : new Error(String(error));
+        fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BudgetManager.tsx:load',message:'load catch',data:{errorMessage:err.message.slice(0,200)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2,H3'})}).catch(()=>{});
+        // #endregion
         console.error(error);
         setBudgets([]);
         setCategoriesData([]);
@@ -150,9 +148,18 @@ export function BudgetManager({
     void load();
   }, []);
 
+  // Todas las categorías de gasto para el desplegable "Nuevo presupuesto" (Fijo y Variable)
+  const selectedCategory = expenseCategories.find((cat) => cat.name === formData.category);
+
   useEffect(() => {
     if (!formData.category && expenseCategories.length > 0) {
       setFormData((prev) => ({ ...prev, category: expenseCategories[0].name }));
+    }
+    if (formData.category && !expenseCategories.some((c) => c.name === formData.category)) {
+      setFormData((prev) => ({
+        ...prev,
+        category: expenseCategories[0]?.name ?? "",
+      }));
     }
   }, [expenseCategories, formData.category]);
 
@@ -178,7 +185,9 @@ export function BudgetManager({
       return;
     }
     try {
-      const existing = budgets.find((item) => item.category === formData.category);
+      const existing = budgets.find(
+        (item) => item.category === formData.category && item.period === (budgetType === "Fijo" ? "fixed" : "variable")
+      );
       if (existing) {
         const updated = await updateBudget(existing.id, { limit: limitValue });
         setBudgets((prev) =>
@@ -203,9 +212,68 @@ export function BudgetManager({
   };
 
   const handleRemove = async (id: string) => {
+    if (id.startsWith("new-")) {
+      return;
+    }
     await deleteBudget(id);
     setBudgets((prev) => prev.filter((item) => item.id !== id));
+    if (editingBudgetId === id) setEditingBudgetId(null);
     window.dispatchEvent(new Event("finanzapp:data-updated"));
+  };
+
+  const handleStartEdit = (budget: BudgetItem) => {
+    setEditingBudgetId(budget.id);
+    setEditingLimit(String(budget.limit));
+    setEditingPeriod(
+      budget.id.startsWith("new-") ? null : (budget.period === "fixed" ? "fixed" : "variable")
+    );
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBudgetId(null);
+    setEditingLimit("");
+    setEditingPeriod(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingBudgetId) return;
+    const limitValue = Number(editingLimit);
+    if (!Number.isFinite(limitValue) || limitValue <= 0) {
+      setStatusMessage("Introduce un límite válido.");
+      return;
+    }
+    const isNew = editingBudgetId.startsWith("new-");
+    const categoryName = isNew ? editingBudgetId.replace(/^new-/, "") : undefined;
+    try {
+      if (isNew && categoryName) {
+        const created = await createBudget({
+          category: categoryName,
+          limit: limitValue,
+          spent: 0,
+          period: budgetType === "Fijo" ? "fixed" : "variable",
+        });
+        setBudgets((prev) => [...prev, created.data as BudgetItem]);
+        setStatusMessage("Presupuesto creado.");
+      } else {
+        const newPeriod = editingPeriod ?? periodKey;
+        const updated = await updateBudget(editingBudgetId, { limit: limitValue, period: newPeriod });
+        const updatedItem = updated.data as BudgetItem;
+        setBudgets((prev) =>
+          prev.map((item) => (item.id === editingBudgetId ? updatedItem : item))
+        );
+        setStatusMessage("Presupuesto actualizado.");
+        if (newPeriod !== periodKey) {
+          setBudgetType(newPeriod === "fixed" ? "Fijo" : "Variable");
+        }
+      }
+      setEditingBudgetId(null);
+      setEditingLimit("");
+      setEditingPeriod(null);
+      window.dispatchEvent(new Event("finanzapp:data-updated"));
+    } catch (error) {
+      console.error(error);
+      setStatusMessage("No se pudo guardar el presupuesto.");
+    }
   };
 
   return (
@@ -266,16 +334,18 @@ export function BudgetManager({
             </div>
 
             <div className="space-y-3">
-              {filteredBudgets.length > 0 ? (
-                filteredBudgets.map((budget) => {
-                  const percent = Math.min((budget.spent / budget.limit) * 100, 130);
-                  const isOver = budget.spent > budget.limit;
+              {displayBudgets.length > 0 ? (
+                displayBudgets.map((budget) => {
+                  const limitNum = budget.limit || 0;
+                  const percent = limitNum > 0 ? Math.min((budget.spent / limitNum) * 100, 130) : 0;
+                  const isOver = limitNum > 0 && budget.spent > limitNum;
                   const categoryMeta = categoryMap.get(budget.category);
                   const meta = categoryMeta 
                     ? { icon: categoryMeta.icon as CategoryIconKey, color: categoryMeta.color }
                     : FALLBACK_CATEGORY_META[budget.category];
                   const Icon = meta ? CATEGORY_ICON_MAP[meta.icon] : null;
                   const categoryColor = meta?.color || "#64748b";
+                  const isEditing = editingBudgetId === budget.id;
                   return (
                     <div 
                       key={budget.id} 
@@ -288,7 +358,7 @@ export function BudgetManager({
                         backgroundColor: `${categoryColor}08`
                       }}
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           {Icon && (
                             <span
@@ -303,30 +373,102 @@ export function BudgetManager({
                           )}
                           <div className="min-w-0">
                             <p className="text-sm font-semibold truncate">{budget.category}</p>
-                            <p className="text-xs text-muted-foreground">
-                              € {budget.spent} de € {budget.limit}
-                            </p>
+                            {isEditing ? (
+                              <div className="mt-2 flex flex-col gap-3">
+                                {!budget.id.startsWith("new-") && (
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-medium text-muted-foreground">Tipo</label>
+                                    <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
+                                      {(["fixed", "variable"] as const).map((p) => (
+                                        <button
+                                          key={p}
+                                          type="button"
+                                          onClick={() => setEditingPeriod(p)}
+                                          className={cn(
+                                            "px-2 py-1 text-xs font-medium rounded-md transition",
+                                            editingPeriod === p
+                                              ? "bg-background shadow-sm text-foreground"
+                                              : "text-muted-foreground hover:text-foreground"
+                                          )}
+                                        >
+                                          {p === "fixed" ? "Fijo" : "Variable"}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="flex flex-col gap-1">
+                                  <label className="text-xs font-medium text-muted-foreground">Límite (€)</label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step={1}
+                                      value={editingLimit}
+                                      onChange={(e) => setEditingLimit(e.target.value)}
+                                      className="h-9 w-28 rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                      placeholder="0"
+                                    />
+                                    <Button variant="default" size="sm" className="h-9 text-xs" onClick={handleSaveEdit}>
+                                      Guardar
+                                    </Button>
+                                    <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={handleCancelEdit}>
+                                      Cancelar
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">
+                                € {budget.spent} de € {budget.limit || 0}
+                              </p>
+                            )}
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => handleRemove(budget.id)}>
-                          Quitar
-                        </Button>
+                        {!isEditing && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => handleStartEdit(budget)}
+                              aria-label="Editar límite"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            {!budget.id.startsWith("new-") && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                onClick={() => handleRemove(budget.id)}
+                                aria-label="Quitar presupuesto"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <Progress
-                        value={percent}
-                        className={`mt-2 ${isOver ? "[&>div]:bg-rose-500" : ""}`}
-                      />
-                      {isOver && (
-                        <p className="mt-2 text-xs font-medium text-rose-500">
-                          Has superado el límite en € {budget.spent - budget.limit}
-                        </p>
+                      {!isEditing && (
+                        <>
+                          <Progress
+                            value={percent}
+                            className={`mt-2 ${isOver ? "[&>div]:bg-rose-500" : ""}`}
+                          />
+                          {isOver && (
+                            <p className="mt-2 text-xs font-medium text-rose-500">
+                              Has superado el límite en € {budget.spent - budget.limit}
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
                   );
                 })
               ) : (
                 <div className="text-center text-sm text-muted-foreground py-8">
-                  No hay presupuestos {budgetType.toLowerCase()}s configurados
+                  No hay presupuestos en {budgetType === "Fijo" ? "fijo" : "variable"}. Crea uno con el formulario de la derecha.
                 </div>
               )}
             </div>
@@ -404,7 +546,7 @@ export function BudgetManager({
                 )}
                 {expenseCategories.length === 0 && (
                   <div className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground text-center">
-                    Sin categorías de gasto disponibles
+                    Sin categorías de gasto. Crea categorías en Ajustes.
                   </div>
                 )}
               </div>

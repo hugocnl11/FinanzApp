@@ -165,10 +165,7 @@ export function BudgetSummary({
 
   const filterByType = (type: BudgetType, source = budgets) => {
     const periodKey = type === "Fijo" ? "fixed" : "variable";
-    return source.filter((budget) => {
-      if (!budget.period) return true;
-      return budget.period === periodKey;
-    });
+    return source.filter((budget) => budget.period === periodKey);
   };
 
   const implicitVariableBudgets = useMemo(() => {
@@ -273,8 +270,11 @@ export function BudgetSummary({
     ? "grid grid-cols-1 sm:grid-cols-2 gap-2"
     : "space-y-2";
 
+  // Altura fija para el área de listas: equivale a ~5 ítems. Con más de 5, la lista hace scroll y el widget no crece.
+  const LIST_MAX_HEIGHT = "300px";
+
   return (
-    <Card className={`p-6 flex flex-col gap-3 ${className ?? ""}`}>
+    <Card className={`p-6 flex flex-col gap-3 max-h-full ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs text-muted-foreground">Presupuestos del mes</p>
@@ -320,9 +320,9 @@ export function BudgetSummary({
       <div className={`text-xs font-medium ${isOver ? "text-rose-500" : "text-emerald-600"}`}>
         {isOver ? "Has superado el presupuesto" : "Vas dentro del presupuesto"}
       </div>
-      <div className="pt-2 text-sm flex-1 min-h-0 overflow-hidden">
+      <div className="pt-2 text-sm flex-1 min-h-0 overflow-hidden flex flex-col">
         {mode === "combined" ? (
-          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 h-full min-h-0">
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 flex-1 min-h-0">
             {[
               { label: "Fijo", list: fixedBudgets },
               { label: "Variable", list: variableBudgets },
@@ -339,13 +339,13 @@ export function BudgetSummary({
                   const payload = event.dataTransfer.getData("text/plain");
                   handleDrop(label === "Fijo" ? "fixed" : "variable", payload);
                 }}
-                className={`rounded-xl border border-border/70 bg-muted/10 p-3 shadow-sm flex flex-col h-full min-h-0 transition ${
+                className={`rounded-xl border border-border/70 bg-muted/10 p-3 shadow-sm flex flex-col min-h-0 transition ${
                   dragOver === (label === "Fijo" ? "fixed" : "variable")
                     ? "ring-2 ring-primary/40"
                     : ""
                 }`}
               >
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 shrink-0">
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {label}
                   </span>
@@ -354,9 +354,9 @@ export function BudgetSummary({
                     {formatNumber(list.reduce((acc, item) => acc + item.limit, 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
-                <div className="h-px w-full bg-border/50 mb-3" />
+                <div className="h-px w-full bg-border/50 mb-3 shrink-0" />
                 {list.length > 0 ? (
-                  <div className="flex-1 min-h-0 max-h-[420px] overflow-y-auto pr-1">
+                  <div className="min-h-0 overflow-y-auto pr-1" style={{ maxHeight: LIST_MAX_HEIGHT }}>
                     <div className="space-y-2">
                       {list
                         .slice()
@@ -432,7 +432,7 @@ export function BudgetSummary({
           </div>
         ) : (
           filteredBudgets.length > 0 ? (
-            <div className="max-h-[260px] overflow-y-auto pr-1">
+            <div className="min-h-0 overflow-y-auto pr-1" style={{ maxHeight: LIST_MAX_HEIGHT }}>
               <div className={listClassName}>
                 {filteredBudgets
                   .slice()

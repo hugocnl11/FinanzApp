@@ -29,18 +29,32 @@ const fromCategoryType = (value: CategoryType) => {
 
 export async function GET(request: Request) {
   const userId = getUserId(request);
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/categories/route.ts:GET',message:'GET entry',data:{hasUserId:!!userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3,H5'})}).catch(()=>{});
+  // #endregion
   if (!userId) return jsonError("userId es obligatorio");
 
-  const categories = await prisma.category.findMany({
-    where: { userId },
-    orderBy: { name: "asc" },
-  });
-  return NextResponse.json({
-    data: categories.map((category) => ({
-      ...category,
-      type: fromCategoryType(category.type),
-    })),
-  });
+  try {
+    const categories = await prisma.category.findMany({
+      where: { userId },
+      orderBy: { name: "asc" },
+    });
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/categories/route.ts:GET',message:'GET success',data:{count:categories.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
+    // #endregion
+    return NextResponse.json({
+      data: categories.map((category) => ({
+        ...category,
+        type: fromCategoryType(category.type),
+      })),
+    });
+  } catch (e) {
+    // #region agent log
+    const err = e instanceof Error ? e : new Error(String(e));
+    fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/categories/route.ts:GET',message:'GET catch',data:{errorMessage:err.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
+    // #endregion
+    throw e;
+  }
 }
 
 export async function POST(request: Request) {

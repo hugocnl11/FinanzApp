@@ -23,7 +23,7 @@ npm install
 npm run dev
 ```
 
-Visita `http://localhost:3000`.
+Visita `http://localhost:3001` (puerto 3001 para evitar conflictos con otras apps en 3000).
 
 ## Estructura del proyecto
 

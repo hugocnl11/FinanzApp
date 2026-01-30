@@ -19,8 +19,7 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
-import { Bell, Shield, Database, Download, Upload, Mail, Globe, Moon, Sun, Target, DollarSign, Calendar, Wallet, Link2, ChevronRight } from "lucide-react";
-import { useTheme } from "next-themes";
+import { Shield, Database, Download, Upload, Mail, Globe, Sun, Target, DollarSign, Calendar, Wallet, Link2, ChevronRight } from "lucide-react";
 import { loadFromStorage, saveToStorage } from "@/lib/storage";
 import { isDemoUser } from "@/lib/auth";
 
@@ -32,7 +31,6 @@ export default function AjustesPage() {
       router.replace("/dashboard");
     }
   }, [router]);
-  const { theme, setTheme } = useTheme();
   const [formData, setFormData] = useState({
     nombre: "",
     apellidos: "",
@@ -151,25 +149,13 @@ export default function AjustesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Sun className="h-4 w-4 text-blue-500" />
               <CardTitle className="text-lg">Preferencias</CardTitle>
+              <span className="text-xs font-medium text-red-500">EN DESARROLLO</span>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center gap-2">
-                <Moon className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Modo oscuro</span>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              >
-                {theme === "dark" ? "Desactivar" : "Activar"}
-              </Button>
-            </div>
             <div className="flex items-center justify-between p-3 border rounded-lg">
               <div className="flex items-center gap-2">
                 <Globe className="h-4 w-4 text-muted-foreground" />
@@ -214,28 +200,16 @@ export default function AjustesPage() {
                 <option>Domingo</option>
               </select>
             </div>
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center gap-2">
-                <Bell className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Notificaciones</span>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setNotificaciones(!notificaciones)}
-              >
-                {notificaciones ? "Desactivar" : "Activar"}
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
       {/* Seguridad */}
         <Card>
           <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Shield className="h-4 w-4 text-red-500" />
               <CardTitle className="text-lg">Seguridad</CardTitle>
+              <span className="text-xs font-medium text-red-500">EN DESARROLLO</span>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -301,9 +275,10 @@ export default function AjustesPage() {
         {/* Datos */}
         <Card>
           <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Database className="h-4 w-4 text-purple-500" />
               <CardTitle className="text-lg">Datos</CardTitle>
+              <span className="text-xs font-medium text-red-500">EN DESARROLLO</span>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -340,7 +315,7 @@ export default function AjustesPage() {
         <CardContent className="space-y-2">
           <details className="group rounded-lg border border-border bg-muted/20">
             <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors [&::-webkit-details-marker]:hidden">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-background border border-border p-1.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white border border-border p-1.5">
                 <img
                   src="https://cdn.simpleicons.org/notion"
                   alt="Notion"

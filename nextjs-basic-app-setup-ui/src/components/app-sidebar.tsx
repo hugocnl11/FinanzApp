@@ -99,14 +99,14 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-border/40 bg-gradient-to-br from-sidebar/80 via-sidebar/50 to-sidebar/80 backdrop-blur-md p-4">
-        <Link href="/dashboard/perfil" className="flex items-center gap-3 group-data-[collapsible=icon]:hidden rounded-lg p-1 -m-1 hover:bg-sidebar-accent/50 transition-colors">
-          <Avatar className="h-8 w-8 shrink-0">
+        <Link href="/dashboard/perfil" className="flex items-center gap-3 rounded-lg p-1 -m-1 hover:bg-sidebar-accent/50 transition-colors group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full">
+          <Avatar className="h-8 w-8 shrink-0 group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9">
             <AvatarImage src={userImage} alt={userName} />
             <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs font-bold">
               {initials}
             </AvatarFallback>
           </Avatar>
-          <div className="flex flex-col min-w-0">
+          <div className="flex flex-col min-w-0 group-data-[collapsible=icon]:hidden">
             <span className="text-xs font-medium text-sidebar-foreground truncate">{userName}</span>
             <span className="text-xs text-sidebar-foreground/60 truncate">{userEmail}</span>
           </div>

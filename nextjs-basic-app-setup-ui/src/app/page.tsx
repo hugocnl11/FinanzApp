@@ -16,20 +16,28 @@ export const dynamic = 'force-dynamic';
 
 const features = [
   {
-    title: "Control total de tus finanzas",
-    description: "Visualiza ingresos, gastos y patrimonio con dashboards claros.",
+    title: "Dashboard y análisis",
+    description: "Resumen de ingresos, gastos, objetivos y presupuestos. Gráficas de patrimonio, activos e ingresos vs gastos por categoría.",
   },
   {
-    title: "Presupuestos inteligentes",
-    description: "Define límites por categoría y recibe alertas preventivas.",
+    title: "Movimientos y presupuestos",
+    description: "Registro y listado de ingresos, gastos, inversiones y ahorros. Presupuestos por categoría (fijo/variable) y objetivos con seguimiento.",
   },
   {
-    title: "Objetivos con seguimiento",
-    description: "Ahorra para tus metas con progreso automático.",
+    title: "Gráficas avanzadas",
+    description: "Flujo de caja, tasa de ahorro, saldo acumulado, rentabilidad por activo, calendario por día e ingresos y gastos por categoría.",
   },
   {
-    title: "Reportes exportables",
-    description: "Descarga informes en CSV o PDF para tus análisis.",
+    title: "Categorías y activos",
+    description: "Categorías personalizables. Gestión de inversiones y ahorros con valor actual por día para analizar rentabilidad.",
+  },
+  {
+    title: "Perfil y sesión",
+    description: "Foto de perfil, datos personales y laborales (salario bruto anual, fecha inicio empleo) y cierre de sesión.",
+  },
+  {
+    title: "Ajustes e integraciones",
+    description: "Preferencias, seguridad y datos. Integración con Notion para sincronizar movimientos desde tus bases de datos.",
   },
 ];
 
@@ -107,8 +115,8 @@ export default function Home() {
               Gestiona tu dinero con claridad y objetivos reales
             </h1>
             <p className="text-base text-muted-foreground md:text-lg">
-              FinanzApp te ayuda a entender tu flujo de caja, controlar tus presupuestos
-              y avanzar hacia tus metas financieras con datos claros y acciones rápidas.
+              Dashboard, movimientos, gráficas avanzadas, presupuestos, objetivos, activos e integración con Notion.
+              Todo en un solo lugar para tu control financiero.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link

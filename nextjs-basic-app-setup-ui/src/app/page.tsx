@@ -402,6 +402,17 @@ export default function Home() {
       <footer className="border-t border-border/60">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-6 py-5 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
           <span>© 2026 FinanzApp. Todos los derechos reservados.</span>
+          <a
+            href="https://github.com/hugocnl11"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-white dark:bg-white/90 border border-border p-0.5">
+              <img src="https://cdn.simpleicons.org/github" alt="" width={16} height={16} className="size-4" />
+            </span>
+            hugocnl11
+          </a>
           <div className="flex flex-wrap gap-4">
             <Link href="/login" className="hover:text-foreground">
               Acceder
@@ -416,19 +427,6 @@ export default function Home() {
               Roadmap
             </Link>
           </div>
-        </div>
-        <div className="mx-auto flex w-full max-w-6xl justify-center border-t border-border/40 pt-3 mt-3 px-6">
-          <a
-            href="https://github.com/hugocnl11"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-white dark:bg-white/90 border border-border p-0.5">
-              <img src="https://cdn.simpleicons.org/github" alt="" width={16} height={16} className="size-4" />
-            </span>
-            hugocnl11
-          </a>
         </div>
       </footer>
     </div>

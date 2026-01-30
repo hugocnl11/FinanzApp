@@ -9,7 +9,9 @@ import {
   Database,
   Image,
   LayoutGrid,
+  Mail,
   Receipt,
+  Server,
   Settings,
   Shield,
   Smartphone,
@@ -24,7 +26,7 @@ type RoadmapItem = {
   title: string;
   description: string;
   available?: boolean;
-  icon?: "notion" | "googlesheets" | "settings" | "shield" | "database" | "layoutgrid" | "barchart2" | "image" | "smartphone" | "bell" | "coins" | "target" | "wallet" | "tags" | "accessibility";
+  icon?: "notion" | "googlesheets" | "settings" | "shield" | "database" | "layoutgrid" | "barchart2" | "image" | "smartphone" | "bell" | "coins" | "target" | "wallet" | "tags" | "accessibility" | "mail" | "server";
 };
 
 const roadmapSections: { title: string; items: RoadmapItem[] }[] = [
@@ -34,6 +36,7 @@ const roadmapSections: { title: string; items: RoadmapItem[] }[] = [
       { title: "Preferencias", description: "Configuración de tema, notificaciones y preferencias de visualización.", icon: "settings" },
       { title: "Seguridad", description: "Verificación en dos pasos (2FA), gestión de sesiones activas y recuperación de contraseña.", icon: "shield" },
       { title: "Datos", description: "Exportar movimientos (CSV/Excel), respaldo y restauración de datos.", icon: "database" },
+      { title: "Cambiar correo de verificación de cuentas", description: "Permitir actualizar el correo electrónico asociado a la cuenta y reenviar verificación.", icon: "mail" },
     ],
   },
   {
@@ -61,6 +64,7 @@ const roadmapSections: { title: string; items: RoadmapItem[] }[] = [
       { title: "Presupuestos personalizados", description: "Periodos y reglas de presupuesto configurables.", icon: "wallet" },
       { title: "Categorías por defecto", description: "Plantillas de categorías para nuevos usuarios.", icon: "tags" },
       { title: "Accesibilidad y rendimiento", description: "Mejoras de accesibilidad (a11y) y optimización de carga.", icon: "accessibility" },
+      { title: "Alojar aplicación en un servidor físico propio", description: "Desplegar FinanzApp en infraestructura propia (on-premise) para mayor control y privacidad.", icon: "server" },
     ],
   },
 ];
@@ -79,6 +83,8 @@ const lucideIconMap: Record<Exclude<RoadmapItem["icon"], "notion" | "googlesheet
   wallet: Receipt,
   tags: Tags,
   accessibility: Accessibility,
+  mail: Mail,
+  server: Server,
 };
 
 export default function RoadmapPage() {

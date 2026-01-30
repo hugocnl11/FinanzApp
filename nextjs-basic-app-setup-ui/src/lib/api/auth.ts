@@ -23,3 +23,10 @@ export function forgotPassword(email: string) {
     json: { email },
   });
 }
+
+export function resendVerification(email: string) {
+  return apiFetch<ApiResponse<{ sent: boolean }>>("/auth/resend-verification", {
+    method: "POST",
+    json: { email },
+  });
+}

@@ -19,7 +19,7 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
-import { login } from "@/lib/api/auth";
+import { login, resendVerification } from "@/lib/api/auth";
 import { saveSession } from "@/lib/auth";
 import { AppLogo } from "@/components/brand/AppLogo";
 
@@ -34,16 +34,22 @@ type LoginValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [showResendVerification, setShowResendVerification] = useState(false);
+  const [resending, setResending] = useState(false);
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     mode: "onTouched",
   });
 
+  const emailValue = watch("email");
+
   const onLogin = async (data: LoginValues) => {
+    setShowResendVerification(false);
     try {
       const response = await login({ email: data.email, password: data.password });
       saveSession(response.data);
@@ -54,10 +60,26 @@ export default function LoginPage() {
       if (errorMessage.includes("Credenciales inválidas")) {
         setStatusMessage("Credenciales incorrectas o cuenta no registrada. ¿No tienes cuenta? Regístrate aquí.");
       } else if (errorMessage.includes("Email no verificado")) {
-        setStatusMessage("Por favor, verifica tu email antes de iniciar sesión.");
+        setStatusMessage("Por favor, verifica tu email antes de iniciar sesión. Si el enlace caducó, puedes pedir uno nuevo.");
+        setShowResendVerification(true);
       } else {
         setStatusMessage("No se pudo iniciar sesión. Verifica tus credenciales o tu email.");
       }
+    }
+  };
+
+  const onResendVerification = async () => {
+    if (!emailValue?.trim()) return;
+    setResending(true);
+    setStatusMessage(null);
+    try {
+      await resendVerification(emailValue.trim());
+      setStatusMessage("Te hemos enviado un nuevo correo de verificación. Revisa tu bandeja.");
+      setShowResendVerification(false);
+    } catch {
+      setStatusMessage("No se pudo reenviar el correo. Intenta más tarde.");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -145,6 +167,17 @@ export default function LoginPage() {
           </Button>
           {statusMessage && (
             <p className="text-sm text-muted-foreground text-center">{statusMessage}</p>
+          )}
+          {showResendVerification && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={resending || !emailValue?.trim()}
+              onClick={onResendVerification}
+            >
+              {resending ? "Enviando…" : "Reenviar correo de verificación"}
+            </Button>
           )}
           <div className="text-center text-sm text-muted-foreground">
             ¿No tienes cuenta?{" "}

@@ -33,23 +33,37 @@ export async function POST(request: Request) {
   if (action === "register") {
     if (!name) return jsonError("Nombre es obligatorio para registro");
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) return jsonError("El email ya está registrado", 409);
+    if (existing?.emailVerified) return jsonError("El email ya está registrado", 409);
 
     const token = crypto.randomBytes(32).toString("hex");
     const expires = new Date(Date.now() + 1000 * 60 * 60 * 24);
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name,
-        passwordHash: hashPassword(password),
-        emailVerified: false,
-        emailVerificationToken: token,
-        emailVerificationExpires: expires,
-      },
-    });
+    let user: { id: string; email: string; name: string };
+    if (existing && !existing.emailVerified) {
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          emailVerificationToken: token,
+          emailVerificationExpires: expires,
+          name,
+          passwordHash: hashPassword(password),
+        },
+      });
+      user = { id: existing.id, email: existing.email, name };
+    } else {
+      const created = await prisma.user.create({
+        data: {
+          email,
+          name,
+          passwordHash: hashPassword(password),
+          emailVerified: false,
+          emailVerificationToken: token,
+          emailVerificationExpires: expires,
+        },
+      });
+      user = created;
 
-    const defaultCategories = [
+      const defaultCategories = [
       { name: "Alquiler", type: "EXPENSE", icon: "Home", color: "#6366f1" },
       { name: "Comida", type: "EXPENSE", icon: "Utensils", color: "#22c55e" },
       { name: "Salud", type: "EXPENSE", icon: "HeartPulse", color: "#e11d48" },
@@ -69,28 +83,27 @@ export async function POST(request: Request) {
       { name: "Crypto", type: "INVESTMENT", icon: "Droplet", color: "#f59e0b" },
     ] as const;
 
-    await prisma.category.createMany({
-      data: defaultCategories.map((category) => ({
-        userId: user.id,
-        name: category.name,
-        type: category.type,
-        icon: category.icon,
-        color: category.color,
-        active: true,
-      })),
-      skipDuplicates: true,
-    });
+      await prisma.category.createMany({
+        data: defaultCategories.map((category) => ({
+          userId: user.id,
+          name: category.name,
+          type: category.type,
+          icon: category.icon,
+          color: category.color,
+          active: true,
+        })),
+        skipDuplicates: true,
+      });
+    }
 
-    // Usar APP_URL si está configurada, sino VERCEL_URL (proporcionada por Vercel), sino localhost
-    let appUrl = process.env.APP_URL;
-    if (!appUrl) {
-      const vercelUrl = process.env.VERCEL_URL;
-      if (vercelUrl) {
-        // Vercel proporciona VERCEL_URL sin protocolo, agregamos https
-        appUrl = `https://${vercelUrl}`;
-      } else {
-        appUrl = "http://localhost:3000";
-      }
+    // En Vercel usar siempre VERCEL_URL para que el enlace no sea localhost. Si no, APP_URL o localhost.
+    let appUrl: string;
+    if (process.env.VERCEL_URL) {
+      appUrl = `https://${process.env.VERCEL_URL}`;
+    } else if (process.env.APP_URL) {
+      appUrl = process.env.APP_URL;
+    } else {
+      appUrl = "http://localhost:3000";
     }
     const verifyUrl = `${appUrl}/verify-email?token=${token}`;
     try {

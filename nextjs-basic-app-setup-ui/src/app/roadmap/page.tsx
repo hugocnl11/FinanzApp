@@ -36,7 +36,7 @@ const roadmapSections: { title: string; items: RoadmapItem[] }[] = [
       { title: "Preferencias", description: "Configuración de tema, notificaciones y preferencias de visualización.", icon: "settings" },
       { title: "Seguridad", description: "Verificación en dos pasos (2FA), gestión de sesiones activas y recuperación de contraseña.", icon: "shield" },
       { title: "Datos", description: "Exportar movimientos (CSV/Excel), respaldo y restauración de datos.", icon: "database" },
-      { title: "Cambiar correo de verificación de cuentas", description: "Permitir actualizar el correo electrónico asociado a la cuenta y reenviar verificación.", icon: "mail" },
+      { title: "Cambiar correo de verificación de cuentas", description: "Cambiar el correo electrónico que envia las verificaciones por otro dedicado a FinanzApp.", icon: "mail" },
     ],
   },
   {

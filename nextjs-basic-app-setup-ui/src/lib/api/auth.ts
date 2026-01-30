@@ -3,6 +3,20 @@
 import { apiFetch } from "./client";
 import type { ApiResponse, AuthPayload, AuthResponse } from "./types";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
+
+/** Restaura la sesión desde la cookie (útil tras limpiar caché/localStorage). */
+export async function restoreSessionFromCookie(): Promise<AuthResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/me`, { credentials: "include" });
+    if (!res.ok) return null;
+    const json = (await res.json()) as ApiResponse<AuthResponse>;
+    return json.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function login(payload: AuthPayload) {
   return apiFetch<ApiResponse<AuthResponse>>("/auth", {
     method: "POST",

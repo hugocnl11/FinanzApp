@@ -4,7 +4,8 @@ import { fetchMovements } from "@/lib/api/movements";
 import { fetchBudgets } from "@/lib/api/budgets";
 import { fetchGoals } from "@/lib/api/goals";
 import { buildMonthlySeries, latestByCategory, totalsByCategory } from "@/lib/dashboard/derive";
-import { getSession, isDemoUser } from "@/lib/auth";
+import { getSession, isDemoUser, saveSession } from "@/lib/auth";
+import { restoreSessionFromCookie } from "@/lib/api/auth";
 import { DASHBOARD_MOCK } from "@/lib/dashboard/mock";
 
 const emptyData: DashboardData = {
@@ -27,7 +28,14 @@ export function useDashboardData() {
   const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
-    const session = getSession();
+    let session = getSession();
+    if (!session && typeof window !== "undefined") {
+      const restored = await restoreSessionFromCookie();
+      if (restored) {
+        saveSession(restored);
+        session = getSession();
+      }
+    }
     if (!session) {
       setData(emptyData);
       setLoading(false);

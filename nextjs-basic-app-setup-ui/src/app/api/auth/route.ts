@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { jsonError } from "@/app/api/_helpers";
+import { jsonError, setSessionCookie } from "@/app/api/_helpers";
 import { sendMail } from "@/lib/mailer";
 
 type AuthPayload = {
@@ -149,10 +149,12 @@ export async function POST(request: Request) {
     return jsonError("Email no verificado", 403);
   }
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     data: {
       token: Buffer.from(user.id).toString("base64"),
       user: { id: user.id, name: user.name, email: user.email },
     },
   });
+  setSessionCookie(res, user.id);
+  return res;
 }

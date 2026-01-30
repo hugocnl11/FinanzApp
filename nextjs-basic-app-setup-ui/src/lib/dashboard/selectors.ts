@@ -143,7 +143,7 @@ export function percentChangeByPeriod(current: MoneyByMonth[], previous: MoneyBy
 }
 
 // Funciones para datos diarios
-export function getDailyDataFromMovements(movements: Movement[], type: "Ingreso" | "Gasto"): MoneyByDay[] {
+export function getDailyDataFromMovements(movements: Movement[], type: "Ingreso" | "Gasto" | "Inversión"): MoneyByDay[] {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
@@ -183,9 +183,11 @@ export function getDailyDataFromMovements(movements: Movement[], type: "Ingreso"
 export function getDailyIncomeAndExpenses(movements: Movement[]): {
   ingresos: MoneyByDay[];
   gastos: MoneyByDay[];
+  inversiones: MoneyByDay[];
 } {
   return {
     ingresos: getDailyDataFromMovements(movements, "Ingreso"),
     gastos: getDailyDataFromMovements(movements, "Gasto"),
+    inversiones: getDailyDataFromMovements(movements, "Inversión"),
   };
 }

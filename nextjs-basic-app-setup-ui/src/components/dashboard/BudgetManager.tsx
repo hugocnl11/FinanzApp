@@ -18,7 +18,9 @@ import { cn } from "@/lib/utils";
 import { getUserId } from "@/lib/auth";
 import { fetchBudgets, createBudget, updateBudget, deleteBudget } from "@/lib/api/budgets";
 import { fetchCategories } from "@/lib/api/categories";
+import { fetchMovements } from "@/lib/api/movements";
 import type { Category } from "@/lib/dashboard/types";
+import type { Movement } from "@/lib/dashboard/types";
 import { CATEGORY_ICON_MAP, type CategoryIconKey } from "@/lib/category-icons";
 
 // Mapeo de iconos y colores por defecto para cada categoría
@@ -75,6 +77,7 @@ export function BudgetManager({
 }: BudgetManagerProps) {
   const [budgets, setBudgets] = useState<BudgetItem[]>(initialBudgets);
   const [categoriesData, setCategoriesData] = useState<Category[]>([]);
+  const [movements, setMovements] = useState<Movement[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [budgetType, setBudgetType] = useState<BudgetType>("Fijo");
   const [formData, setFormData] = useState({
@@ -94,58 +97,101 @@ export function BudgetManager({
     return new Map(categoriesData.map((cat) => [cat.name, cat]));
   }, [categoriesData]);
 
-  // Filtrar presupuestos según tipo (period): solo los que coinciden con la pestaña (Fijo = fixed, Variable = variable)
   const periodKey = budgetType === "Fijo" ? "fixed" : "variable";
-  const filteredBudgets = useMemo(() => {
-    return budgets.filter((budget) => budget.period === periodKey);
-  }, [budgets, budgetType]);
 
-  // Lista para mostrar: solo presupuestos reales creados por el usuario (sin filas "0 de 0")
-  const displayBudgets = filteredBudgets;
+  // Gastado por categoría en el mes actual (para alinear con el widget del dashboard)
+  const spentByCategory = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const map = new Map<string, number>();
+    movements.forEach((movement) => {
+      if (movement.tipo !== "Gasto") return;
+      const date = new Date(movement.fecha);
+      if (date.getMonth() !== currentMonth || date.getFullYear() !== currentYear) return;
+      const current = map.get(movement.categoria) ?? 0;
+      map.set(movement.categoria, current + Math.abs(movement.cantidad));
+    });
+    return map;
+  }, [movements]);
+
+  const budgetsWithSpent = useMemo(
+    () =>
+      budgets.map((b) => ({
+        ...b,
+        spent: spentByCategory.get(b.category) ?? b.spent,
+      })),
+    [budgets, spentByCategory]
+  );
+
+  const filteredBudgets = useMemo(
+    () => budgetsWithSpent.filter((b) => b.period === periodKey),
+    [budgetsWithSpent, periodKey]
+  );
+
+  // En Variable: añadir categorías con gasto este mes pero sin presupuesto variable (igual que en el widget)
+  const implicitVariableBudgets = useMemo(() => {
+    if (budgetType !== "Variable" || movements.length === 0) return [];
+    const budgetedVariable = new Set(
+      budgets.filter((b) => b.period === "variable").map((b) => b.category)
+    );
+    return Array.from(spentByCategory.entries())
+      .filter(([category]) => !budgetedVariable.has(category))
+      .map(([category, spent]) => ({
+        id: `implicit-${category}`,
+        category,
+        limit: 0,
+        spent,
+        period: "variable" as const,
+      }));
+  }, [budgetType, movements.length, budgets, spentByCategory]);
+
+  const isDay1 = new Date().getDate() === 1;
+  const displayBudgets =
+    budgetType === "Variable"
+      ? [...filteredBudgets, ...implicitVariableBudgets]
+      : filteredBudgets;
 
   const totalLimit = useMemo(
-    () => filteredBudgets.reduce((acc, item) => acc + item.limit, 0),
-    [filteredBudgets]
+    () => displayBudgets.reduce((acc, item) => acc + item.limit, 0),
+    [displayBudgets]
   );
 
   const totalSpent = useMemo(
-    () => filteredBudgets.reduce((acc, item) => acc + item.spent, 0),
-    [filteredBudgets]
+    () => displayBudgets.reduce((acc, item) => acc + item.spent, 0),
+    [displayBudgets]
   );
 
   useEffect(() => {
     const load = async () => {
       const uid = getUserId();
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BudgetManager.tsx:load',message:'load start',data:{hasUserId:!!uid},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
       if (!uid) {
         setBudgets([]);
         setCategoriesData([]);
+        setMovements([]);
         return;
       }
       try {
-        const [budgetsRes, categoriesRes] = await Promise.all([
+        const [budgetsRes, categoriesRes, movementsRes] = await Promise.all([
           fetchBudgets(),
           fetchCategories(),
+          fetchMovements(),
         ]);
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BudgetManager.tsx:load',message:'load success',data:{budgetsLen:budgetsRes?.data?.length,categoriesLen:categoriesRes?.data?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-        // #endregion
         setBudgets(budgetsRes.data as BudgetItem[]);
         setCategoriesData(categoriesRes.data as Category[]);
+        setMovements(movementsRes.data as Movement[]);
       } catch (error) {
-        // #region agent log
-        const err = error instanceof Error ? error : new Error(String(error));
-        fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BudgetManager.tsx:load',message:'load catch',data:{errorMessage:err.message.slice(0,200)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2,H3'})}).catch(()=>{});
-        // #endregion
         console.error(error);
         setBudgets([]);
         setCategoriesData([]);
+        setMovements([]);
         setStatusMessage("No se pudieron cargar los presupuestos.");
       }
     };
     void load();
+    const onUpdate = () => load();
+    window.addEventListener("finanzapp:data-updated", onUpdate);
+    return () => window.removeEventListener("finanzapp:data-updated", onUpdate);
   }, []);
 
   // Todas las categorías de gasto para el desplegable "Nuevo presupuesto" (Fijo y Variable)
@@ -243,14 +289,19 @@ export function BudgetManager({
       return;
     }
     const isNew = editingBudgetId.startsWith("new-");
-    const categoryName = isNew ? editingBudgetId.replace(/^new-/, "") : undefined;
+    const isImplicit = editingBudgetId.startsWith("implicit-");
+    const categoryName = isNew
+      ? editingBudgetId.replace(/^new-/, "")
+      : isImplicit
+        ? editingBudgetId.replace(/^implicit-/, "")
+        : undefined;
     try {
-      if (isNew && categoryName) {
+      if ((isNew || isImplicit) && categoryName) {
         const created = await createBudget({
           category: categoryName,
           limit: limitValue,
           spent: 0,
-          period: budgetType === "Fijo" ? "fixed" : "variable",
+          period: isImplicit ? "variable" : budgetType === "Fijo" ? "fixed" : "variable",
         });
         setBudgets((prev) => [...prev, created.data as BudgetItem]);
         setStatusMessage("Presupuesto creado.");
@@ -375,7 +426,7 @@ export function BudgetManager({
                             <p className="text-sm font-semibold truncate">{budget.category}</p>
                             {isEditing ? (
                               <div className="mt-2 flex flex-col gap-3">
-                                {!budget.id.startsWith("new-") && (
+                                {!budget.id.startsWith("new-") && !budget.id.startsWith("implicit-") && (
                                   <div className="flex flex-col gap-1">
                                     <label className="text-xs font-medium text-muted-foreground">Tipo</label>
                                     <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
@@ -436,7 +487,7 @@ export function BudgetManager({
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
-                            {!budget.id.startsWith("new-") && (
+                            {!budget.id.startsWith("new-") && !budget.id.startsWith("implicit-") && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -468,7 +519,9 @@ export function BudgetManager({
                 })
               ) : (
                 <div className="text-center text-sm text-muted-foreground py-8">
-                  No hay presupuestos en {budgetType === "Fijo" ? "fijo" : "variable"}. Crea uno con el formulario de la derecha.
+                  {budgetType === "Variable" && isDay1
+                    ? "Reinicio mensual: crea tus presupuestos variables para este mes."
+                    : `No hay presupuestos en ${budgetType === "Fijo" ? "fijo" : "variable"}. Crea uno con el formulario de la derecha.`}
                 </div>
               )}
             </div>

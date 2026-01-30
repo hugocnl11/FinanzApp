@@ -183,23 +183,25 @@ export function CategoryBreakdown({
           `}</style>
         </div>
 
-        <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+        <div className="w-full flex flex-col gap-2 text-sm">
           {sortedCategories.map((cat, i) => {
             const meta = categoryMeta?.[cat.name];
             const Icon = meta ? CATEGORY_ICON_MAP[meta.icon] : null;
             return (
               <div
                 key={cat.name}
-                className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-2"
+                className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2"
               >
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span
-                    className="flex h-6 w-6 items-center justify-center rounded-full"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
                     style={{ background: `${colors[i]}20`, color: colors[i] }}
                   >
                     {Icon ? <Icon className="h-3 w-3" /> : <span className="text-[10px]">•</span>}
                   </span>
-                  <span className="font-medium min-w-0 truncate">{cat.name}</span>
+                  <span className="font-medium break-words" title={cat.name}>
+                    {cat.name}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground shrink-0 whitespace-nowrap text-[11px] sm:text-xs">
                   <span className="font-semibold text-foreground tabular-nums tracking-tight">

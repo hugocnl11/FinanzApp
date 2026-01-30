@@ -218,7 +218,6 @@ export function BudgetSummary({
     }));
   }, [budgets, spentByCategory]);
 
-  // Filtrar presupuestos según tipo (Fijo/Variable)
   const filteredBudgets = useMemo(() => {
     const list = filterByType(budgetType, budgetsWithSpent);
     if (budgetType === "Variable") {
@@ -227,6 +226,7 @@ export function BudgetSummary({
     return list;
   }, [budgetsWithSpent, budgetType, implicitVariableBudgets]);
 
+  const isDay1 = new Date().getDate() === 1;
   const fixedBudgets = useMemo(() => filterByType("Fijo", budgetsWithSpent), [budgetsWithSpent]);
   const variableBudgets = useMemo(
     () => [...filterByType("Variable", budgetsWithSpent), ...implicitVariableBudgets],
@@ -424,7 +424,9 @@ export function BudgetSummary({
                   </div>
                 ) : (
                   <div className="text-center text-sm text-muted-foreground py-6">
-                    No hay presupuestos {label.toLowerCase()}s configurados
+                    {label === "Variable" && isDay1
+                      ? "Reinicio mensual: crea tus presupuestos variables para este mes."
+                      : `No hay presupuestos ${label.toLowerCase()}s configurados`}
                   </div>
                 )}
               </div>
@@ -482,7 +484,9 @@ export function BudgetSummary({
             </div>
           ) : (
             <div className="text-center text-sm text-muted-foreground py-4">
-              No hay presupuestos {budgetType.toLowerCase()}s configurados
+              {budgetType === "Variable" && isDay1
+                ? "Reinicio mensual: crea tus presupuestos variables para este mes."
+                : `No hay presupuestos ${budgetType.toLowerCase()}s configurados`}
             </div>
           )
         )}

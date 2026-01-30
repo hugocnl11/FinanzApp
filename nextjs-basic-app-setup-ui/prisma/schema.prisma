@@ -47,6 +47,7 @@ model User {
   emailVerified Boolean       @default(false)
   emailVerificationToken String?
   emailVerificationExpires DateTime?
+  lastVariableBudgetResetMonth String?  // "YYYY-MM" — último mes en que se borraron presupuestos variables (día 1)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   categories   Category[]

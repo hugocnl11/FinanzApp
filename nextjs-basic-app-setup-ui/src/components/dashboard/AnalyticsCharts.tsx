@@ -7,6 +7,7 @@ import { curveMonotoneX } from "d3-shape";
 import { ParentSize } from "@visx/responsive";
 import { motion } from "framer-motion";
 import { last, previous, patrimonioAcumulado, percentChange, filterMonthsByPeriod, getDailyIncomeAndExpenses } from "@/lib/dashboard/selectors";
+import { buildMonthlySeries } from "@/lib/dashboard/derive";
 import type { MoneyByMonth, MoneyByDay, Movement } from "@/lib/dashboard/types";
 import { formatNumber } from "@/lib/format";
 import { usePeriod } from "@/contexts/PeriodContext";
@@ -166,14 +167,18 @@ function ChartCard<T extends Record<string, any>>({ title, value, percent, subti
   );
 }
 
+const INVERSIONES_COLOR = "#3b82f6"; // blue-500, contrasta con verde y rojo
+
 function CombinedChartCard({ 
   ingresos, 
   gastos,
+  inversiones = [],
   isDailyView = false,
   movimientos = []
 }: { 
   ingresos: MoneyByMonth[] | MoneyByDay[], 
   gastos: MoneyByMonth[] | MoneyByDay[],
+  inversiones?: MoneyByMonth[] | MoneyByDay[],
   isDailyView?: boolean,
   movimientos?: Movement[]
 }) {
@@ -198,7 +203,8 @@ function CombinedChartCard({
     : (ingresos as MoneyByMonth[]).map((d) => d.mes);
   const ingresosVals = ingresos.map((d) => d.valor);
   const gastosVals = gastos.map((d) => d.valor);
-  const maxY = Math.max(...ingresosVals, ...gastosVals);
+  const inversionesVals = inversiones.length ? inversiones.map((d) => d.valor) : [];
+  const maxY = Math.max(...ingresosVals, ...gastosVals, ...inversionesVals, 1);
 
   if (ingresos.length === 0 || gastos.length === 0) {
     return (
@@ -212,10 +218,17 @@ function CombinedChartCard({
     <Card className="p-6 min-h-[320px] relative">
       <div className="flex flex-col space-y-2">
         <h3 className="text-sm font-medium text-muted-foreground">Ingresos y Gastos {isDailyView ? 'Diarios' : 'Totales'}</h3>
-        <div className="flex gap-6 items-end">
+        <div className="flex flex-wrap gap-x-6 gap-y-1 items-end">
           <div className="text-2xl font-bold text-green-600">{formatNumber(ingresosVals.reduce((a, b) => a + b, 0))} €</div>
           <div className="text-2xl font-bold text-red-500">{formatNumber(gastosVals.reduce((a, b) => a + b, 0))} €</div>
         </div>
+        {inversiones.length > 0 && (
+          <div className="flex flex-wrap gap-x-6 gap-y-1 items-end">
+            <span className="text-sm font-semibold" style={{ color: INVERSIONES_COLOR }}>
+              Inversiones: {formatNumber(inversionesVals.reduce((a, b) => a + b, 0))} €
+            </span>
+          </div>
+        )}
         <p className="text-xs text-muted-foreground">{isDailyView ? 'Evolución diaria del mes actual' : 'Evolución mensual'}</p>
       </div>
       <div className="mt-4 h-[200px] relative" ref={chartContainerRef}>
@@ -246,6 +259,14 @@ function CombinedChartCard({
               y: (d) => yScale(d.valor),
               curve: curveMonotoneX,
             });
+            const inversionesLine = inversiones.length
+              ? LinePath({
+                  data: inversiones,
+                  x: (d) => xScale(isDailyView ? (d as MoneyByDay).dia : (d as MoneyByMonth).mes) || 0,
+                  y: (d) => yScale(d.valor),
+                  curve: curveMonotoneX,
+                })
+              : null;
             return (
               <svg width={width} height={height}>
                 <g transform={`translate(${margin.left},${margin.top})`}>
@@ -409,6 +430,64 @@ function CombinedChartCard({
                       </g>
                     );
                   })}
+                  {/* Línea inversiones */}
+                  {inversionesLine && (
+                    <>
+                      <motion.path
+                        d={inversionesLine?.props.d || ""}
+                        stroke={INVERSIONES_COLOR}
+                        strokeWidth={2}
+                        fill="none"
+                        strokeDasharray="4 2"
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        transition={{ duration: 0.9, ease: "easeInOut", delay: 0.4 }}
+                      />
+                      {inversiones.map((d, i) => {
+                        const label = isDailyView ? (d as MoneyByDay).dia : (d as MoneyByMonth).mes;
+                        const yInv = yScale(d.valor);
+                        const showLabel = d.valor > 0;
+                        const xPos = xScale(label) as number;
+                        const labelYOffset = -36;
+                        return (
+                          <g key={"inv-" + i}>
+                            <motion.circle
+                              cx={xPos}
+                              cy={yInv}
+                              r={4}
+                              fill={INVERSIONES_COLOR}
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ duration: 0.3, ease: "easeOut", delay: 0.4 + i * 0.07 }}
+                            />
+                            {showLabel && (
+                              <foreignObject
+                                x={xPos - 24}
+                                y={yInv + labelYOffset}
+                                width={48}
+                                height={20}
+                                style={{ pointerEvents: "none" }}
+                              >
+                                <div
+                                  style={{
+                                    color: INVERSIONES_COLOR,
+                                    fontWeight: 600,
+                                    fontSize: 12,
+                                    textAlign: "center",
+                                    width: "fit-content",
+                                    margin: "0 auto",
+                                    lineHeight: "18px",
+                                  }}
+                                >
+                                  {formatNumber(d.valor)}€
+                                </div>
+                              </foreignObject>
+                            )}
+                          </g>
+                        );
+                      })}
+                    </>
+                  )}
                   {/* Etiquetas del eje X */}
                   {labels.map((label, i) => {
                     // Mostrar cada 2 o 3 etiquetas si hay muchos días
@@ -452,9 +531,10 @@ function CombinedChartCard({
           );
         })()}
       </div>
-      <div className="flex gap-4 mt-2 justify-center">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 justify-center">
         <div className="flex items-center gap-1 text-xs text-green-600"><span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> Ingresos</div>
         <div className="flex items-center gap-1 text-xs text-red-500"><span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> Gastos</div>
+        <div className="flex items-center gap-1 text-xs" style={{ color: INVERSIONES_COLOR }}><span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: INVERSIONES_COLOR }} /> Inversiones</div>
       </div>
     </Card>
   );
@@ -529,19 +609,23 @@ export function AnalyticsCharts({ type = "combined" }: AnalyticsChartsProps) {
   const monthCount = getMonthCount();
   const isDailyView = period === "Mes";
   
-  // Para la gráfica de ingresos vs gastos
+  // Para la gráfica de ingresos vs gastos (e inversiones)
   let chartIngresos: MoneyByMonth[] | MoneyByDay[];
   let chartGastos: MoneyByMonth[] | MoneyByDay[];
+  let chartInversiones: MoneyByMonth[] | MoneyByDay[];
   
   if (isDailyView) {
     // Mostrar datos diarios del mes actual
     const dailyData = getDailyIncomeAndExpenses(movimientos);
     chartIngresos = dailyData.ingresos;
     chartGastos = dailyData.gastos;
+    chartInversiones = dailyData.inversiones;
   } else {
     // Mostrar datos mensuales filtrados
     chartIngresos = filterMonthsByPeriod(ingresosMensuales, monthCount);
     chartGastos = filterMonthsByPeriod(gastosMensuales, monthCount);
+    const inversionesMensuales = buildMonthlySeries(movimientos, "Inversión", 12);
+    chartInversiones = filterMonthsByPeriod(inversionesMensuales, monthCount);
   }
   
   // Patrimonio: SIEMPRE mostrar los últimos 12 meses
@@ -574,6 +658,7 @@ export function AnalyticsCharts({ type = "combined" }: AnalyticsChartsProps) {
       <CombinedChartCard 
         ingresos={chartIngresos} 
         gastos={chartGastos}
+        inversiones={chartInversiones}
         isDailyView={isDailyView}
         movimientos={isDailyView ? movimientos : []}
       />

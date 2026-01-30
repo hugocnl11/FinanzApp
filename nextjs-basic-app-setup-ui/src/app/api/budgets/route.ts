@@ -12,20 +12,34 @@ type BudgetPayload = {
 
 export async function GET(request: Request) {
   const userId = getUserId(request);
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/budgets/route.ts:GET',message:'GET entry',data:{hasUserId:!!userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2,H5'})}).catch(()=>{});
-  // #endregion
   if (!userId) return jsonError("userId es obligatorio");
 
   try {
+    const today = new Date();
+    const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+
+    if (today.getDate() === 1) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { lastVariableBudgetResetMonth: true },
+      });
+      if (user?.lastVariableBudgetResetMonth !== currentMonthStr) {
+        await prisma.budget.deleteMany({
+          where: { userId, period: "variable" },
+        });
+        await prisma.user.update({
+          where: { id: userId },
+          data: { lastVariableBudgetResetMonth: currentMonthStr },
+        });
+      }
+    }
+
     const budgets = await prisma.budget.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
       include: { category: true },
     });
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/budgets/route.ts:GET',message:'GET success',data:{count:budgets.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
+
     return NextResponse.json({
       data: budgets.map((budget) => ({
         id: budget.id,
@@ -36,10 +50,6 @@ export async function GET(request: Request) {
       })),
     });
   } catch (e) {
-    // #region agent log
-    const err = e instanceof Error ? e : new Error(String(e));
-    fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/budgets/route.ts:GET',message:'GET catch',data:{errorMessage:err.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
     throw e;
   }
 }

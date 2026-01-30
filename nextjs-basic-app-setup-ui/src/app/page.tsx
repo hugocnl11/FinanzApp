@@ -40,7 +40,11 @@ const features = [
   },
 ];
 
-type StatsData = { totalMovimientos?: number; totalUsuarios?: number } | null;
+type StatsData = {
+  totalMovimientos?: number;
+  totalUsuarios?: number;
+  ahorroMedioPorcentaje?: number | null;
+} | null;
 
 // Datos de ejemplo para el gráfico de ingresos vs gastos diarios del mes
 const demoIngresos = [
@@ -122,14 +126,13 @@ export default function Home() {
         <section className="grid items-center gap-10 py-12 md:grid-cols-2">
           <div className="space-y-6">
             <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
-              Gratis para empezar · Sin tarjeta de crédito
+              Gratis para empezar — Sin tarjeta de crédito
             </span>
             <h1 className="text-4xl font-bold leading-tight text-foreground md:text-5xl">
-              Trackea tus movimientos, patrimonio y analiza tus datos
+              Gestiona tu dinero con claridad: movimientos, patrimonio y objetivos en un solo lugar
             </h1>
             <p className="text-base text-muted-foreground md:text-lg">
-              Registra ingresos, gastos e inversiones. Gráficas, presupuestos, objetivos y activos en un solo lugar.
-              Tu control financiero, sin humo.
+              Dashboard, movimientos, gráficas avanzadas, presupuestos por categoría, objetivos de ahorro e inversión, y activos con seguimiento. Integración con Notion para sincronizar datos. Todo en un solo lugar para una gestión financiera clara y real.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
@@ -156,7 +159,13 @@ export default function Home() {
                 <span className="text-xl font-semibold text-foreground">
                   {stats?.totalUsuarios != null ? formatNumber(stats.totalUsuarios) : "—"}
                 </span>
-                <span>Cuentas creadas</span>
+                <span>Usuarios activos</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xl font-semibold text-foreground">
+                  {stats?.ahorroMedioPorcentaje != null ? `${stats.ahorroMedioPorcentaje} %` : "—"}
+                </span>
+                <span>Ahorro medio</span>
               </div>
             </div>
           </div>

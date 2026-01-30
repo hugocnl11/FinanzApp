@@ -101,7 +101,7 @@ export default function Home() {
   };
   return (
     <div className="min-h-screen bg-[#f6f6f7] dark:bg-[#111112]">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
         <div className="flex items-center gap-3">
           <AppLogo size="md" showText={true} variant="default" />
         </div>
@@ -122,97 +122,99 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-6 pb-16">
-        <section className="grid items-center gap-10 py-12 md:grid-cols-2">
-          <div className="space-y-6">
+      <main className="mx-auto w-full max-w-6xl px-6 pb-12">
+        <section className="grid items-center gap-8 py-8 md:grid-cols-2">
+          <div className="space-y-4">
             <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
               Gratis para empezar — Sin tarjeta de crédito
             </span>
-            <h1 className="text-4xl font-bold leading-tight text-foreground md:text-5xl">
+            <h1 className="text-3xl font-bold leading-tight text-foreground md:text-4xl">
               Gestiona tu dinero con claridad: movimientos, patrimonio y objetivos en un solo lugar
             </h1>
-            <p className="text-base text-muted-foreground md:text-lg">
+            <p className="text-sm text-muted-foreground leading-snug md:text-base">
               Dashboard, movimientos, gráficas avanzadas, presupuestos por categoría, objetivos de ahorro e inversión, y activos con seguimiento. Integración con Notion para sincronizar datos. Todo en un solo lugar para una gestión financiera clara y real.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/register"
-                className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:bg-primary/90"
+                className="rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg hover:bg-primary/90"
               >
                 Empezar gratis
               </Link>
               <button
                 onClick={handleDemoClick}
-                className="rounded-full border border-border px-5 py-3 text-sm font-semibold text-foreground hover:bg-muted"
+                className="rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted"
               >
                 Ver demo
               </button>
             </div>
-            <div className="flex flex-wrap gap-6 pt-2 text-sm text-muted-foreground">
+            <div className="flex flex-wrap gap-4 pt-1 text-xs text-muted-foreground">
               <div className="flex flex-col">
-                <span className="text-xl font-semibold text-foreground">
+                <span className="text-lg font-semibold text-foreground">
                   {stats?.totalMovimientos != null ? formatNumber(stats.totalMovimientos) : "—"}
                 </span>
                 <span>Movimientos registrados</span>
               </div>
+              <span className="self-center text-muted-foreground/60" aria-hidden>|</span>
               <div className="flex flex-col">
-                <span className="text-xl font-semibold text-foreground">
+                <span className="text-lg font-semibold text-foreground">
                   {stats?.totalUsuarios != null ? formatNumber(stats.totalUsuarios) : "—"}
                 </span>
                 <span>Usuarios activos</span>
               </div>
+              <span className="self-center text-muted-foreground/60" aria-hidden>|</span>
               <div className="flex flex-col">
-                <span className="text-xl font-semibold text-foreground">
+                <span className="text-lg font-semibold text-foreground">
                   {stats?.ahorroMedioPorcentaje != null ? `${stats.ahorroMedioPorcentaje} %` : "—"}
                 </span>
                 <span>Ahorro medio</span>
               </div>
             </div>
           </div>
-          <Card className="p-6">
-            <div className="space-y-4">
+          <Card className="rounded-xl p-5">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Balance actual</p>
-                  <p className="text-2xl font-bold text-primary">€ 11.880</p>
+                  <p className="text-xl font-bold text-primary">€ 11.880</p>
                 </div>
                 <span className="rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1 text-xs font-medium text-green-700 dark:text-green-400">
                   +12.4%
                 </span>
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <Card className="p-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <Card className="rounded-xl p-3">
                   <p className="text-xs text-muted-foreground">Ingresos</p>
-                  <p className="text-lg font-semibold text-primary">€ 5.500</p>
-                  <div className="mt-3 h-1.5 w-full rounded-full bg-muted">
+                  <p className="text-base font-semibold text-primary">€ 5.500</p>
+                  <div className="mt-2 h-1.5 w-full rounded-full bg-muted">
                     <div className="h-full w-[75%] rounded-full bg-green-500" />
                   </div>
                 </Card>
-                <Card className="p-4">
+                <Card className="rounded-xl p-3">
                   <p className="text-xs text-muted-foreground">Gastos</p>
-                  <p className="text-lg font-semibold text-primary">€ 3.620</p>
-                  <div className="mt-3 h-1.5 w-full rounded-full bg-muted">
+                  <p className="text-base font-semibold text-primary">€ 3.620</p>
+                  <div className="mt-2 h-1.5 w-full rounded-full bg-muted">
                     <div className="h-full w-[66%] rounded-full bg-red-500" />
                   </div>
                 </Card>
               </div>
-              <Card className="p-4">
-                <p className="text-xs text-muted-foreground mb-2">Gastos vs Ingresos del mes</p>
-                <div className="flex gap-4 items-end mb-2 flex-wrap">
+              <Card className="rounded-xl p-3">
+                <p className="text-xs text-muted-foreground mb-1.5">Gastos vs Ingresos del mes</p>
+                <div className="flex gap-4 items-end mb-1.5 flex-wrap text-sm">
                   <div>
                     <span className="text-xs text-muted-foreground">Ingresos </span>
-                    <span className="text-lg font-bold text-green-600 dark:text-green-500">{formatNumber(demoIngresos.reduce((a, b) => a + b.valor, 0))} €</span>
+                    <span className="font-bold text-green-600 dark:text-green-500">{formatNumber(demoIngresos.reduce((a, b) => a + b.valor, 0))} €</span>
                   </div>
                   <div>
                     <span className="text-xs text-muted-foreground">Gastos </span>
-                    <span className="text-lg font-bold text-red-500 dark:text-red-400">{formatNumber(demoGastos.reduce((a, b) => a + b.valor, 0))} €</span>
+                    <span className="font-bold text-red-500 dark:text-red-400">{formatNumber(demoGastos.reduce((a, b) => a + b.valor, 0))} €</span>
                   </div>
                   <div>
                     <span className="text-xs text-muted-foreground">Inversiones </span>
-                    <span className="text-lg font-bold text-blue-600 dark:text-blue-500">{formatNumber(demoInversiones.reduce((a, b) => a + b.valor, 0))} €</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-500">{formatNumber(demoInversiones.reduce((a, b) => a + b.valor, 0))} €</span>
                   </div>
                 </div>
-                <div className="mt-3 h-48">
+                <div className="mt-2 h-40">
                   <ParentSize>
                     {({ width, height }) => {
                       const margin = { top: 20, right: 20, bottom: 30, left: 20 };
@@ -352,15 +354,15 @@ export default function Home() {
                     }}
                   </ParentSize>
                 </div>
-                <div className="flex gap-4 mt-2 justify-center flex-wrap">
-                  <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-500">
-                    <span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> Ingresos
+                <div className="flex gap-4 mt-1.5 justify-center flex-wrap text-xs">
+                  <div className="flex items-center gap-1 text-green-600 dark:text-green-500">
+                    <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" /> Ingresos
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400">
-                    <span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> Gastos
+                  <div className="flex items-center gap-1 text-red-500 dark:text-red-400">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" /> Gastos
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-500">
-                    <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" /> Inversiones
+                  <div className="flex items-center gap-1 text-blue-600 dark:text-blue-500">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" /> Inversiones
                   </div>
                 </div>
               </Card>
@@ -368,33 +370,33 @@ export default function Home() {
           </Card>
         </section>
 
-        <section className="grid gap-6 py-8 md:grid-cols-2 lg:grid-cols-4">
+        <section className="grid gap-4 py-6 md:grid-cols-2 lg:grid-cols-4">
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+              className="rounded-xl border border-border bg-card p-4 shadow-sm transition hover:shadow-md hover:border-border"
             >
-              <h3 className="text-base font-semibold">{feature.title}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{feature.description}</p>
+              <h3 className="text-sm font-semibold">{feature.title}</h3>
+              <p className="mt-1.5 text-xs text-muted-foreground">{feature.description}</p>
             </div>
           ))}
         </section>
 
-        <section className="mt-12 rounded-3xl bg-muted/50 p-8 text-center">
-          <h2 className="text-2xl font-bold md:text-3xl">Empieza hoy a tomar el control</h2>
-          <p className="mt-3 text-sm text-muted-foreground md:text-base">
+        <section className="mt-8 rounded-2xl bg-muted/50 p-6 text-center">
+          <h2 className="text-xl font-bold md:text-2xl">Empieza hoy a tomar el control</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
             Crea tu cuenta en minutos y descubre cómo mejorar tus finanzas.
           </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <div className="mt-4 flex flex-wrap justify-center gap-3">
             <Link
               href="/register"
-              className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:bg-primary/90"
+              className="rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg hover:bg-primary/90"
             >
               Crear cuenta
             </Link>
             <Link
               href="/login"
-              className="rounded-full border border-border px-5 py-3 text-sm font-semibold text-foreground hover:bg-muted"
+              className="rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted"
             >
               Ya tengo cuenta
             </Link>
@@ -403,7 +405,7 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-border/60">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-8 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-6 py-5 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
           <span>© 2026 FinanzApp. Todos los derechos reservados.</span>
           <div className="flex flex-wrap gap-4">
             <Link href="/login" className="hover:text-foreground">

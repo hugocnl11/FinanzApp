@@ -260,6 +260,7 @@ export function NotionIntegrationManager() {
           >
             Notion Integrations
           </a>
+          . Suele empezar por <code className="text-xs">secret_</code>. Cópialo sin espacios.
         </p>
 
         <Input
@@ -276,7 +277,7 @@ export function NotionIntegrationManager() {
           disabled={saving}
         />
         <p className="text-xs text-muted-foreground">
-          El ID se encuentra en la URL de tu base de datos de Notion. Recuerda compartir esa base de datos con tu integración (menú «…» → Añadir conexiones).
+          En la URL de la base de datos (no de una vista), el ID es el primer bloque de caracteres entre la barra y el <code className="text-xs">?</code>. Comparte la base con tu integración (menú «…» → Añadir conexiones).
         </p>
 
         <Input

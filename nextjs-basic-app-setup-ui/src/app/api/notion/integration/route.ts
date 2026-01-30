@@ -35,55 +35,53 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const userId = getUserId(request);
-  if (!userId) return jsonError("No autorizado", 401);
-
-  let payload: {
-    integrationToken: string;
-    databaseId: string;
-    syncInterval?: number;
-    enabled?: boolean;
-  };
-
   try {
-    payload = await request.json();
-  } catch {
-    return jsonError("Payload inválido");
-  }
+    const userId = getUserId(request);
+    if (!userId) return jsonError("No autorizado. Inicia sesión de nuevo.", 401);
 
-  const { integrationToken, databaseId, syncInterval, enabled } = payload;
+    let payload: {
+      integrationToken?: string;
+      databaseId?: string;
+      syncInterval?: number;
+      enabled?: boolean;
+    };
 
-  if (!databaseId?.trim()) {
-    return jsonError("El ID de la base de datos es obligatorio");
-  }
-
-  const existing = await prisma.notionIntegration.findUnique({
-    where: { userId },
-  });
-
-  // Al crear nueva integración, el token es obligatorio
-  if (!existing && (!integrationToken || !integrationToken.trim())) {
-    return jsonError("El token de integración es obligatorio al conectar por primera vez");
-  }
-
-  // Al actualizar: si no envían token, mantener el actual
-  let encryptedToken: string | undefined;
-  if (integrationToken?.trim()) {
     try {
-      const isValid = await validateNotionToken(integrationToken);
-      if (!isValid) {
-        return jsonError("Token de Notion inválido", 400);
-      }
-    } catch (validationError) {
-      const errorMessage = validationError instanceof Error ? validationError.message : String(validationError);
-      return jsonError(errorMessage, 400);
+      payload = (await request.json()) as typeof payload;
+    } catch {
+      return jsonError("Payload inválido");
     }
-    encryptedToken = encryptToken(integrationToken);
-  } else if (existing) {
-    encryptedToken = existing.integrationToken;
-  }
 
-  try {
+    const { integrationToken, databaseId, syncInterval, enabled } = payload;
+
+    if (!databaseId?.trim()) {
+      return jsonError("El ID de la base de datos es obligatorio");
+    }
+
+    const existing = await prisma.notionIntegration.findUnique({
+      where: { userId },
+    });
+
+    if (!existing && (!integrationToken || !String(integrationToken).trim())) {
+      return jsonError("El token de integración es obligatorio al conectar por primera vez");
+    }
+
+    let encryptedToken: string | undefined;
+    if (integrationToken?.trim()) {
+      try {
+        const isValid = await validateNotionToken(integrationToken.trim());
+        if (!isValid) {
+          return jsonError("Token de Notion inválido. Comprueba que lo hayas copiado bien desde Notion.", 400);
+        }
+      } catch (validationError) {
+        const msg = validationError instanceof Error ? validationError.message : String(validationError);
+        return jsonError(msg || "Token de Notion inválido", 400);
+      }
+      encryptedToken = encryptToken(integrationToken.trim());
+    } else if (existing) {
+      encryptedToken = existing.integrationToken;
+    }
+
     const integration = await prisma.notionIntegration.upsert({
       where: { userId },
       create: {
@@ -113,19 +111,18 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Error saving Notion integration:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    
-    // Mensajes de error más específicos
+
     if (errorMessage.includes("P2002") || errorMessage.includes("Unique constraint")) {
       return jsonError("Ya existe una integración para este usuario", 409);
     }
-    if (errorMessage.includes("NOTION_ENCRYPTION_KEY")) {
-      return jsonError("Error de configuración del servidor. Contacta al administrador.", 500);
+    if (errorMessage.includes("Prisma") || errorMessage.includes("model") || errorMessage.includes("table") || errorMessage.includes("notionIntegration")) {
+      return jsonError("Base de datos sin actualizar. Ejecuta 'npx prisma migrate deploy' (o 'npx prisma migrate dev' en local).", 500);
     }
-    if (errorMessage.includes("Prisma") || errorMessage.includes("model") || errorMessage.includes("table")) {
-      return jsonError("Error de base de datos. Asegúrate de ejecutar las migraciones.", 500);
+    if (errorMessage.includes("Token") || errorMessage.includes("unauthorized") || errorMessage.includes("401")) {
+      return jsonError("Token de Notion inválido. Cópialo de nuevo desde Notion (Configuración → Conexiones → Desarrollar o crear integración).", 400);
     }
-    
-    return jsonError(`Error al guardar la configuración: ${errorMessage}`, 500);
+
+    return jsonError(errorMessage || "Error al guardar la configuración de Notion", 500);
   }
 }
 

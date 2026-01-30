@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, LogOut, Camera } from "lucide-react";
+import { User, LogOut, Camera, Briefcase } from "lucide-react";
 import { getSession, updateSessionUser } from "@/lib/auth";
 import { updateProfile, logout } from "@/lib/api/auth";
 import { loadFromStorage, saveToStorage } from "@/lib/storage";
@@ -26,6 +26,10 @@ export default function PerfilPage() {
     apellidos: "",
     email: "",
     telefono: "",
+    salarioBrutoAnual: "",
+    fechaInicioEmpleoActual: "",
+    empresaActual: "",
+    puestoActual: "",
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<string | null>(null);
@@ -45,13 +49,26 @@ export default function PerfilPage() {
     const apellidos = parts.slice(1).join(" ") ?? "";
     const stored = loadFromStorage(
       "settings",
-      null as null | { formData: { telefono?: string } }
+      null as null | {
+        formData?: {
+          telefono?: string;
+          salarioBrutoAnual?: string;
+          fechaInicioEmpleoActual?: string;
+          empresaActual?: string;
+          puestoActual?: string;
+        };
+      }
     );
+    const fd = stored?.formData;
     setFormData({
       nombre,
       apellidos,
       email: email ?? "",
-      telefono: stored?.formData?.telefono ?? "",
+      telefono: fd?.telefono ?? "",
+      salarioBrutoAnual: fd?.salarioBrutoAnual ?? "",
+      fechaInicioEmpleoActual: fd?.fechaInicioEmpleoActual ?? "",
+      empresaActual: fd?.empresaActual ?? "",
+      puestoActual: fd?.puestoActual ?? "",
     });
     if (image) setImagePreview(image);
   }, [router]);
@@ -90,7 +107,14 @@ export default function PerfilPage() {
       updateSessionUser({ id: user.id, name: user.name, email: user.email, image: user.image });
       saveToStorage("settings", {
         ...loadFromStorage("settings", {}),
-        formData: { ...formData, telefono: formData.telefono },
+        formData: {
+          ...formData,
+          telefono: formData.telefono,
+          salarioBrutoAnual: formData.salarioBrutoAnual,
+          fechaInicioEmpleoActual: formData.fechaInicioEmpleoActual,
+          empresaActual: formData.empresaActual,
+          puestoActual: formData.puestoActual,
+        },
       });
       setImageFile(null);
       setStatus("Cambios guardados.");
@@ -123,11 +147,11 @@ export default function PerfilPage() {
   if (!session) return null;
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Perfil</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Gestiona tu foto y datos personales
+          Gestiona tu foto, datos personales y laborales para analíticas y seguimiento
         </p>
       </div>
 
@@ -138,10 +162,10 @@ export default function PerfilPage() {
             <CardTitle className="text-lg">Datos personales</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-start gap-6">
-            <div className="flex flex-col items-center gap-2">
-              <Avatar className="h-24 w-24">
+        <CardContent className="space-y-5">
+          <div className="flex flex-col sm:flex-row items-start gap-8">
+            <div className="flex flex-col items-center gap-3 shrink-0">
+              <Avatar className="h-28 w-28">
                 <AvatarImage src={imagePreview ?? undefined} alt="Foto de perfil" />
                 <AvatarFallback className="bg-primary/10 text-primary text-2xl">
                   {initials}
@@ -165,7 +189,7 @@ export default function PerfilPage() {
                 Cambiar foto
               </Button>
             </div>
-            <div className="flex-1 grid gap-3 sm:grid-cols-2 w-full">
+            <div className="flex-1 grid gap-4 sm:grid-cols-2 w-full min-w-0">
               <Input
                 id="nombre"
                 label="Nombre"
@@ -200,13 +224,65 @@ export default function PerfilPage() {
               />
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 pt-2">
+          <div className="flex flex-wrap gap-2 pt-1 border-t border-border">
             <Button onClick={handleSave} disabled={saving}>
               {saving ? "Guardando…" : "Guardar"}
             </Button>
             {status && (
               <span className="text-sm text-muted-foreground self-center">{status}</span>
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Briefcase className="h-4 w-4 text-primary" />
+            <CardTitle className="text-lg">Datos laborales</CardTitle>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Opcional. Sirve para analíticas y seguimiento de aumentos.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              id="salarioBrutoAnual"
+              label="Salario bruto anual actual (€)"
+              type="number"
+              placeholder="Ej. 35000"
+              value={formData.salarioBrutoAnual}
+              onChange={handleInputChange}
+            />
+            <Input
+              id="fechaInicioEmpleoActual"
+              label="Fecha inicio empleo actual"
+              type="date"
+              value={formData.fechaInicioEmpleoActual}
+              onChange={handleInputChange}
+            />
+            <Input
+              id="empresaActual"
+              label="Empresa actual"
+              placeholder="Nombre de la empresa"
+              value={formData.empresaActual}
+              onChange={handleInputChange}
+              className="sm:col-span-2"
+            />
+            <Input
+              id="puestoActual"
+              label="Puesto actual"
+              placeholder="Ej. Desarrollador senior"
+              value={formData.puestoActual}
+              onChange={handleInputChange}
+              className="sm:col-span-2"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2 pt-1 border-t border-border">
+            <Button onClick={handleSave} disabled={saving} variant="outline">
+              {saving ? "Guardando…" : "Guardar datos laborales"}
+            </Button>
           </div>
         </CardContent>
       </Card>

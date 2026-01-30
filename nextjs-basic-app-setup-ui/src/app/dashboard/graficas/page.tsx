@@ -674,8 +674,8 @@ export default function GraficasPage() {
                     });
                     const zeroX = xScale(0);
                     return (
-                      <svg width={width} height={height}>
-                        <g transform={`translate(${margin.left},${margin.top})`}>
+                      <svg width={width} height={height} className="text-foreground">
+                        <g transform={`translate(${margin.left},${margin.top})`} fill="currentColor">
                           <line
                             x1={zeroX}
                             x2={zeroX}
@@ -709,7 +709,7 @@ export default function GraficasPage() {
                                   textAnchor={d.rentabilidad >= 0 ? "start" : "end"}
                                   fontSize={10}
                                   dominantBaseline="middle"
-                                  className="text-foreground"
+                                  fill="currentColor"
                                 >
                                   {d.rentabilidad >= 0 ? "+" : ""}
                                   {d.rentabilidad.toFixed(1)}%

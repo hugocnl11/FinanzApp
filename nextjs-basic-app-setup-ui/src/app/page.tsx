@@ -30,14 +30,6 @@ const features = [
     title: "Categorías y activos",
     description: "Categorías personalizables. Gestión de inversiones y ahorros con valor actual por día para analizar rentabilidad.",
   },
-  {
-    title: "Perfil y sesión",
-    description: "Foto de perfil, datos personales y laborales (salario bruto anual, fecha inicio empleo) y cierre de sesión.",
-  },
-  {
-    title: "Ajustes e integraciones",
-    description: "Preferencias, seguridad y datos. Integración con Notion para sincronizar movimientos desde tus bases de datos.",
-  },
 ];
 
 type StatsData = {
@@ -126,7 +118,7 @@ export default function Home() {
         <section className="grid items-center gap-8 py-8 md:grid-cols-2">
           <div className="space-y-4">
             <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">
-              Gratis para empezar — Sin tarjeta de crédito
+              En desarrollo · Versión Alfa
             </span>
             <h1 className="text-3xl font-bold leading-tight text-foreground md:text-4xl">
               Gestiona tu dinero con claridad: movimientos, patrimonio y objetivos en un solo lugar
@@ -382,6 +374,15 @@ export default function Home() {
           ))}
         </section>
 
+        <section className="flex justify-center py-4">
+          <div className="inline-flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-sm text-muted-foreground">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white dark:bg-muted border border-border p-1">
+              <img src="https://cdn.simpleicons.org/notion" alt="Notion" width={18} height={18} className="size-[18px]" />
+            </span>
+            Actualmente flujo integrado con Notion
+          </div>
+        </section>
+
         <section className="mt-8 rounded-2xl bg-muted/50 p-6 text-center">
           <h2 className="text-xl font-bold md:text-2xl">Empieza hoy a tomar el control</h2>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -401,6 +402,9 @@ export default function Home() {
               Ya tengo cuenta
             </Link>
           </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            ¿Qué viene después? <Link href="/roadmap" className="underline hover:text-foreground">Roadmap de desarrollo</Link>.
+          </p>
         </section>
       </main>
 
@@ -416,6 +420,9 @@ export default function Home() {
             </Link>
             <Link href="/dashboard" className="hover:text-foreground">
               Dashboard
+            </Link>
+            <Link href="/roadmap" className="hover:text-foreground">
+              Roadmap
             </Link>
           </div>
         </div>

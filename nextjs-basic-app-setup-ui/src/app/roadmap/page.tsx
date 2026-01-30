@@ -1,6 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import {
+  Accessibility,
+  BarChart2,
+  Bell,
+  CircleDollarSign,
+  Database,
+  Image,
+  LayoutGrid,
+  Receipt,
+  Settings,
+  Shield,
+  Smartphone,
+  Tags,
+  Target,
+} from "lucide-react";
 import { AppLogo } from "@/components/brand/AppLogo";
 import { Card } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -9,91 +24,62 @@ type RoadmapItem = {
   title: string;
   description: string;
   available?: boolean;
+  icon?: "notion" | "googlesheets" | "settings" | "shield" | "database" | "layoutgrid" | "barchart2" | "image" | "smartphone" | "bell" | "coins" | "target" | "wallet" | "tags" | "accessibility";
 };
 
 const roadmapSections: { title: string; items: RoadmapItem[] }[] = [
   {
     title: "Ajustes y cuenta",
     items: [
-      {
-        title: "Preferencias",
-        description: "Configuración de tema, notificaciones y preferencias de visualización.",
-      },
-      {
-        title: "Seguridad",
-        description: "Verificación en dos pasos (2FA), gestión de sesiones activas y recuperación de contraseña.",
-      },
-      {
-        title: "Datos",
-        description: "Exportar movimientos (CSV/Excel), respaldo y restauración de datos.",
-      },
+      { title: "Preferencias", description: "Configuración de tema, notificaciones y preferencias de visualización.", icon: "settings" },
+      { title: "Seguridad", description: "Verificación en dos pasos (2FA), gestión de sesiones activas y recuperación de contraseña.", icon: "shield" },
+      { title: "Datos", description: "Exportar movimientos (CSV/Excel), respaldo y restauración de datos.", icon: "database" },
     ],
   },
   {
     title: "Integraciones",
     items: [
-      {
-        title: "Notion",
-        description: "Sincronización de movimientos desde bases de datos de Notion. Disponible actualmente.",
-        available: true,
-      },
-      {
-        title: "Google Sheets",
-        description: "Importar o sincronizar datos con hojas de cálculo de Google.",
-      },
+      { title: "Notion", description: "Sincronización de movimientos desde bases de datos de Notion. Disponible actualmente.", available: true, icon: "notion" },
+      { title: "Google Sheets", description: "Importar o sincronizar datos con hojas de cálculo de Google.", icon: "googlesheets" },
     ],
   },
   {
     title: "Gráficas y análisis",
     items: [
-      {
-        title: "Modularidad de gráficos",
-        description: "Paneles configurables: activar o desactivar widgets y personalizar el orden.",
-      },
-      {
-        title: "Nuevas visualizaciones",
-        description: "Comparativa anual, proyecciones y más tipos de gráficos.",
-      },
-      {
-        title: "Exportar gráficas",
-        description: "Exportar gráficas a imagen o PDF para informes.",
-      },
+      { title: "Modularidad de gráficos", description: "Paneles configurables: activar o desactivar widgets y personalizar el orden.", icon: "layoutgrid" },
+      { title: "Nuevas visualizaciones", description: "Comparativa anual, proyecciones y más tipos de gráficos.", icon: "barchart2" },
+      { title: "Exportar gráficas", description: "Exportar gráficas a imagen o PDF para informes.", icon: "image" },
     ],
   },
   {
     title: "Producto",
     items: [
-      {
-        title: "PWA y uso móvil",
-        description: "Progressive Web App y experiencia optimizada en móvil.",
-      },
-      {
-        title: "Notificaciones push",
-        description: "Recordatorios y alertas de presupuesto en tiempo real.",
-      },
-      {
-        title: "Multi-moneda",
-        description: "Soporte para varias monedas y conversión.",
-      },
-      {
-        title: "Objetivos con hitos",
-        description: "Hitos intermedios en objetivos de ahorro.",
-      },
-      {
-        title: "Presupuestos personalizados",
-        description: "Periodos y reglas de presupuesto configurables.",
-      },
-      {
-        title: "Categorías por defecto",
-        description: "Plantillas de categorías para nuevos usuarios.",
-      },
-      {
-        title: "Accesibilidad y rendimiento",
-        description: "Mejoras de accesibilidad (a11y) y optimización de carga.",
-      },
+      { title: "PWA y uso móvil", description: "Progressive Web App y experiencia optimizada en móvil.", icon: "smartphone" },
+      { title: "Notificaciones push", description: "Recordatorios y alertas de presupuesto en tiempo real.", icon: "bell" },
+      { title: "Multi-moneda", description: "Soporte para varias monedas y conversión.", icon: "coins" },
+      { title: "Objetivos con hitos", description: "Hitos intermedios en objetivos de ahorro.", icon: "target" },
+      { title: "Presupuestos personalizados", description: "Periodos y reglas de presupuesto configurables.", icon: "wallet" },
+      { title: "Categorías por defecto", description: "Plantillas de categorías para nuevos usuarios.", icon: "tags" },
+      { title: "Accesibilidad y rendimiento", description: "Mejoras de accesibilidad (a11y) y optimización de carga.", icon: "accessibility" },
     ],
   },
 ];
+
+const lucideIconMap: Record<Exclude<RoadmapItem["icon"], "notion" | "googlesheets" | undefined>, React.ComponentType<{ className?: string }>> = {
+  settings: Settings,
+  shield: Shield,
+  database: Database,
+  layoutgrid: LayoutGrid,
+  barchart2: BarChart2,
+  image: Image,
+  smartphone: Smartphone,
+  bell: Bell,
+  coins: CircleDollarSign,
+  target: Target,
+  wallet: Receipt,
+  tags: Tags,
+  accessibility: Accessibility,
+};
 
 export default function RoadmapPage() {
   return (
@@ -151,8 +137,22 @@ export default function RoadmapPage() {
                       aria-hidden
                     />
                     <Card className="rounded-xl border border-border bg-card p-4 shadow-sm ml-0 transition hover:shadow-md">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
+                      <div className="flex items-start gap-3">
+                        {item.icon && (
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border p-1.5 ${item.icon === "notion" || item.icon === "googlesheets" ? "bg-white dark:bg-white/90" : ""}`}>
+                            {item.icon === "notion" && (
+                              <img src="https://cdn.simpleicons.org/notion" alt="" width={20} height={20} className="size-5" />
+                            )}
+                            {item.icon === "googlesheets" && (
+                              <img src="https://cdn.simpleicons.org/googlesheets" alt="" width={20} height={20} className="size-5" />
+                            )}
+                            {item.icon !== "notion" && item.icon !== "googlesheets" && lucideIconMap[item.icon as keyof typeof lucideIconMap] && (() => {
+                              const Icon = lucideIconMap[item.icon as keyof typeof lucideIconMap];
+                              return Icon ? <Icon className="size-5 text-muted-foreground" /> : null;
+                            })()}
+                          </span>
+                        )}
+                        <div className="min-w-0 flex-1">
                           <h3 className="text-sm font-semibold text-foreground">
                             {item.title}
                             {item.available && (

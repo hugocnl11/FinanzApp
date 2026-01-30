@@ -315,7 +315,7 @@ export default function AjustesPage() {
         <CardContent className="space-y-2">
           <details className="group rounded-lg border border-border bg-muted/20">
             <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors [&::-webkit-details-marker]:hidden">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white border border-border p-1.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white dark:bg-white/95 border border-border p-1.5">
                 <img
                   src="https://cdn.simpleicons.org/notion"
                   alt="Notion"

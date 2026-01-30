@@ -374,15 +374,6 @@ export default function Home() {
           ))}
         </section>
 
-        <section className="flex justify-center py-4">
-          <div className="inline-flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-sm text-muted-foreground">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white dark:bg-muted border border-border p-1">
-              <img src="https://cdn.simpleicons.org/notion" alt="Notion" width={18} height={18} className="size-[18px]" />
-            </span>
-            Actualmente flujo integrado con Notion
-          </div>
-        </section>
-
         <section className="mt-8 rounded-2xl bg-muted/50 p-6 text-center">
           <h2 className="text-xl font-bold md:text-2xl">Empieza hoy a tomar el control</h2>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -425,6 +416,19 @@ export default function Home() {
               Roadmap
             </Link>
           </div>
+        </div>
+        <div className="mx-auto flex w-full max-w-6xl justify-center border-t border-border/40 pt-3 mt-3 px-6">
+          <a
+            href="https://github.com/hugocnl11"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-white dark:bg-white/90 border border-border p-0.5">
+              <img src="https://cdn.simpleicons.org/github" alt="" width={16} height={16} className="size-4" />
+            </span>
+            hugocnl11
+          </a>
         </div>
       </footer>
     </div>

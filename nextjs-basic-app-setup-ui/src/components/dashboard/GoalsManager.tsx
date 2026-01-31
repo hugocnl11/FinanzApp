@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { GoalEditorDialog, type EditableGoal } from "@/components/dashboard/GoalEditorDialog";
+import { GoalProgressWithMilestones } from "@/components/dashboard/GoalProgressWithMilestones";
 import { fetchGoals, createGoal, updateGoal, deleteGoal } from "@/lib/api/goals";
 import { getUserId } from "@/lib/auth";
 
@@ -179,7 +180,12 @@ export function GoalsManager() {
                       <span>€ {goal.saved} de € {goal.target}</span>
                       <span>{percent.toFixed(0)}%</span>
                     </div>
-                    <Progress value={percent} className="mt-2" />
+                    <GoalProgressWithMilestones
+                      value={percent}
+                      target={goal.target}
+                      milestones={goal.milestones}
+                      className="mt-2"
+                    />
                     <div className="mt-3 flex items-center gap-2">
                       <Input
                         label="Aporte"

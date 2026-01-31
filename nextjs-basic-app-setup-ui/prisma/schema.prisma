@@ -48,7 +48,11 @@ model User {
   emailVerified Boolean       @default(false)
   emailVerificationToken String?
   emailVerificationExpires DateTime?
+  passwordResetToken     String?
+  passwordResetExpires   DateTime?
+  totpSecret            String?   // 2FA TOTP secret (encriptado o en claro según implementación)
   lastVariableBudgetResetMonth String?  // "YYYY-MM" — último mes en que se borraron presupuestos variables (día 1)
+  preferences   Json?         // tema, idioma, moneda, notificaciones, etc.
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   categories       Category[]
@@ -58,6 +62,7 @@ model User {
   notifications    Notification[]
   notionIntegration NotionIntegration?
   assetSnapshots   AssetSnapshot[]
+  sessions        Session[]
 }
 
 model Category {
@@ -124,6 +129,7 @@ model Goal {
   type        GoalType
   dueDate     DateTime
   description String?
+  milestones  Json?    // [{ date: "YYYY-MM-DD", amount: number }, ...]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -174,4 +180,17 @@ model NotionIntegration {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, enabled])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
 }

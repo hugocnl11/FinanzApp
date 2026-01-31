@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getUserId, jsonError } from "@/app/api/_helpers";
 import type { GoalType } from "@prisma/client";
 
+type GoalMilestonePayload = { date: string; amount: number };
+
 type GoalPayload = {
   title: string;
   target: number;
@@ -10,6 +12,7 @@ type GoalPayload = {
   type: string;
   dueDate: string;
   description?: string;
+  milestones?: GoalMilestonePayload[];
 };
 
 const toGoalType = (value: string): GoalType | null => {
@@ -27,7 +30,7 @@ const fromGoalType = (value: GoalType) => {
 };
 
 export async function GET(request: Request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
 
   const goals = await prisma.goal.findMany({
@@ -43,12 +46,13 @@ export async function GET(request: Request) {
       type: fromGoalType(goal.type),
       dueDate: goal.dueDate.toISOString().slice(0, 10),
       description: goal.description ?? undefined,
+      milestones: (goal.milestones as GoalMilestonePayload[] | null) ?? undefined,
     })),
   });
 }
 
 export async function POST(request: Request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
 
   let payload: GoalPayload;
@@ -58,7 +62,7 @@ export async function POST(request: Request) {
     return jsonError("Payload inválido");
   }
 
-  const { title, target, saved, type, dueDate, description } = payload;
+  const { title, target, saved, type, dueDate, description, milestones } = payload;
   if (!title || typeof target !== "number" || !type || !dueDate) {
     return jsonError("Campos requeridos: title, target, type, dueDate");
   }
@@ -75,6 +79,7 @@ export async function POST(request: Request) {
       type: mappedType,
       dueDate: new Date(dueDate),
       description,
+      milestones: Array.isArray(milestones) ? milestones : undefined,
     },
   });
 
@@ -88,6 +93,7 @@ export async function POST(request: Request) {
         type: fromGoalType(goal.type),
         dueDate: goal.dueDate.toISOString().slice(0, 10),
         description: goal.description ?? undefined,
+        milestones: (goal.milestones as GoalMilestonePayload[] | null) ?? undefined,
       },
     },
     { status: 201 }

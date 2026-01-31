@@ -5,7 +5,7 @@ import { encryptToken } from "@/lib/notion/encryption";
 import { validateNotionToken } from "@/lib/notion/client";
 
 export async function GET(request: Request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("No autorizado", 401);
 
   try {
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const userId = getUserId(request);
+    const userId = await getUserId(request);
     if (!userId) return jsonError("No autorizado. Inicia sesión de nuevo.", 401);
 
     let payload: {
@@ -127,7 +127,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("No autorizado", 401);
 
   try {

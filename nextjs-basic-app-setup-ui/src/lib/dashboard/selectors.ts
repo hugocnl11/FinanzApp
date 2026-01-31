@@ -205,3 +205,60 @@ export function getDailyIncomeAndExpenses(movements: Movement[]): {
     inversiones: getDailyDataFromMovements(movements, "Inversión"),
   };
 }
+
+const MES_LABELS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+/** Comparativa anual: ingresos y gastos por mes del año actual vs año anterior */
+export function comparativaAnual(movimientos: Movement[]): {
+  thisYear: Array<{ mes: string; ingresos: number; gastos: number }>;
+  lastYear: Array<{ mes: string; ingresos: number; gastos: number }>;
+} {
+  const now = new Date();
+  const thisY = now.getFullYear();
+  const lastY = thisY - 1;
+  const build = (year: number) => {
+    const byMonth = new Map<number, { ingresos: number; gastos: number }>();
+    for (let m = 0; m < 12; m++) byMonth.set(m, { ingresos: 0, gastos: 0 });
+    for (const m of movimientos) {
+      const d = new Date(m.fecha);
+      if (d.getFullYear() !== year) continue;
+      const month = d.getMonth();
+      const cur = byMonth.get(month)!;
+      if (m.tipo === "Ingreso") cur.ingresos += m.cantidad;
+      else if (m.tipo === "Gasto") cur.gastos += Math.abs(m.cantidad);
+      byMonth.set(month, cur);
+    }
+    return Array.from({ length: 12 }, (_, i) => ({
+      mes: MES_LABELS[i],
+      ingresos: byMonth.get(i)!.ingresos,
+      gastos: byMonth.get(i)!.gastos,
+    }));
+  };
+  return { thisYear: build(thisY), lastYear: build(lastY) };
+}
+
+/** Proyección mensual: media de los últimos N meses para los próximos M meses */
+export function proyeccionMensual(
+  ingresosMensuales: MoneyByMonth[],
+  gastosMensuales: MoneyByMonth[],
+  numProyectar = 3,
+  ventana = 6
+): Array<{ mes: string; ingresos: number; gastos: number }> {
+  const ing = filterMonthsByPeriod(ingresosMensuales, ventana);
+  const gas = filterMonthsByPeriod(gastosMensuales, ventana);
+  const avgIng = ing.length ? ing.reduce((a, x) => a + x.valor, 0) / ing.length : 0;
+  const avgGas = gas.length ? gas.reduce((a, x) => a + x.valor, 0) / gas.length : 0;
+  const result: Array<{ mes: string; ingresos: number; gastos: number }> = [];
+  const start = new Date();
+  start.setMonth(start.getMonth() + 1);
+  for (let i = 0; i < numProyectar; i++) {
+    const d = new Date(start);
+    d.setMonth(d.getMonth() + i);
+    result.push({
+      mes: MES_LABELS[d.getMonth()],
+      ingresos: Math.round(avgIng),
+      gastos: Math.round(avgGas),
+    });
+  }
+  return result;
+}

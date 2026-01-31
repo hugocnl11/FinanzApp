@@ -32,9 +32,46 @@ export function register(payload: AuthPayload) {
 }
 
 export function forgotPassword(email: string) {
-  return apiFetch<ApiResponse<{ success: boolean }>>("/auth/forgot-password", {
+  return apiFetch<ApiResponse<{ sent: boolean }>>("/auth/forgot-password", {
     method: "POST",
     json: { email },
+  });
+}
+
+export function resetPassword(token: string, newPassword: string) {
+  return apiFetch<ApiResponse<{ success: boolean }>>("/auth/reset-password", {
+    method: "POST",
+    json: { token, newPassword },
+  });
+}
+
+export function verify2FALogin(tempToken: string, code: string) {
+  return apiFetch<ApiResponse<AuthResponse>>("/auth/2fa/verify-login", {
+    method: "POST",
+    json: { tempToken, code },
+  });
+}
+
+export function fetch2FAStatus() {
+  return apiFetch<ApiResponse<{ enabled: boolean }>>("/auth/2fa/status");
+}
+
+export function setup2FA() {
+  return apiFetch<ApiResponse<{ secret: string; otpauthUrl: string }>>("/auth/2fa/setup", {
+    method: "POST",
+  });
+}
+
+export function verify2FASetup(secret: string, code: string) {
+  return apiFetch<ApiResponse<{ enabled: boolean }>>("/auth/2fa/verify-setup", {
+    method: "POST",
+    json: { secret, code },
+  });
+}
+
+export function disable2FA() {
+  return apiFetch<ApiResponse<{ disabled: boolean }>>("/auth/2fa/disable", {
+    method: "POST",
   });
 }
 
@@ -50,10 +87,15 @@ export async function logout(): Promise<void> {
   await fetch(`${API_BASE_URL}/auth/logout`, { method: "POST", credentials: "include" });
 }
 
-export type ProfileUpdatePayload = { name?: string; email?: string; image?: string | null };
+export type ProfileUpdatePayload = {
+  name?: string;
+  email?: string;
+  image?: string | null;
+  preferences?: Record<string, unknown> | null;
+};
 
 export async function updateProfile(payload: ProfileUpdatePayload) {
-  return apiFetch<ApiResponse<{ user: { id: string; name: string; email: string; image?: string } }>>("/user", {
+  return apiFetch<ApiResponse<{ user: { id: string; name: string; email: string; image?: string; preferences?: Record<string, unknown> } }>>("/user", {
     method: "PATCH",
     json: payload,
   });

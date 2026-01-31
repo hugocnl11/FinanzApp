@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import html2canvas from "html2canvas";
 import { Card } from "@/components/ui/card";
-import { patrimonioAcumulado, filterMonthsByPeriod } from "@/lib/dashboard/selectors";
+import { Button } from "@/components/ui/button";
+import { patrimonioAcumulado, filterMonthsByPeriod, comparativaAnual, proyeccionMensual } from "@/lib/dashboard/selectors";
 import { formatNumber } from "@/lib/format";
 import { ParentSize } from "@visx/responsive";
 import { LinePath } from "@visx/shape";
@@ -13,13 +15,150 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { fetchAssetSnapshotsForDate } from "@/lib/api/asset-snapshots";
 import type { AssetSnapshotLatest } from "@/lib/api/asset-snapshots";
+import { ImageDown, Settings2, ChevronUp, ChevronDown } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { getSession, isDemoUser, updateSessionUser } from "@/lib/auth";
+import { updateProfile } from "@/lib/api/auth";
+import { loadFromStorage, saveToStorage } from "@/lib/storage";
+import type { ChartWidgetsPref, UserPreferences } from "@/lib/api/types";
 
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+const WIDGET_IDS = [
+  "flujoCaja",
+  "tasaAhorro",
+  "presupuestoVsGasto",
+  "saldoAcumulado",
+  "rentabilidadPorActivo",
+  "actividadPorDia",
+  "comparativaAnual",
+  "proyecciones",
+  "ingresosPorCategoria",
+  "gastosPorCategoria",
+] as const;
+
+const WIDGET_LABELS: Record<(typeof WIDGET_IDS)[number], string> = {
+  flujoCaja: "Flujo de Caja Mensual",
+  tasaAhorro: "Tasa de Ahorro Mensual",
+  presupuestoVsGasto: "Presupuesto vs Gasto",
+  saldoAcumulado: "Saldo Acumulado",
+  rentabilidadPorActivo: "Rentabilidad por activo",
+  actividadPorDia: "Actividad por día",
+  comparativaAnual: "Comparativa anual",
+  proyecciones: "Proyecciones",
+  ingresosPorCategoria: "Ingresos por Categoría",
+  gastosPorCategoria: "Gastos por Categoría",
+};
+
+const CHART_WIDGETS_KEY = "finanzapp:chartWidgets";
+
+/** Altura fija de todas las gráficas para que sean compactas y del mismo tamaño */
+const CHART_HEIGHT_PX = 200;
+/** Altura fija de cada Card para que todas tengan el mismo tamaño */
+const CARD_HEIGHT_PX = 320;
+/** Márgenes unificados para todos los SVG (visx) */
+const CHART_MARGIN = { top: 16, right: 16, bottom: 32, left: 36 };
+/** Tamaño de fuente para ejes y etiquetas en gráficas */
+const CHART_FONT_SIZE_AXIS = 10;
+const CHART_FONT_SIZE_LABEL = 10;
+
+function defaultChartWidgets(): ChartWidgetsPref {
+  return { visible: [...WIDGET_IDS], order: [...WIDGET_IDS] };
+}
 
 export default function GraficasPage() {
   const { data } = useDashboardData();
   const { ingresosMensuales, gastosMensuales, gastosPorCategoria, ingresosPorCategoria, movimientos } = data;
   const [snapshotsToday, setSnapshotsToday] = useState<AssetSnapshotLatest[]>([]);
+  const [exporting, setExporting] = useState(false);
+  const [chartWidgets, setChartWidgets] = useState<ChartWidgetsPref>(defaultChartWidgets);
+  const [chartWidgetsLoaded, setChartWidgetsLoaded] = useState(false);
+  const chartsRef = useRef<HTMLDivElement>(null);
+
+  const visibleOrder = useMemo(
+    () => chartWidgets.order.filter((id) => chartWidgets.visible.includes(id)),
+    [chartWidgets]
+  );
+
+  const loadChartWidgets = useCallback(async () => {
+    if (isDemoUser()) {
+      const stored = loadFromStorage(CHART_WIDGETS_KEY, null as ChartWidgetsPref | null);
+      if (stored?.visible?.length && stored?.order?.length) {
+        setChartWidgets(stored);
+      }
+      setChartWidgetsLoaded(true);
+      return;
+    }
+    let prefs = (getSession()?.user?.preferences ?? {}) as UserPreferences;
+    if (!prefs.chartWidgets?.visible?.length || !prefs.chartWidgets?.order?.length) {
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "include" });
+        if (res.ok) {
+          const json = await res.json();
+          prefs = (json?.data?.user?.preferences ?? {}) as UserPreferences;
+        }
+      } catch {
+        // keep session prefs or default
+      }
+    }
+    if (prefs?.chartWidgets?.visible?.length && prefs?.chartWidgets?.order?.length) {
+      setChartWidgets(prefs.chartWidgets);
+    }
+    setChartWidgetsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    loadChartWidgets();
+  }, [loadChartWidgets]);
+
+  const saveChartWidgets = useCallback((next: ChartWidgetsPref) => {
+    setChartWidgets(next);
+    if (isDemoUser()) {
+      saveToStorage(CHART_WIDGETS_KEY, next);
+      return;
+    }
+    const session = getSession();
+    const prefs = (session?.user?.preferences ?? {}) as UserPreferences;
+    updateProfile({ preferences: { ...prefs, chartWidgets: next } })
+        .then((res) => {
+          if (res?.data?.user?.preferences) {
+            updateSessionUser({ preferences: res.data.user.preferences });
+          }
+        })
+        .catch(() => {});
+    },
+    []
+  );
+
+  const setWidgetVisible = useCallback(
+    (id: string, visible: boolean) => {
+      const nextVisible = visible
+        ? [...chartWidgets.visible, id]
+        : chartWidgets.visible.filter((x) => x !== id);
+      saveChartWidgets({ ...chartWidgets, visible: nextVisible });
+    },
+    [chartWidgets, saveChartWidgets]
+  );
+
+  const moveWidget = useCallback(
+    (id: string, dir: "up" | "down") => {
+      const idx = chartWidgets.order.indexOf(id);
+      if (idx === -1) return;
+      const nextOrder = [...chartWidgets.order];
+      const swap = dir === "up" ? idx - 1 : idx + 1;
+      if (swap < 0 || swap >= nextOrder.length) return;
+      [nextOrder[idx], nextOrder[swap]] = [nextOrder[swap], nextOrder[idx]];
+      saveChartWidgets({ ...chartWidgets, order: nextOrder });
+    },
+    [chartWidgets, saveChartWidgets]
+  );
 
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -105,6 +244,12 @@ export default function GraficasPage() {
       .sort((a, b) => Math.abs(b.rentabilidad) - Math.abs(a.rentabilidad));
   }, [movimientos, snapshotsToday]);
 
+  const comparativaAnualData = useMemo(() => comparativaAnual(movimientos), [movimientos]);
+  const proyeccionesData = useMemo(
+    () => proyeccionMensual(ingresosMensuales, gastosMensuales, 3, 6),
+    [ingresosMensuales, gastosMensuales]
+  );
+
   // Actividad por día del mes actual: gastado, ingresado, invertido por fecha
   const actividadPorDia = useMemo(() => {
     const now = new Date();
@@ -140,32 +285,137 @@ export default function GraficasPage() {
     boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
   };
 
+  const handleExportImage = async () => {
+    if (!chartsRef.current || exporting) return;
+    setExporting(true);
+    try {
+      const canvas = await html2canvas(chartsRef.current, {
+        useCORS: true,
+        scale: 2,
+        backgroundColor: undefined,
+        logging: false,
+      });
+      const link = document.createElement("a");
+      link.download = `graficas-finanzapp-${new Date().toISOString().slice(0, 10)}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    } catch {
+      alert("No se pudo exportar la imagen.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
-    <div className="space-y-6 px-4 md:px-8">
-      <div>
-        <h1 className="text-3xl font-bold">Gráficas Avanzadas</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Análisis detallado de tus finanzas
-        </p>
+    <div className="space-y-6 px-4 md:px-8" aria-label="Gráficas avanzadas">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 id="graficas-titulo" className="text-3xl font-bold">Gráficas Avanzadas</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Análisis detallado de tus finanzas
+          </p>
+        </div>
+        <div className="flex gap-2" role="group" aria-label="Acciones de gráficas">
+          {chartWidgetsLoaded && (
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" aria-label="Configurar widgets visibles y orden">
+                  <Settings2 className="h-4 w-4 mr-2" aria-hidden />
+                  Configurar widgets
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Widgets visibles y orden</SheetTitle>
+                  <SheetDescription>
+                    Activa o desactiva gráficas y cambia el orden con las flechas.
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="mt-6 space-y-2">
+                  {chartWidgets.order.map((id, index) => (
+                    <div
+                      key={id}
+                      className="flex items-center gap-2 rounded-lg border p-3 bg-card"
+                    >
+                      <input
+                        type="checkbox"
+                        id={`widget-${id}`}
+                        checked={chartWidgets.visible.includes(id)}
+                        onChange={(e) => setWidgetVisible(id, e.target.checked)}
+                        className="h-4 w-4 rounded border-input"
+                        aria-label={`Mostrar u ocultar gráfica: ${WIDGET_LABELS[id as keyof typeof WIDGET_LABELS] ?? id}`}
+                      />
+                      <span className="flex-1 text-sm font-medium">
+                        {WIDGET_LABELS[id as keyof typeof WIDGET_LABELS] ?? id}
+                      </span>
+                      <div className="flex flex-col gap-0">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => moveWidget(id, "up")}
+                          disabled={index === 0}
+                          aria-label="Subir en el orden"
+                        >
+                          <ChevronUp className="h-4 w-4" aria-hidden />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => moveWidget(id, "down")}
+                          disabled={index === chartWidgets.order.length - 1}
+                          aria-label="Bajar en el orden"
+                        >
+                          <ChevronDown className="h-4 w-4" aria-hidden />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </SheetContent>
+            </Sheet>
+          )}
+          <Button variant="outline" size="sm" onClick={handleExportImage} disabled={exporting} aria-label={exporting ? "Exportando gráficas" : "Exportar gráficas como imagen"}>
+            <ImageDown className="h-4 w-4 mr-2" aria-hidden />
+            {exporting ? "Exportando…" : "Exportar como imagen"}
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <section
+        ref={chartsRef}
+        className="grid gap-3 md:grid-cols-2"
+        style={{ display: "grid" }}
+        aria-labelledby="graficas-titulo"
+        role="region"
+        aria-label="Gráficas de análisis"
+      >
         {/* 1. Flujo de Caja Mensual */}
-        <Card className="p-6">
-          <div className="space-y-3">
+        <div
+          key="flujoCaja"
+          style={{
+            display: visibleOrder.includes("flujoCaja") ? undefined : "none",
+            order: visibleOrder.includes("flujoCaja") ? visibleOrder.indexOf("flujoCaja") : 999,
+          }}
+        >
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
+          <div className="space-y-2">
             <div>
               <h3 className="text-sm font-medium text-muted-foreground">Flujo de Caja Mensual</h3>
               <p className="text-xs text-muted-foreground mt-1">Diferencia entre ingresos y gastos</p>
             </div>
             {flujoCaja.length === 0 ? (
-              <div className="h-[280px] flex items-center justify-center text-sm text-muted-foreground">
+              <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: CHART_HEIGHT_PX }}>
                 Sin datos disponibles
               </div>
             ) : (
-            <div className="h-[280px]">
+            <div style={{ height: CHART_HEIGHT_PX }}>
               <ParentSize>
                 {({ width, height }) => {
-                  const margin = { top: 20, right: 20, bottom: 40, left: 40 };
+                  const margin = CHART_MARGIN;
                   const innerWidth = width - margin.left - margin.right;
                   const innerHeight = height - margin.top - margin.bottom;
 
@@ -231,7 +481,7 @@ export default function GraficasPage() {
                               x={(xScale(d.mes) || 0) + xScale.bandwidth() / 2}
                               y={labelY}
                               textAnchor="middle"
-                              fontSize={10}
+                              fontSize={CHART_FONT_SIZE_AXIS}
                               fill="currentColor"
                               className="text-foreground"
                             >
@@ -246,7 +496,7 @@ export default function GraficasPage() {
                             x={(xScale(d.mes) || 0) + xScale.bandwidth() / 2}
                             y={innerHeight + 20}
                             textAnchor="middle"
-                            fontSize={10}
+                            fontSize={CHART_FONT_SIZE_AXIS}
                             fill="currentColor"
                             className="text-muted-foreground"
                           >
@@ -262,23 +512,31 @@ export default function GraficasPage() {
             )}
           </div>
         </Card>
+        </div>
 
         {/* 2. Tasa de Ahorro Mensual */}
-        <Card className="p-6">
-          <div className="space-y-3">
+        <div
+          key="tasaAhorro"
+          style={{
+            display: visibleOrder.includes("tasaAhorro") ? undefined : "none",
+            order: visibleOrder.includes("tasaAhorro") ? visibleOrder.indexOf("tasaAhorro") : 999,
+          }}
+        >
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
+          <div className="space-y-2">
             <div>
               <h3 className="text-sm font-medium text-muted-foreground">Tasa de Ahorro Mensual</h3>
               <p className="text-xs text-muted-foreground mt-1">Porcentaje de ingresos ahorrados</p>
             </div>
             {tasaAhorro.length === 0 ? (
-              <div className="h-[280px] flex items-center justify-center text-sm text-muted-foreground">
+              <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: CHART_HEIGHT_PX }}>
                 Sin datos disponibles
               </div>
             ) : (
-            <div className="h-[280px]">
+            <div style={{ height: CHART_HEIGHT_PX }}>
               <ParentSize>
                 {({ width, height }) => {
-                  const margin = { top: 30, right: 20, bottom: 40, left: 40 };
+                  const margin = CHART_MARGIN;
                   const innerWidth = width - margin.left - margin.right;
                   const innerHeight = height - margin.top - margin.bottom;
 
@@ -319,7 +577,7 @@ export default function GraficasPage() {
                           x={innerWidth - 5}
                           y={yScale(20) - 5}
                           textAnchor="end"
-                          fontSize={10}
+                          fontSize={CHART_FONT_SIZE_AXIS}
                           fill="#22c55e"
                           opacity={0.6}
                         >
@@ -354,7 +612,7 @@ export default function GraficasPage() {
                             x={xScale(d.mes)}
                             y={yScale(d.valor) - 10}
                             textAnchor="middle"
-                            fontSize={10}
+                            fontSize={CHART_FONT_SIZE_AXIS}
                             fill="currentColor"
                             className="text-foreground"
                           >
@@ -368,7 +626,7 @@ export default function GraficasPage() {
                             x={xScale(d.mes)}
                             y={innerHeight + 20}
                             textAnchor="middle"
-                            fontSize={10}
+                            fontSize={CHART_FONT_SIZE_AXIS}
                             fill="currentColor"
                             className="text-muted-foreground"
                           >
@@ -384,23 +642,31 @@ export default function GraficasPage() {
             )}
           </div>
         </Card>
+        </div>
 
         {/* 3. Presupuesto vs Gasto por Categoría */}
-        <Card className="p-6">
-          <div className="space-y-3">
+        <div
+          key="presupuestoVsGasto"
+          style={{
+            display: visibleOrder.includes("presupuestoVsGasto") ? undefined : "none",
+            order: visibleOrder.includes("presupuestoVsGasto") ? visibleOrder.indexOf("presupuestoVsGasto") : 999,
+          }}
+        >
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
+          <div className="space-y-2">
             <div>
               <h3 className="text-sm font-medium text-muted-foreground">Presupuesto vs Gasto</h3>
               <p className="text-xs text-muted-foreground mt-1">Comparación por categoría</p>
             </div>
             {presupuestoVsGasto.length === 0 ? (
-              <div className="h-[280px] flex items-center justify-center text-sm text-muted-foreground">
+              <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: CHART_HEIGHT_PX }}>
                 Sin datos disponibles
               </div>
             ) : (
-            <div className="h-[280px]">
+            <div style={{ height: CHART_HEIGHT_PX }}>
               <ParentSize>
                 {({ width, height }) => {
-                  const margin = { top: 10, right: 80, bottom: 20, left: 100 };
+                  const margin = CHART_MARGIN;
                   const innerWidth = width - margin.left - margin.right;
                   const innerHeight = height - margin.top - margin.bottom;
                   const maxValue = Math.max(...presupuestoVsGasto.flatMap((d) => [d.presupuesto, d.gasto]));
@@ -450,7 +716,7 @@ export default function GraficasPage() {
                                 y={yBudget}
                                 width={xScale(maxValue)}
                                 height={barHeight}
-                                rx={6}
+                                rx={4}
                                 fill="hsl(var(--muted))"
                                 opacity={0.35}
                               />
@@ -459,7 +725,7 @@ export default function GraficasPage() {
                                 y={ySpent}
                                 width={xScale(maxValue)}
                                 height={barHeight}
-                                rx={6}
+                                rx={4}
                                 fill="hsl(var(--muted))"
                                 opacity={0.35}
                               />
@@ -470,7 +736,7 @@ export default function GraficasPage() {
                                 width={xScale(d.presupuesto)}
                                 height={barHeight}
                                 fill="url(#budget-gradient)"
-                                rx={6}
+                                rx={4}
                                 initial={{ scaleX: 0 }}
                                 animate={{ scaleX: 1 }}
                                 transition={{ duration: 2.0, delay: i * 0.1 }}
@@ -480,7 +746,7 @@ export default function GraficasPage() {
                                 x={xScale(d.presupuesto) + 6}
                                 y={yBudget + barHeight / 2}
                                 textAnchor="start"
-                                fontSize={10}
+                                fontSize={CHART_FONT_SIZE_AXIS}
                                 fill="currentColor"
                                 className="text-muted-foreground"
                                 dominantBaseline="middle"
@@ -494,7 +760,7 @@ export default function GraficasPage() {
                                 width={xScale(d.gasto)}
                                 height={barHeight}
                                 fill={`url(#spend-gradient-${i})`}
-                                rx={6}
+                                rx={4}
                                 filter="url(#soft-shadow)"
                                 initial={{ scaleX: 0 }}
                                 animate={{ scaleX: 1 }}
@@ -505,7 +771,7 @@ export default function GraficasPage() {
                                 x={xScale(d.gasto) + 6}
                                 y={ySpent + barHeight / 2}
                                 textAnchor="start"
-                                fontSize={10}
+                                fontSize={CHART_FONT_SIZE_AXIS}
                                 fill="currentColor"
                                 className="text-foreground"
                                 dominantBaseline="middle"
@@ -538,10 +804,18 @@ export default function GraficasPage() {
             </div>
           </div>
         </Card>
+        </div>
 
         {/* 4. Tendencia de Saldo Acumulado */}
-        <Card className="p-6">
-          <div className="space-y-3">
+        <div
+          key="saldoAcumulado"
+          style={{
+            display: visibleOrder.includes("saldoAcumulado") ? undefined : "none",
+            order: visibleOrder.includes("saldoAcumulado") ? visibleOrder.indexOf("saldoAcumulado") : 999,
+          }}
+        >
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
+          <div className="space-y-2">
             <div>
               <h3 className="text-sm font-medium text-muted-foreground">Saldo Acumulado</h3>
               <p className="text-xs text-muted-foreground mt-1">Evolución del patrimonio neto</p>
@@ -550,14 +824,14 @@ export default function GraficasPage() {
               {formatNumber(saldoAcumulado[saldoAcumulado.length - 1]?.valor ?? 0)} €
             </div>
             {saldoAcumulado.length === 0 ? (
-              <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">
+              <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: CHART_HEIGHT_PX }}>
                 Sin datos disponibles
               </div>
             ) : (
-            <div className="h-[220px]">
+            <div style={{ height: CHART_HEIGHT_PX }}>
               <ParentSize>
                 {({ width, height }) => {
-                  const margin = { top: 20, right: 20, bottom: 30, left: 40 };
+                  const margin = CHART_MARGIN;
                   const innerWidth = width - margin.left - margin.right;
                   const innerHeight = height - margin.top - margin.bottom;
 
@@ -612,7 +886,7 @@ export default function GraficasPage() {
                             x={xScale(d.mes)}
                             y={yScale(d.valor) - 10}
                             textAnchor="middle"
-                            fontSize={10}
+                            fontSize={CHART_FONT_SIZE_AXIS}
                             fill="currentColor"
                             className="text-foreground"
                           >
@@ -626,7 +900,7 @@ export default function GraficasPage() {
                             x={xScale(d.mes)}
                             y={innerHeight + 20}
                             textAnchor="middle"
-                            fontSize={10}
+                            fontSize={CHART_FONT_SIZE_AXIS}
                             fill="currentColor"
                             className="text-muted-foreground"
                           >
@@ -642,23 +916,31 @@ export default function GraficasPage() {
             )}
           </div>
         </Card>
+        </div>
 
         {/* Rentabilidad por activo */}
-        <Card className="p-6">
-          <div className="space-y-3">
+        <div
+          key="rentabilidadPorActivo"
+          style={{
+            display: visibleOrder.includes("rentabilidadPorActivo") ? undefined : "none",
+            order: visibleOrder.includes("rentabilidadPorActivo") ? visibleOrder.indexOf("rentabilidadPorActivo") : 999,
+          }}
+        >
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
+          <div className="space-y-2">
             <div>
               <h3 className="text-sm font-medium text-muted-foreground">Rentabilidad por activo</h3>
               <p className="text-xs text-muted-foreground mt-1">Positiva o negativa respecto al valor ingresado</p>
             </div>
             {rentabilidadPorActivo.length === 0 ? (
-              <div className="h-[280px] flex items-center justify-center text-sm text-muted-foreground">
+              <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: CHART_HEIGHT_PX }}>
                 Sin datos suficientes. Añade activos y valor actual en Editar activos.
               </div>
             ) : (
-              <div className="h-[280px]">
+              <div style={{ height: CHART_HEIGHT_PX }}>
                 <ParentSize>
                   {({ width, height }) => {
-                    const margin = { top: 10, right: 60, bottom: 20, left: 100 };
+                    const margin = CHART_MARGIN;
                     const innerWidth = width - margin.left - margin.right;
                     const innerHeight = height - margin.top - margin.bottom;
                     const maxAbs = Math.max(...rentabilidadPorActivo.map((d) => Math.abs(d.rentabilidad)), 1);
@@ -707,7 +989,7 @@ export default function GraficasPage() {
                                   x={zeroX + (d.rentabilidad >= 0 ? 1 : -1) * (barWidth + 6)}
                                   y={labelY}
                                   textAnchor={d.rentabilidad >= 0 ? "start" : "end"}
-                                  fontSize={10}
+                                  fontSize={CHART_FONT_SIZE_AXIS}
                                   dominantBaseline="middle"
                                   fill="currentColor"
                                 >
@@ -729,16 +1011,25 @@ export default function GraficasPage() {
             )}
           </div>
         </Card>
+        </div>
 
         {/* Actividad por día (calendario del mes) */}
-        <Card className="p-6">
-          <div className="space-y-3">
+        <div
+          key="actividadPorDia"
+          style={{
+            display: visibleOrder.includes("actividadPorDia") ? undefined : "none",
+            order: visibleOrder.includes("actividadPorDia") ? visibleOrder.indexOf("actividadPorDia") : 999,
+          }}
+        >
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
+          <div className="space-y-2">
             <div>
               <h3 className="text-sm font-medium text-muted-foreground">Actividad por día</h3>
               <p className="text-xs text-muted-foreground mt-1">
                 Gastado, ingresos e inversiones en el mes actual
               </p>
             </div>
+            <div className="overflow-y-auto" style={{ height: CHART_HEIGHT_PX }}>
             <div className="grid grid-cols-7 gap-1 text-center">
               {WEEKDAYS.map((wd) => (
                 <div key={wd} className="text-[10px] font-medium text-muted-foreground py-1">
@@ -773,23 +1064,222 @@ export default function GraficasPage() {
                 );
               })}
             </div>
+            </div>
           </div>
         </Card>
+        </div>
+
+        {/* Comparativa anual */}
+        <div
+          key="comparativaAnual"
+          style={{
+            display: visibleOrder.includes("comparativaAnual") ? undefined : "none",
+            order: visibleOrder.includes("comparativaAnual") ? visibleOrder.indexOf("comparativaAnual") : 999,
+          }}
+        >
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
+          <div className="space-y-2">
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground">Comparativa anual</h3>
+              <p className="text-xs text-muted-foreground mt-1">Ingresos y gastos: año actual vs anterior</p>
+            </div>
+            <div style={{ height: CHART_HEIGHT_PX }}>
+              <ParentSize>
+                {({ width, height }) => {
+                  const margin = CHART_MARGIN;
+                  const innerWidth = width - margin.left - margin.right;
+                  const innerHeight = height - margin.top - margin.bottom;
+                  const months = comparativaAnualData.thisYear.map((d) => d.mes);
+                  const maxVal = Math.max(
+                    ...comparativaAnualData.thisYear.flatMap((d) => [d.ingresos, d.gastos]),
+                    ...comparativaAnualData.lastYear.flatMap((d) => [d.ingresos, d.gastos]),
+                    1
+                  );
+                  const xScale = scaleBand({
+                    domain: months,
+                    range: [0, innerWidth],
+                    padding: 0.2,
+                  });
+                  const yScale = scaleLinear({
+                    domain: [0, maxVal],
+                    range: [innerHeight, 0],
+                    nice: true,
+                  });
+                  const subBand = xScale.bandwidth() / 3;
+                  return (
+                    <svg width={width} height={height}>
+                      <g transform={`translate(${margin.left},${margin.top})`}>
+                        {comparativaAnualData.thisYear.map((d, i) => (
+                          <g key={`ty-${i}`}>
+                            <motion.rect
+                              x={(xScale(d.mes) ?? 0) + subBand * 0}
+                              y={yScale(d.ingresos)}
+                              width={subBand - 2}
+                              height={innerHeight - yScale(d.ingresos)}
+                              fill="#22c55e"
+                              rx={4}
+                              initial={{ scaleY: 0 }}
+                              animate={{ scaleY: 1 }}
+                              transition={{ duration: 0.5, delay: i * 0.03 }}
+                              style={{ transformOrigin: `bottom` }}
+                            />
+                            <motion.rect
+                              x={(xScale(d.mes) ?? 0) + subBand * 1}
+                              y={yScale(d.gastos)}
+                              width={subBand - 2}
+                              height={innerHeight - yScale(d.gastos)}
+                              fill="#ef4444"
+                              rx={4}
+                              initial={{ scaleY: 0 }}
+                              animate={{ scaleY: 1 }}
+                              transition={{ duration: 0.5, delay: i * 0.03 + 0.05 }}
+                              style={{ transformOrigin: `bottom` }}
+                            />
+                          </g>
+                        ))}
+                        {comparativaAnualData.lastYear.map((d, i) => (
+                          <motion.rect
+                            key={`ly-${i}`}
+                            x={(xScale(d.mes) ?? 0) + subBand * 2}
+                            y={yScale(d.ingresos - d.gastos)}
+                            width={subBand - 2}
+                            height={Math.abs(innerHeight - yScale(0) - (yScale(d.ingresos - d.gastos) - yScale(0)))}
+                            fill="#8b5cf6"
+                            rx={4}
+                            initial={{ scaleY: 0 }}
+                            animate={{ scaleY: 1 }}
+                            transition={{ duration: 0.5, delay: i * 0.03 + 0.1 }}
+                            style={{ transformOrigin: d.ingresos - d.gastos >= 0 ? "bottom" : "top" }}
+                          />
+                        ))}
+                        {months.map((m, i) => (
+                          <text
+                            key={i}
+                            x={(xScale(m) ?? 0) + xScale.bandwidth() / 2}
+                            y={innerHeight + 20}
+                            textAnchor="middle"
+                            fontSize={CHART_FONT_SIZE_AXIS}
+                            fill="currentColor"
+                            className="text-muted-foreground"
+                          >
+                            {m}
+                          </text>
+                        ))}
+                      </g>
+                    </svg>
+                  );
+                }}
+              </ParentSize>
+            </div>
+            <div className="flex gap-4 justify-center text-xs">
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-500" /> Ingresos {new Date().getFullYear()}</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-500" /> Gastos {new Date().getFullYear()}</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-violet-500" /> Saldo {new Date().getFullYear() - 1}</span>
+            </div>
+          </div>
+        </Card>
+        </div>
+
+        {/* Proyecciones */}
+        <div
+          key="proyecciones"
+          style={{
+            display: visibleOrder.includes("proyecciones") ? undefined : "none",
+            order: visibleOrder.includes("proyecciones") ? visibleOrder.indexOf("proyecciones") : 999,
+          }}
+        >
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
+          <div className="space-y-2">
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground">Proyecciones</h3>
+              <p className="text-xs text-muted-foreground mt-1">Media de los últimos 6 meses aplicada a los próximos 3</p>
+            </div>
+            {proyeccionesData.length === 0 ? (
+              <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: CHART_HEIGHT_PX }}>Sin datos suficientes</div>
+            ) : (
+            <div style={{ height: CHART_HEIGHT_PX }}>
+              <ParentSize>
+                {({ width, height }) => {
+                  const margin = CHART_MARGIN;
+                  const innerWidth = width - margin.left - margin.right;
+                  const innerHeight = height - margin.top - margin.bottom;
+                  const maxVal = Math.max(...proyeccionesData.flatMap((d) => [d.ingresos, d.gastos]), 1);
+                  const xScale = scaleBand({
+                    domain: proyeccionesData.map((d) => d.mes),
+                    range: [0, innerWidth],
+                    padding: 0.3,
+                  });
+                  const yScale = scaleLinear({ domain: [0, maxVal], range: [innerHeight, 0], nice: true });
+                  return (
+                    <svg width={width} height={height}>
+                      <g transform={`translate(${margin.left},${margin.top})`}>
+                        {proyeccionesData.map((d, i) => (
+                          <g key={i}>
+                            <motion.rect
+                              x={xScale(d.mes)}
+                              y={yScale(d.ingresos)}
+                              width={xScale.bandwidth() / 2 - 2}
+                              height={innerHeight - yScale(d.ingresos)}
+                              fill="#22c55e"
+                              rx={4}
+                              initial={{ scaleY: 0 }}
+                              animate={{ scaleY: 1 }}
+                              transition={{ duration: 0.4, delay: i * 0.08 }}
+                              style={{ transformOrigin: "bottom" }}
+                            />
+                            <motion.rect
+                              x={(xScale(d.mes) ?? 0) + xScale.bandwidth() / 2}
+                              y={yScale(d.gastos)}
+                              width={xScale.bandwidth() / 2 - 2}
+                              height={innerHeight - yScale(d.gastos)}
+                              fill="#ef4444"
+                              rx={4}
+                              initial={{ scaleY: 0 }}
+                              animate={{ scaleY: 1 }}
+                              transition={{ duration: 0.4, delay: i * 0.08 + 0.04 }}
+                              style={{ transformOrigin: "bottom" }}
+                            />
+                          </g>
+                        ))}
+                        {proyeccionesData.map((d, i) => (
+                          <text key={i} x={(xScale(d.mes) ?? 0) + xScale.bandwidth() / 2} y={innerHeight + 20} textAnchor="middle" fontSize={CHART_FONT_SIZE_AXIS} fill="currentColor" className="text-muted-foreground">{d.mes}</text>
+                        ))}
+                      </g>
+                    </svg>
+                  );
+                }}
+              </ParentSize>
+            </div>
+            )}
+            <div className="flex gap-4 justify-center text-xs">
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-500" /> Ingresos proyectados</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-500" /> Gastos proyectados</span>
+            </div>
+          </div>
+        </Card>
+        </div>
 
         {/* 5. Ingresos por Categoría */}
-        <Card className="p-6">
-          <div className="space-y-3">
+        <div
+          key="ingresosPorCategoria"
+          style={{
+            display: visibleOrder.includes("ingresosPorCategoria") ? undefined : "none",
+            order: visibleOrder.includes("ingresosPorCategoria") ? visibleOrder.indexOf("ingresosPorCategoria") : 999,
+          }}
+        >
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
+          <div className="space-y-2">
             <div>
               <h3 className="text-sm font-medium text-muted-foreground">Ingresos por Categoría</h3>
               <p className="text-xs text-muted-foreground mt-1">Distribución de fuentes de ingreso</p>
             </div>
             {ingresosPorCategoria.length === 0 ? (
-              <div className="h-[280px] flex items-center justify-center text-sm text-muted-foreground">
+              <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: CHART_HEIGHT_PX }}>
                 Sin datos disponibles
               </div>
             ) : (
               <>
-                <div className="relative h-[280px]">
+                <div className="relative min-h-0" style={{ height: CHART_HEIGHT_PX }}>
                   <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center">
                     <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Total</span>
                     <span className="text-2xl font-semibold">{formatNumber(totalIngresos)} €</span>
@@ -802,8 +1292,8 @@ export default function GraficasPage() {
                     nameKey="name"
                     cx="50%"
                     cy="50%"
-                        innerRadius={60}
-                        outerRadius={95}
+                        innerRadius={56}
+                        outerRadius={90}
                         paddingAngle={3}
                         cornerRadius={8}
                         stroke="hsl(var(--card))"
@@ -821,7 +1311,7 @@ export default function GraficasPage() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="grid grid-cols-2 gap-2 text-xs max-h-[72px] overflow-y-auto">
                   {ingresosPorCategoria.map((entry, index) => {
                     const pct = totalIngresos ? (entry.value / totalIngresos) * 100 : 0;
                     return (
@@ -842,21 +1332,29 @@ export default function GraficasPage() {
             )}
           </div>
         </Card>
+        </div>
 
         {/* 6. Gastos por Categoría (expandido) */}
-        <Card className="p-6">
-          <div className="space-y-3">
+        <div
+          key="gastosPorCategoria"
+          style={{
+            display: visibleOrder.includes("gastosPorCategoria") ? undefined : "none",
+            order: visibleOrder.includes("gastosPorCategoria") ? visibleOrder.indexOf("gastosPorCategoria") : 999,
+          }}
+        >
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
+          <div className="space-y-2">
             <div>
               <h3 className="text-sm font-medium text-muted-foreground">Gastos por Categoría</h3>
               <p className="text-xs text-muted-foreground mt-1">Análisis detallado de gastos</p>
             </div>
             {gastosPorCategoria.length === 0 ? (
-              <div className="h-[280px] flex items-center justify-center text-sm text-muted-foreground">
+              <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: CHART_HEIGHT_PX }}>
                 Sin datos disponibles
               </div>
             ) : (
               <>
-                <div className="relative h-[280px]">
+                <div className="relative min-h-0" style={{ height: CHART_HEIGHT_PX }}>
                   <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center">
                     <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Total</span>
                     <span className="text-2xl font-semibold">{formatNumber(totalGastos)} €</span>
@@ -869,8 +1367,8 @@ export default function GraficasPage() {
                     nameKey="name"
                     cx="50%"
                     cy="50%"
-                        innerRadius={62}
-                        outerRadius={98}
+                        innerRadius={56}
+                        outerRadius={90}
                         paddingAngle={3}
                         cornerRadius={8}
                         stroke="hsl(var(--card))"
@@ -888,7 +1386,7 @@ export default function GraficasPage() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="grid grid-cols-2 gap-2 text-xs max-h-[72px] overflow-y-auto">
                   {gastosPorCategoria.map((entry, index) => {
                     const pct = totalGastos ? (entry.value / totalGastos) * 100 : 0;
                     return (
@@ -909,7 +1407,8 @@ export default function GraficasPage() {
             )}
           </div>
         </Card>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

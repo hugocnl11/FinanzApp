@@ -12,7 +12,6 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarLogo } from "@/components/brand/SidebarLogo";
 import Link from "next/link";
@@ -65,14 +64,11 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-border/40">
       <SidebarHeader className="border-b border-border/40 bg-gradient-to-br from-sidebar/80 via-sidebar/50 to-sidebar/80 backdrop-blur-md">
-        <div className="flex items-center justify-between gap-3 px-3 py-4 group-data-[collapsible=icon]:justify-center">
+        <div className="flex items-center justify-center gap-3 px-3 py-4 group-data-[collapsible=icon]:justify-center">
           <SidebarLogo />
-          <div className="shrink-0 group-data-[collapsible=icon]:hidden">
-            <ThemeToggle />
-          </div>
         </div>
       </SidebarHeader>
-      <SidebarContent className="px-2 py-4">
+      <SidebarContent className="px-2 py-4" role="navigation" aria-label="Navegación principal">
         <SidebarGroup>
           <SidebarGroupLabel className="px-2 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
             Navegación

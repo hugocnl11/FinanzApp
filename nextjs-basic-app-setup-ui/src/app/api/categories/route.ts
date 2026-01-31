@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId, jsonError } from "@/app/api/_helpers";
+import { seedCategoriesForUser } from "@/lib/seed-categories";
 import type { CategoryType } from "@prisma/client";
 
 type CategoryPayload = {
@@ -28,17 +29,24 @@ const fromCategoryType = (value: CategoryType) => {
 };
 
 export async function GET(request: Request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   // #region agent log
   fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/categories/route.ts:GET',message:'GET entry',data:{hasUserId:!!userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3,H5'})}).catch(()=>{});
   // #endregion
   if (!userId) return jsonError("userId es obligatorio");
 
   try {
-    const categories = await prisma.category.findMany({
+    let categories = await prisma.category.findMany({
       where: { userId },
       orderBy: { name: "asc" },
     });
+    if (categories.length === 0) {
+      await seedCategoriesForUser(userId);
+      categories = await prisma.category.findMany({
+        where: { userId },
+        orderBy: { name: "asc" },
+      });
+    }
     // #region agent log
     fetch('http://127.0.0.1:7243/ingest/97e0b5eb-0872-4c10-ba12-dd893008048d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/categories/route.ts:GET',message:'GET success',data:{count:categories.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
     // #endregion
@@ -58,7 +66,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
 
   let payload: CategoryPayload;

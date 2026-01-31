@@ -5,6 +5,7 @@ export type AuthSession = {
     name: string;
     email: string;
     image?: string;
+    preferences?: Record<string, unknown> | null;
   };
 };
 
@@ -33,7 +34,7 @@ export function clearSession() {
   window.dispatchEvent(new Event("finanzapp:auth-changed"));
 }
 
-export function updateSessionUser(user: { id: string; name: string; email: string; image?: string }) {
+export function updateSessionUser(user: Partial<AuthSession["user"]> & { id: string; name: string; email: string }) {
   if (typeof window === "undefined") return;
   const session = getSession();
   if (!session) return;

@@ -140,4 +140,11 @@ a {
   body {
     @apply bg-background text-foreground;
   }
+  /* Accesibilidad: anillo de foco visible para teclado */
+  *:focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+  .skip-link:focus {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
 }

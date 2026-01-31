@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import type { GoalMilestone } from "@/lib/dashboard/types";
+import { Plus, Trash2 } from "lucide-react";
 
 export type EditableGoal = {
   id: string;
@@ -21,6 +23,7 @@ export type EditableGoal = {
   type: "ahorro" | "reducir-gasto" | "aumentar-ingreso";
   dueDate: string;
   description?: string;
+  milestones?: GoalMilestone[];
 };
 
 const typeLabels = {
@@ -49,16 +52,41 @@ export function GoalEditorDialog({
     setForm(goal);
   }, [goal, open]);
 
+  const milestones = form.milestones ?? [];
+
+  const addMilestone = () => {
+    setForm((prev) => ({
+      ...prev,
+      milestones: [...(prev.milestones ?? []), { date: new Date().toISOString().slice(0, 10), amount: 0 }],
+    }));
+  };
+
+  const updateMilestone = (index: number, field: "date" | "amount", value: string | number) => {
+    setForm((prev) => {
+      const next = [...(prev.milestones ?? [])];
+      if (!next[index]) return prev;
+      next[index] = { ...next[index], [field]: field === "amount" ? Number(value) : value };
+      return { ...prev, milestones: next };
+    });
+  };
+
+  const removeMilestone = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      milestones: (prev.milestones ?? []).filter((_, i) => i !== index),
+    }));
+  };
+
   const handleSave = () => {
     if (!form.title.trim() || !form.target || !form.dueDate) return;
-    onSave({ ...form, title: form.title.trim() });
+    onSave({ ...form, title: form.title.trim(), milestones: form.milestones?.length ? form.milestones : undefined });
     setOpen(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
@@ -114,6 +142,41 @@ export function GoalEditorDialog({
               setForm((prev) => ({ ...prev, description: event.target.value }))
             }
           />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground">Hitos</label>
+              <Button type="button" variant="ghost" size="sm" onClick={addMilestone}>
+                <Plus className="h-4 w-4 mr-1" />
+                Añadir hito
+              </Button>
+            </div>
+            {milestones.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sin hitos. Añade cantidades intermedias.</p>
+            ) : (
+              <ul className="space-y-2">
+                {milestones.map((m, i) => (
+                  <li key={i} className="flex items-center gap-2 rounded-lg border p-2 bg-muted/30">
+                    <Input
+                      type="number"
+                      placeholder="Cantidad (€)"
+                      value={m.amount || ""}
+                      onChange={(e) => updateMilestone(i, "amount", e.target.value)}
+                      className="flex-1 text-sm"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => removeMilestone(i)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>

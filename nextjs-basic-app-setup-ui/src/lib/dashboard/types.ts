@@ -27,6 +27,8 @@ export type CategoryAmount = {
   value: number;
 };
 
+export type GoalMilestone = { date: string; amount: number };
+
 export type Goal = {
   id: string;
   title: string;
@@ -35,6 +37,7 @@ export type Goal = {
   type: "ahorro" | "reducir-gasto" | "aumentar-ingreso";
   dueDate?: string;
   description?: string;
+  milestones?: GoalMilestone[];
 };
 
 export type Budget = {

@@ -3,7 +3,7 @@ import { getUserId, jsonError } from "@/app/api/_helpers";
 import { syncNotionMovements } from "@/lib/notion/sync";
 
 export async function POST(request: Request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("No autorizado", 401);
 
   try {

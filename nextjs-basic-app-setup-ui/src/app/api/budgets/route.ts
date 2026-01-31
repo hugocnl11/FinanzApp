@@ -11,7 +11,7 @@ type BudgetPayload = {
 };
 
 export async function GET(request: Request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
 
   try {
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
 
   let payload: BudgetPayload;

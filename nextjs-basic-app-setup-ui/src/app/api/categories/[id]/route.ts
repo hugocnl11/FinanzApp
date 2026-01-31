@@ -28,7 +28,7 @@ const fromCategoryType = (value: CategoryType) => {
 };
 
 export async function PUT(request: Request, context: { params: { id: string } }) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
 
   let payload: CategoryPayload;
@@ -61,7 +61,7 @@ export async function PUT(request: Request, context: { params: { id: string } })
 }
 
 export async function DELETE(request: Request, context: { params: { id: string } }) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
 
   const deleted = await prisma.category.deleteMany({

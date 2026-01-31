@@ -1,6 +1,8 @@
 "use client";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { getSession, isDemoUser, updateSessionUser } from "@/lib/auth";
+import { updateProfile } from "@/lib/api/auth";
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -8,13 +10,29 @@ export function ThemeToggle() {
 
   useEffect(() => setMounted(true), []);
 
+  const handleToggle = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    if (!isDemoUser()) {
+      const session = getSession();
+      const prefs = (session?.user?.preferences ?? {}) as Record<string, unknown>;
+      updateProfile({ preferences: { ...prefs, theme: next } })
+        .then((res) => {
+          if (res?.data?.user?.preferences) {
+            updateSessionUser({ preferences: res.data.user.preferences });
+          }
+        })
+        .catch(() => {});
+    }
+  };
+
   if (!mounted) return null;
 
   return (
     <button
       aria-label="Cambiar tema"
       className="rounded-full p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      onClick={handleToggle}
     >
       {theme === "dark" ? (
         <svg className="w-5 h-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -48,6 +48,19 @@ const FALLBACK_CATEGORY_META: Record<string, { icon: CategoryIconKey; color: str
   Otros: { icon: "Wallet", color: "#64748b" },
 };
 
+type BudgetPeriod = "fixed" | "variable";
+
+const PERIOD_OPTIONS: { value: BudgetPeriod; label: string }[] = [
+  { value: "fixed", label: "Fijo" },
+  { value: "variable", label: "Mensual" },
+];
+
+function normalizePeriod(period: string | undefined): BudgetPeriod {
+  const p = (period ?? "variable").toLowerCase();
+  if (p === "fixed") return "fixed";
+  return "variable";
+}
+
 type BudgetItem = {
   id: string;
   category: string;
@@ -80,13 +93,13 @@ export function BudgetManager({
   const [formData, setFormData] = useState({
     category: categories[0] ?? "",
     limit: "",
-    period: "variable" as "fixed" | "variable",
+    period: "variable" as BudgetPeriod,
   });
-  const [implicitPeriodOverrides, setImplicitPeriodOverrides] = useState<Record<string, "fixed" | "variable">>({});
+  const [implicitPeriodOverrides, setImplicitPeriodOverrides] = useState<Record<string, BudgetPeriod>>({});
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
   const [editingLimit, setEditingLimit] = useState("");
-  const [editingPeriod, setEditingPeriod] = useState<"fixed" | "variable" | null>(null);
+  const [editingPeriod, setEditingPeriod] = useState<BudgetPeriod | null>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const hasLabel = Boolean(triggerLabel);
   const expenseCategories = categoriesData.filter((category) => category.type === "expense");
@@ -96,8 +109,8 @@ export function BudgetManager({
     return new Map(categoriesData.map((cat) => [cat.name, cat]));
   }, [categoriesData]);
 
-  // Gastado por categoría en el mes actual (para alinear con el widget del dashboard)
-  const spentByCategory = useMemo(() => {
+  // Gastado por categoría en el mes actual
+  const spentByCategoryThisMonth = useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
@@ -105,9 +118,10 @@ export function BudgetManager({
     movements.forEach((movement) => {
       if (movement.tipo !== "Gasto") return;
       const date = new Date(movement.fecha);
-      if (date.getMonth() !== currentMonth || date.getFullYear() !== currentYear) return;
-      const current = map.get(movement.categoria) ?? 0;
-      map.set(movement.categoria, current + Math.abs(movement.cantidad));
+      if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+        const amount = Math.abs(movement.cantidad);
+        map.set(movement.categoria, (map.get(movement.categoria) ?? 0) + amount);
+      }
     });
     return map;
   }, [movements]);
@@ -116,9 +130,9 @@ export function BudgetManager({
     () =>
       budgets.map((b) => ({
         ...b,
-        spent: spentByCategory.get(b.category) ?? b.spent,
+        spent: spentByCategoryThisMonth.get(b.category) ?? b.spent,
       })),
-    [budgets, spentByCategory]
+    [budgets, spentByCategoryThisMonth]
   );
 
   // Categorías con gasto este mes que no tienen ningún presupuesto (ni fijo ni variable)
@@ -128,16 +142,16 @@ export function BudgetManager({
   );
   const implicitBudgets = useMemo(() => {
     if (movements.length === 0) return [];
-    return Array.from(spentByCategory.entries())
+    return Array.from(spentByCategoryThisMonth.entries())
       .filter(([category]) => !categoriesWithAnyBudget.has(category))
       .map(([category, spent]) => ({
         id: `implicit-${category}`,
         category,
         limit: 0,
         spent,
-        period: (implicitPeriodOverrides[category] ?? "variable") as "fixed" | "variable",
+        period: (implicitPeriodOverrides[category] ?? "variable") as BudgetPeriod,
       }));
-  }, [movements.length, spentByCategory, categoriesWithAnyBudget, implicitPeriodOverrides]);
+  }, [movements.length, spentByCategoryThisMonth, categoriesWithAnyBudget, implicitPeriodOverrides]);
 
   const displayBudgets = useMemo(
     () => [...budgetsWithSpent, ...implicitBudgets],
@@ -249,7 +263,7 @@ export function BudgetManager({
     }
   };
 
-  const handlePeriodChange = async (budget: BudgetItem & { spent: number }, newPeriod: "fixed" | "variable") => {
+  const handlePeriodChange = async (budget: BudgetItem & { spent: number }, newPeriod: BudgetPeriod) => {
     if (budget.id.startsWith("implicit-")) {
       setImplicitPeriodOverrides((prev) => ({ ...prev, [budget.category]: newPeriod }));
       return;
@@ -281,7 +295,7 @@ export function BudgetManager({
     setEditingBudgetId(budget.id);
     setEditingLimit(String(budget.limit));
     setEditingPeriod(
-      budget.id.startsWith("new-") ? null : ((budget.period ?? "variable").toLowerCase() === "fixed" ? "fixed" : "variable")
+      budget.id.startsWith("new-") ? null : normalizePeriod(budget.period)
     );
   };
 
@@ -325,7 +339,7 @@ export function BudgetManager({
         setStatusMessage("Presupuesto creado.");
       } else {
         const newPeriod = editingPeriod ?? (displayBudgets.find((b) => b.id === editingBudgetId)?.period ?? "variable");
-        const normalizedPeriod = (newPeriod ?? "variable").toString().toLowerCase() === "fixed" ? "fixed" : "variable";
+        const normalizedPeriod = normalizePeriod(newPeriod?.toString());
         const updated = await updateBudget(editingBudgetId, { limit: limitValue, period: normalizedPeriod });
         const updatedItem = updated.data as BudgetItem;
         setBudgets((prev) =>
@@ -368,8 +382,8 @@ export function BudgetManager({
             <div className="rounded-2xl border border-border p-4">
               <p className="text-xs text-muted-foreground">Presupuesto total</p>
               <div className="flex items-center justify-between">
-                <p className="text-2xl font-semibold">€ {totalLimit.toFixed(0)}</p>
-                <p className="text-sm text-muted-foreground">Gastado € {totalSpent.toFixed(0)}</p>
+                <p className="text-2xl font-semibold">€ {Number(totalLimit).toFixed(2)}</p>
+                <p className="text-sm text-muted-foreground">Gastado € {Number(totalSpent).toFixed(2)}</p>
               </div>
               <Progress value={Math.min((totalSpent / (totalLimit || 1)) * 100, 100)} />
             </div>
@@ -440,15 +454,15 @@ export function BudgetManager({
                               </div>
                             ) : (
                               <p className="text-xs text-muted-foreground">
-                                € {budget.spent} de € {budget.limit || 0}
+                                € {Number(budget.spent).toFixed(2)} de € {Number(budget.limit || 0).toFixed(2)}
                               </p>
                             )}
                           </div>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
-                          <div className="flex gap-0.5 rounded-lg bg-muted p-0.5">
-                            {(["fixed", "variable"] as const).map((p) => {
-                              const rowPeriod = (budget.period ?? "variable").toLowerCase() === "fixed" ? "fixed" : "variable";
+                          <div className="flex flex-wrap gap-0.5 rounded-lg bg-muted p-0.5">
+                            {PERIOD_OPTIONS.map(({ value: p, label }) => {
+                              const rowPeriod = normalizePeriod(budget.period);
                               const isSelected = rowPeriod === p;
                               return (
                                 <button
@@ -462,7 +476,7 @@ export function BudgetManager({
                                       : "text-muted-foreground hover:text-foreground"
                                   )}
                                 >
-                                  {p === "fixed" ? "Fijo" : "Variable"}
+                                  {label}
                                 </button>
                               );
                             })}
@@ -501,7 +515,7 @@ export function BudgetManager({
                           />
                           {isOver && (
                             <p className="mt-2 text-xs font-medium text-rose-500">
-                              Has superado el límite en € {budget.spent - budget.limit}
+                              Has superado el límite en € {(budget.spent - (budget.limit || 0)).toFixed(2)}
                             </p>
                           )}
                         </>
@@ -597,9 +611,9 @@ export function BudgetManager({
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">Tipo</label>
-              <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
-                {(["fixed", "variable"] as const).map((p) => (
+              <label className="text-xs font-medium text-muted-foreground">Periodo</label>
+              <div className="flex flex-wrap gap-1 rounded-lg bg-muted p-1 w-fit">
+                {PERIOD_OPTIONS.map(({ value: p, label }) => (
                   <button
                     key={p}
                     type="button"
@@ -611,14 +625,14 @@ export function BudgetManager({
                         : "text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    {p === "fixed" ? "Fijo" : "Variable"}
+                    {label}
                   </button>
                 ))}
               </div>
             </div>
 
             <Input
-              label="Límite mensual (€)"
+              label="Límite (€)"
               type="number"
               value={formData.limit}
               onChange={(event) =>

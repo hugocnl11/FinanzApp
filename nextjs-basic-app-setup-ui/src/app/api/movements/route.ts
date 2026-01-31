@@ -40,7 +40,7 @@ type MovementWithCategory = Prisma.MovementGetPayload<{
 }>;
 
 export async function GET(request: Request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
 
   const movements = await prisma.movement.findMany({
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
 
   let payload: MovementPayload;

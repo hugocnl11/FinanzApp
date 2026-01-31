@@ -9,17 +9,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { login, resendVerification } from "@/lib/api/auth";
+import { login, resendVerification, verify2FALogin } from "@/lib/api/auth";
 import { saveSession } from "@/lib/auth";
 import { AppLogo } from "@/components/brand/AppLogo";
 
@@ -36,6 +26,10 @@ export default function LoginPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [showResendVerification, setShowResendVerification] = useState(false);
   const [resending, setResending] = useState(false);
+  const [show2FA, setShow2FA] = useState(false);
+  const [tempToken, setTempToken] = useState<string | null>(null);
+  const [code2FA, setCode2FA] = useState("");
+  const [submitting2FA, setSubmitting2FA] = useState(false);
   const {
     register,
     handleSubmit,
@@ -50,9 +44,18 @@ export default function LoginPage() {
 
   const onLogin = async (data: LoginValues) => {
     setShowResendVerification(false);
+    setShow2FA(false);
+    setTempToken(null);
     try {
       const response = await login({ email: data.email, password: data.password });
-      saveSession(response.data);
+      const dataRes = response.data as { requires2FA?: boolean; tempToken?: string; token?: string; user?: unknown };
+      if (dataRes.requires2FA && dataRes.tempToken) {
+        setTempToken(dataRes.tempToken);
+        setShow2FA(true);
+        setStatusMessage(null);
+        return;
+      }
+      saveSession(response.data as { token: string; user: unknown });
       router.push("/dashboard");
     } catch (error) {
       console.error(error);
@@ -65,6 +68,22 @@ export default function LoginPage() {
       } else {
         setStatusMessage("No se pudo iniciar sesión. Verifica tus credenciales o tu email.");
       }
+    }
+  };
+
+  const onVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tempToken || !code2FA.trim()) return;
+    setSubmitting2FA(true);
+    setStatusMessage(null);
+    try {
+      const response = await verify2FALogin(tempToken, code2FA.trim());
+      saveSession(response.data as { token: string; user: unknown });
+      router.push("/dashboard");
+    } catch {
+      setStatusMessage("Código incorrecto o expirado. Vuelve a iniciar sesión.");
+    } finally {
+      setSubmitting2FA(false);
     }
   };
 
@@ -100,12 +119,40 @@ export default function LoginPage() {
         </div>
         
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-center mb-2">Iniciar sesión</h1>
+          <h1 className="text-2xl font-bold text-center mb-2">
+            {show2FA ? "Código 2FA" : "Iniciar sesión"}
+          </h1>
           <p className="text-sm text-muted-foreground text-center">
-            Accede a tu cuenta para continuar
+            {show2FA ? "Introduce el código de tu aplicación de autenticación" : "Accede a tu cuenta para continuar"}
           </p>
         </div>
 
+        {show2FA ? (
+          <form onSubmit={onVerify2FA} className="space-y-5">
+            <Input
+              label="Código de 6 dígitos"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={code2FA}
+              onChange={(e) => setCode2FA(e.target.value.replace(/\D/g, ""))}
+              placeholder="000000"
+            />
+            {statusMessage && <p className="text-sm text-muted-foreground text-center">{statusMessage}</p>}
+            <Button type="submit" className="w-full" disabled={submitting2FA || code2FA.length !== 6}>
+              {submitting2FA ? "Verificando…" : "Verificar"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={() => { setShow2FA(false); setTempToken(null); setCode2FA(""); setStatusMessage(null); }}
+            >
+              Volver al inicio de sesión
+            </Button>
+          </form>
+        ) : (
         <motion.form
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -136,31 +183,12 @@ export default function LoginPage() {
               />
               Recuérdame
             </label>
-            <Dialog>
-              <DialogTrigger asChild>
-                <button
-                  type="button"
-                  className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
-                >
-                  ¿Olvidaste la contraseña?
-                </button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Recuperar contraseña</DialogTitle>
-                  <DialogDescription>
-                    Te enviaremos un enlace de recuperación por correo.
-                  </DialogDescription>
-                </DialogHeader>
-                <Input label="Email" type="email" placeholder="tu@email.com" />
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button variant="outline">Cancelar</Button>
-                  </DialogClose>
-                  <Button>Enviar enlace</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Link
+              href="/forgot-password"
+              className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              ¿Olvidaste la contraseña?
+            </Link>
           </div>
           <Button type="submit" className="w-full" isLoading={isSubmitting}>
             Entrar
@@ -186,6 +214,7 @@ export default function LoginPage() {
             </Link>
           </div>
         </motion.form>
+        )}
       </Card>
     </div>
   );

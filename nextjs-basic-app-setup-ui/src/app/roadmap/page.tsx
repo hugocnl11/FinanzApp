@@ -15,6 +15,7 @@ import {
   Settings,
   Shield,
   Smartphone,
+  Sparkles,
   Tags,
   Target,
 } from "lucide-react";
@@ -25,45 +26,49 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 type RoadmapItem = {
   title: string;
   description: string;
+  /** Marcado como disponible (implementado). */
   available?: boolean;
-  icon?: "notion" | "googlesheets" | "settings" | "shield" | "database" | "layoutgrid" | "barchart2" | "image" | "smartphone" | "bell" | "coins" | "target" | "wallet" | "tags" | "accessibility" | "mail" | "server";
+  /** Estado: disponible, en desarrollo o no definido (previsto). */
+  status?: "available" | "in_progress";
+  icon?: "notion" | "googlesheets" | "settings" | "shield" | "database" | "layoutgrid" | "barchart2" | "image" | "smartphone" | "bell" | "coins" | "target" | "wallet" | "tags" | "accessibility" | "mail" | "server" | "sparkles";
 };
 
 const roadmapSections: { title: string; items: RoadmapItem[] }[] = [
   {
     title: "Ajustes y cuenta",
     items: [
-      { title: "Preferencias", description: "Configuración de tema, notificaciones y preferencias de visualización.", icon: "settings" },
-      { title: "Seguridad", description: "Verificación en dos pasos (2FA), gestión de sesiones activas y recuperación de contraseña.", icon: "shield" },
-      { title: "Datos", description: "Exportar movimientos (CSV/Excel), respaldo y restauración de datos.", icon: "database" },
+      { title: "Preferencias", description: "Configuración de tema, notificaciones y preferencias de visualización.", status: "available", icon: "settings" },
+      { title: "Seguridad", description: "Verificación en dos pasos (2FA), gestión de sesiones activas y recuperación de contraseña.", status: "available", icon: "shield" },
+      { title: "Datos", description: "Exportar movimientos (CSV/Excel), respaldo y restauración de datos.", status: "available", icon: "database" },
       { title: "Cambiar correo de verificación de cuentas", description: "Cambiar el correo electrónico que envia las verificaciones por otro dedicado a FinanzApp.", icon: "mail" },
     ],
   },
   {
     title: "Integraciones",
     items: [
-      { title: "Notion", description: "Sincronización de movimientos desde bases de datos de Notion. Disponible actualmente.", available: true, icon: "notion" },
+      { title: "Notion", description: "Sincronización de movimientos desde bases de datos de Notion.", status: "available", icon: "notion" },
       { title: "Google Sheets", description: "Importar o sincronizar datos con hojas de cálculo de Google.", icon: "googlesheets" },
     ],
   },
   {
     title: "Gráficas y análisis",
     items: [
-      { title: "Modularidad de gráficos", description: "Paneles configurables: activar o desactivar widgets y personalizar el orden.", icon: "layoutgrid" },
-      { title: "Nuevas visualizaciones", description: "Comparativa anual, proyecciones y más tipos de gráficos.", icon: "barchart2" },
-      { title: "Exportar gráficas", description: "Exportar gráficas a imagen o PDF para informes.", icon: "image" },
+      { title: "Modularidad de gráficos", description: "Paneles configurables: activar o desactivar widgets y personalizar el orden.", status: "available", icon: "layoutgrid" },
+      { title: "Nuevas visualizaciones", description: "Comparativa anual, proyecciones y más tipos de gráficos.", status: "available", icon: "barchart2" },
+      { title: "Exportar gráficas", description: "Exportar gráficas a imagen o PDF para informes.", status: "available", icon: "image" },
     ],
   },
   {
     title: "Producto",
     items: [
-      { title: "PWA y uso móvil", description: "Progressive Web App y experiencia optimizada en móvil.", icon: "smartphone" },
+      { title: "Wizards de bienvenida", description: "Asistentes paso a paso que explican el funcionamiento de la app para usuarios nuevos.", status: "available", icon: "sparkles" },
+      { title: "PWA y uso móvil", description: "Progressive Web App y experiencia optimizada en móvil.", status: "available", icon: "smartphone" },
       { title: "Notificaciones push", description: "Recordatorios y alertas de presupuesto en tiempo real.", icon: "bell" },
-      { title: "Multi-moneda", description: "Soporte para varias monedas y conversión.", icon: "coins" },
-      { title: "Objetivos con hitos", description: "Hitos intermedios en objetivos de ahorro.", icon: "target" },
-      { title: "Presupuestos personalizados", description: "Periodos y reglas de presupuesto configurables.", icon: "wallet" },
-      { title: "Categorías por defecto", description: "Plantillas de categorías para nuevos usuarios.", icon: "tags" },
-      { title: "Accesibilidad y rendimiento", description: "Mejoras de accesibilidad (a11y) y optimización de carga.", icon: "accessibility" },
+      { title: "Multi-moneda", description: "Soporte para varias monedas y conversión.", status: "available", icon: "coins" },
+      { title: "Objetivos con hitos", description: "Hitos intermedios en objetivos de ahorro.", status: "available", icon: "target" },
+      { title: "Presupuestos (Fijo y Mensual)", description: "Presupuestos por categoría con período fijo o mensual.", status: "available", icon: "wallet" },
+      { title: "Categorías por defecto", description: "Plantillas de categorías para nuevos usuarios.", status: "available", icon: "tags" },
+      { title: "Accesibilidad y rendimiento", description: "Mejoras de accesibilidad (a11y) y optimización de carga.", status: "available", icon: "accessibility" },
       { title: "Alojar aplicación en un servidor físico propio", description: "Desplegar FinanzApp en infraestructura propia (on-premise) para mayor control y privacidad.", icon: "server" },
     ],
   },
@@ -85,6 +90,7 @@ const lucideIconMap: Record<Exclude<RoadmapItem["icon"], "notion" | "googlesheet
   accessibility: Accessibility,
   mail: Mail,
   server: Server,
+  sparkles: Sparkles,
 };
 
 export default function RoadmapPage() {
@@ -161,9 +167,14 @@ export default function RoadmapPage() {
                         <div className="min-w-0 flex-1">
                           <h3 className="text-sm font-semibold text-foreground">
                             {item.title}
-                            {item.available && (
+                            {(item.status === "available" || item.available) && (
                               <span className="ml-2 rounded-full bg-green-100 dark:bg-green-900/30 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
                                 Disponible
+                              </span>
+                            )}
+                            {item.status === "in_progress" && (
+                              <span className="ml-2 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                                En desarrollo
                               </span>
                             )}
                           </h3>

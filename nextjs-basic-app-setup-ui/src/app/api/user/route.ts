@@ -6,10 +6,11 @@ type PatchPayload = {
   name?: string;
   email?: string;
   image?: string | null;
+  preferences?: Record<string, unknown> | null;
 };
 
 export async function PATCH(request: Request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("No hay sesión", 401);
 
   let payload: PatchPayload;
@@ -19,8 +20,8 @@ export async function PATCH(request: Request) {
     return jsonError("Payload inválido");
   }
 
-  const { name, email, image } = payload;
-  const data: { name?: string; email?: string; image?: string | null } = {};
+  const { name, email, image, preferences } = payload;
+  const data: { name?: string; email?: string; image?: string | null; preferences?: Record<string, unknown> | null } = {};
 
   if (name !== undefined) {
     const trimmed = String(name).trim();
@@ -37,25 +38,42 @@ export async function PATCH(request: Request) {
     data.email = trimmed;
   }
   if (image !== undefined) data.image = image === "" ? null : image;
+  if (preferences !== undefined) data.preferences = preferences;
 
   if (Object.keys(data).length === 0) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, email: true, image: true },
+      select: { id: true, name: true, email: true, image: true, preferences: true },
     });
     if (!user) return jsonError("Usuario no encontrado", 404);
     return NextResponse.json({
-      data: { user: { id: user.id, name: user.name, email: user.email, image: user.image ?? undefined } },
+      data: {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image ?? undefined,
+          preferences: user.preferences ?? undefined,
+        },
+      },
     });
   }
 
   const user = await prisma.user.update({
     where: { id: userId },
     data,
-    select: { id: true, name: true, email: true, image: true },
+    select: { id: true, name: true, email: true, image: true, preferences: true },
   });
 
   return NextResponse.json({
-    data: { user: { id: user.id, name: user.name, email: user.email, image: user.image ?? undefined } },
+    data: {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image ?? undefined,
+        preferences: user.preferences ?? undefined,
+      },
+    },
   });
 }

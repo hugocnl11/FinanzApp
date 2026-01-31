@@ -36,7 +36,7 @@ const fromMovementType = (value: MovementType) => {
 };
 
 export async function PUT(request: Request, context: { params: { id: string } }) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
 
   let payload: MovementPayload;
@@ -96,7 +96,7 @@ export async function PUT(request: Request, context: { params: { id: string } })
 }
 
 export async function DELETE(request: Request, context: { params: { id: string } }) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
 
   const deleted = await prisma.movement.deleteMany({

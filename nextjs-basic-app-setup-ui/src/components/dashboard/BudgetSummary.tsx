@@ -270,9 +270,6 @@ export function BudgetSummary({
     ? "grid grid-cols-1 sm:grid-cols-2 gap-2"
     : "space-y-2";
 
-  // Altura fija para el área de listas: equivale a ~5 ítems. Con más de 5, la lista hace scroll y el widget no crece.
-  const LIST_MAX_HEIGHT = "300px";
-
   return (
     <Card className={`p-6 flex flex-col gap-3 max-h-full ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-3">
@@ -308,9 +305,9 @@ export function BudgetSummary({
         </div>
       </div>
       <div className="text-2xl font-bold">
-        € {formatNumber(totals.totalSpent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+        {formatNumber(totals.totalSpent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
         <span className="text-sm text-muted-foreground">
-          / € {formatNumber(totals.totalLimit, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          / {formatNumber(totals.totalLimit, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </span>
       </div>
       <AnimatedProgress
@@ -350,13 +347,13 @@ export function BudgetSummary({
                     {label}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    € {formatNumber(list.reduce((acc, item) => acc + item.spent, 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /{" "}
+                    {formatNumber(list.reduce((acc, item) => acc + item.spent, 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /{" "}
                     {formatNumber(list.reduce((acc, item) => acc + item.limit, 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="h-px w-full bg-border/50 mb-3 shrink-0" />
                 {list.length > 0 ? (
-                  <div className="min-h-0 overflow-y-auto pr-1" style={{ maxHeight: LIST_MAX_HEIGHT }}>
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-1">
                     <div className="space-y-2">
                       {list
                         .slice()
@@ -408,7 +405,7 @@ export function BudgetSummary({
                                 )}
                               </div>
                               <span className="text-xs text-muted-foreground">
-                                € {formatNumber(budget.spent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /{" "}
+                                {formatNumber(budget.spent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /{" "}
                                 {formatNumber(budget.limit || 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             </div>
@@ -434,7 +431,7 @@ export function BudgetSummary({
           </div>
         ) : (
           filteredBudgets.length > 0 ? (
-            <div className="min-h-0 overflow-y-auto pr-1" style={{ maxHeight: LIST_MAX_HEIGHT }}>
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1">
               <div className={listClassName}>
                 {filteredBudgets
                   .slice()
@@ -468,7 +465,7 @@ export function BudgetSummary({
                           <span className="font-medium truncate">{budget.category}</span>
                         </div>
                         <span className="text-xs text-muted-foreground">
-                          € {formatNumber(budget.spent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /{" "}
+                          {formatNumber(budget.spent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /{" "}
                           {formatNumber(budget.limit, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>

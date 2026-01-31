@@ -18,7 +18,7 @@ const MONTH_LABELS = [
 ] as const;
 
 export async function GET(request: Request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
 
   const { searchParams } = new URL(request.url);
@@ -126,7 +126,7 @@ type PostPayload = {
 };
 
 export async function POST(request: Request) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
 
   let payload: PostPayload;

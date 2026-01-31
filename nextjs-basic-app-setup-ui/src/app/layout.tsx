@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
+import { PwaRegister } from "@/components/PwaRegister";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "FinanzApp - Gestiona tus finanzas",
   description: "Aplicación para gestionar tus finanzas personales",
+  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: '/icon', type: 'image/png' },
@@ -26,6 +28,7 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body className={inter.className}>
+        <PwaRegister />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         {children}
         </ThemeProvider>

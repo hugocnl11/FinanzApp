@@ -1,20 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import { Card } from "@/components/ui/card";
-import { AnimatedProgress } from "@/components/ui/animated-progress";
 import { Button } from "@/components/ui/button";
 import { sumFilteredMonths, percentChangeByPeriod } from "@/lib/dashboard/selectors";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatCurrency } from "@/lib/format";
+import { useCurrency } from "@/hooks/useCurrency";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { GoalEditorDialog, type EditableGoal } from "@/components/dashboard/GoalEditorDialog";
+import { GoalProgressWithMilestones } from "@/components/dashboard/GoalProgressWithMilestones";
 import { motion } from "framer-motion";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { createGoal, updateGoal } from "@/lib/api/goals";
 import { Pencil } from "lucide-react";
 
-// Componente individual para Ingresos
-export function IncomeCard() {
+// Componente individual para Ingresos (memoizado para evitar re-renders innecesarios)
+export const IncomeCard = memo(function IncomeCard() {
+  const currency = useCurrency();
   const { period, getMonthCount } = usePeriod();
   const { data } = useDashboardData();
   const { ingresosMensuales } = data;
@@ -36,7 +38,7 @@ export function IncomeCard() {
           transition={{ duration: 0.4, ease: "easeOut" }}
           className="text-2xl font-bold text-primary"
         >
-          {formatNumber(total)} €
+          {formatCurrency(total, currency)}
         </motion.div>
         <motion.div 
           key={`income-percent-${period}`}
@@ -50,10 +52,11 @@ export function IncomeCard() {
       </div>
     </Card>
   );
-}
+});
 
-// Componente individual para Gastos
-export function ExpensesCard() {
+// Componente individual para Gastos (memoizado)
+export const ExpensesCard = memo(function ExpensesCard() {
+  const currency = useCurrency();
   const { period, getMonthCount } = usePeriod();
   const { data } = useDashboardData();
   const { gastosMensuales } = data;
@@ -75,7 +78,7 @@ export function ExpensesCard() {
           transition={{ duration: 0.4, ease: "easeOut" }}
           className="text-2xl font-bold text-primary"
         >
-          {formatNumber(total)} €
+          {formatCurrency(total, currency)}
         </motion.div>
         <motion.div 
           key={`expenses-percent-${period}`}
@@ -89,10 +92,11 @@ export function ExpensesCard() {
       </div>
     </Card>
   );
-}
+});
 
-// Componente individual para Objetivo Principal
-export function GoalCard() {
+// Componente individual para Objetivo Principal (memoizado)
+export const GoalCard = memo(function GoalCard() {
+  const currency = useCurrency();
   const { data } = useDashboardData();
   const [currentGoal, setCurrentGoal] = useState<EditableGoal | null>(null);
 
@@ -135,23 +139,28 @@ export function GoalCard() {
           goal={currentGoal}
           onSave={handleSaveGoal}
           trigger={
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Editar objetivo">
               <Pencil className="h-4 w-4" />
             </Button>
           }
         />
       </div>
       <div className="text-2xl font-bold">
-        {formatNumber(currentGoal.saved)} €{" "}
+        {formatCurrency(currentGoal.saved, currency)}{" "}
         <span className="text-sm text-muted-foreground">
-          / {formatNumber(currentGoal.target)} €
+          / {formatCurrency(currentGoal.target ?? 0, currency)}
         </span>
       </div>
-      <AnimatedProgress value={Math.min(porcentaje, 100)} />
+      <GoalProgressWithMilestones
+        value={porcentaje}
+        target={currentGoal.target ?? 0}
+        milestones={currentGoal.milestones}
+        animated
+      />
       <div className="text-xs text-muted-foreground">{Math.round(porcentaje)}% completado</div>
     </Card>
   );
-}
+});
 
 // Componente compuesto original (mantiene compatibilidad)
 export function Widgets({

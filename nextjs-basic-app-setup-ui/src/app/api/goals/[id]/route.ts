@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getUserId, jsonError } from "@/app/api/_helpers";
 import type { GoalType } from "@prisma/client";
 
+type GoalMilestonePayload = { date: string; amount: number };
+
 type GoalPayload = {
   title?: string;
   target?: number;
@@ -10,6 +12,7 @@ type GoalPayload = {
   type?: string;
   dueDate?: string;
   description?: string;
+  milestones?: GoalMilestonePayload[];
 };
 
 const toGoalType = (value: string): GoalType | null => {
@@ -27,7 +30,7 @@ const fromGoalType = (value: GoalType) => {
 };
 
 export async function PUT(request: Request, context: { params: { id: string } }) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
 
   let payload: GoalPayload;
@@ -48,6 +51,7 @@ export async function PUT(request: Request, context: { params: { id: string } })
   }
   if (payload.dueDate) data.dueDate = new Date(payload.dueDate);
   if (payload.description !== undefined) data.description = payload.description;
+  if (payload.milestones !== undefined) data.milestones = Array.isArray(payload.milestones) ? payload.milestones : null;
 
   const updated = await prisma.goal.updateMany({
     where: { id: context.params.id, userId },
@@ -65,12 +69,13 @@ export async function PUT(request: Request, context: { params: { id: string } })
       type: fromGoalType(goal.type),
       dueDate: goal.dueDate.toISOString().slice(0, 10),
       description: goal.description ?? undefined,
+      milestones: (goal.milestones as GoalMilestonePayload[] | null) ?? undefined,
     },
   });
 }
 
 export async function DELETE(request: Request, context: { params: { id: string } }) {
-  const userId = getUserId(request);
+  const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
 
   const deleted = await prisma.goal.deleteMany({

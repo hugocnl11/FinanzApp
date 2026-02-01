@@ -19,48 +19,44 @@ export default function AppleIcon() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #3b82f6 0%, #22c55e 50%, #10b981 100%)',
+          background: 'linear-gradient(135deg, #0a0a0a 0%, #171717 50%, #000000 100%)',
           borderRadius: '40px',
           position: 'relative',
         }}
       >
-        {/* Outer circle */}
         <div
           style={{
             position: 'absolute',
             width: '140px',
             height: '140px',
-            border: '4px solid rgba(255, 255, 255, 0.4)',
+            border: '4px solid rgba(255, 255, 255, 0.35)',
             borderRadius: '50%',
           }}
         />
-        {/* Middle circle */}
         <div
           style={{
             position: 'absolute',
             width: '100px',
             height: '100px',
-            border: '4px solid rgba(255, 255, 255, 0.6)',
+            border: '4px solid rgba(255, 255, 255, 0.5)',
             borderRadius: '50%',
           }}
         />
-        {/* Inner circle */}
         <div
           style={{
             position: 'absolute',
             width: '60px',
             height: '60px',
-            background: 'rgba(255, 255, 255, 0.8)',
+            background: 'rgba(255, 255, 255, 0.7)',
             borderRadius: '50%',
           }}
         />
-        {/* Center dot */}
         <div
           style={{
             position: 'absolute',
             width: '30px',
             height: '30px',
-            background: 'linear-gradient(135deg, #2563eb 0%, #16a34a 100%)',
+            background: 'linear-gradient(135deg, #0a0a0a 0%, #171717 50%, #000000 100%)',
             borderRadius: '50%',
           }}
         />

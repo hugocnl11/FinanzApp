@@ -501,14 +501,17 @@ export function AssetsDistributionManager() {
           <Pencil className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Editar distribución de activos</DialogTitle>
-          <DialogDescription>
-            Actualiza el valor actual de cada activo para reflejar tu cartera.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
+        <div className="shrink-0 sticky top-0 z-10 bg-background border-b pr-12 pt-4 pb-3 pl-4">
+          <DialogHeader>
+            <DialogTitle>Editar distribución de activos</DialogTitle>
+            <DialogDescription>
+              Actualiza el valor actual de cada activo para reflejar tu cartera.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
+        <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
           <div className="text-sm text-muted-foreground">Cargando activos...</div>
         ) : investmentRows.length === 0 && savingsRows.length === 0 ? (
@@ -666,10 +669,11 @@ export function AssetsDistributionManager() {
             {saving ? "Guardando..." : "Guardar"}
           </Button>
         </DialogFooter>
+        </div>
       </DialogContent>
 
       <Dialog open={iconDialogOpen} onOpenChange={setIconDialogOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Icono y color</DialogTitle>
             <DialogDescription>Elige un icono y un color para este activo.</DialogDescription>

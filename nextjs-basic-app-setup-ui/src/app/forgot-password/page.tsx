@@ -34,7 +34,7 @@ export default function ForgotPasswordPage() {
       <Card className="w-full max-w-[420px] p-6 sm:p-8">
         <div className="flex items-center justify-center gap-3 mb-6">
           <AppLogo size="lg" showText={false} variant="minimal" />
-          <span className="font-bold text-xl bg-gradient-to-r from-blue-600 to-green-600 dark:from-blue-400 dark:to-green-400 bg-clip-text text-transparent">
+          <span className="font-bold text-xl text-foreground">
             FinanzApp
           </span>
         </div>

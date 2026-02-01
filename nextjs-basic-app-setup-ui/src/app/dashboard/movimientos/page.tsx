@@ -25,7 +25,9 @@ export default function MovimientosPage() {
   const [editingMovement, setEditingMovement] = useState<Movement | undefined>();
   const [showForm, setShowForm] = useState(false);
   const [visibleCategoriesCount, setVisibleCategoriesCount] = useState(8);
+  const [visibleCategoriesCountMobile, setVisibleCategoriesCountMobile] = useState(5);
   const categoryContainerRef = useRef<HTMLDivElement>(null);
+  const mobileCategoryContainerRef = useRef<HTMLDivElement>(null);
   const categoryPillRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [filters, setFilters] = useState({
     search: "",
@@ -154,20 +156,62 @@ export default function MovimientosPage() {
     setVisibleCategoriesCount(Math.max(0, Math.min(count, categoryOptions.length)));
   }, [categoryOptions]);
 
+  const calculateVisibleCategoriesMobile = useCallback(() => {
+    if (!mobileCategoryContainerRef.current || categoryOptions.length === 0) {
+      setVisibleCategoriesCountMobile(Math.min(5, categoryOptions.length));
+      return;
+    }
+    const container = mobileCategoryContainerRef.current;
+    const containerWidth = container.offsetWidth;
+    const gap = 4;
+    const padding = 12;
+    const selectorWidth = 110;
+    const todasWidth = 50;
+    const availableWidth = containerWidth - padding - selectorWidth - gap - todasWidth - gap;
+    if (availableWidth <= 0) {
+      setVisibleCategoriesCountMobile(0);
+      return;
+    }
+    const tempElement = document.createElement("button");
+    tempElement.className = "relative px-2 py-1 text-xs font-medium whitespace-nowrap";
+    tempElement.style.visibility = "hidden";
+    tempElement.style.position = "absolute";
+    document.body.appendChild(tempElement);
+    let totalWidth = 0;
+    let count = 0;
+    for (const category of categoryOptions) {
+      tempElement.textContent = category;
+      const categoryWidth = tempElement.offsetWidth;
+      if (totalWidth + categoryWidth + gap <= availableWidth) {
+        totalWidth += categoryWidth + gap;
+        count++;
+      } else break;
+    }
+    document.body.removeChild(tempElement);
+    setVisibleCategoriesCountMobile(Math.max(0, Math.min(count, categoryOptions.length)));
+  }, [categoryOptions]);
+
   useEffect(() => {
     calculateVisibleCategories();
     const resizeObserver = new ResizeObserver(() => {
       calculateVisibleCategories();
     });
-
     if (categoryContainerRef.current) {
       resizeObserver.observe(categoryContainerRef.current);
     }
-
-    return () => {
-      resizeObserver.disconnect();
-    };
+    return () => resizeObserver.disconnect();
   }, [calculateVisibleCategories]);
+
+  useEffect(() => {
+    calculateVisibleCategoriesMobile();
+    const resizeObserver = new ResizeObserver(() => {
+      calculateVisibleCategoriesMobile();
+    });
+    if (mobileCategoryContainerRef.current) {
+      resizeObserver.observe(mobileCategoryContainerRef.current);
+    }
+    return () => resizeObserver.disconnect();
+  }, [calculateVisibleCategoriesMobile]);
 
   const filteredMovements = movimientos.filter((movement) => {
     const searchMatch =
@@ -217,159 +261,167 @@ export default function MovimientosPage() {
     filters.amountMax,
   ].filter(Boolean).length;
 
-  const FiltersFormContent = () => (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex-1 min-w-[200px]">
-          <Input
-            label="Buscar"
-            placeholder="Concepto o categoría"
-            value={filters.search}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, search: event.target.value }))
-            }
-          />
-        </div>
-        <div className="flex-1 min-w-[200px]">
-          <div className="grid grid-cols-2 gap-2.5">
+  function FiltersFormContent({
+    categoryRef,
+    visibleCount,
+  }: {
+    categoryRef: React.RefObject<HTMLDivElement | null>;
+    visibleCount: number;
+  }) {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[200px]">
             <Input
-              label=""
-              type="date"
-              value={filters.dateFrom}
+              label="Buscar"
+              placeholder="Concepto o categoría"
+              value={filters.search}
               onChange={(event) =>
-                setFilters((prev) => ({ ...prev, dateFrom: event.target.value }))
+                setFilters((prev) => ({ ...prev, search: event.target.value }))
               }
-              placeholder="Desde"
-            />
-            <Input
-              label=""
-              type="date"
-              value={filters.dateTo}
-              onChange={(event) =>
-                setFilters((prev) => ({ ...prev, dateTo: event.target.value }))
-              }
-              placeholder="Hasta"
             />
           </div>
-        </div>
-        <div className="flex-1 min-w-[200px]">
-          <div className="grid grid-cols-2 gap-2.5">
-            <Input
-              label=""
-              type="number"
-              value={filters.amountMin}
-              onChange={(event) =>
-                setFilters((prev) => ({ ...prev, amountMin: event.target.value }))
-              }
-              placeholder="Min"
-            />
-            <Input
-              label=""
-              type="number"
-              value={filters.amountMax}
-              onChange={(event) =>
-                setFilters((prev) => ({ ...prev, amountMax: event.target.value }))
-              }
-              placeholder="Max"
-            />
+          <div className="flex-1 min-w-[200px]">
+            <div className="grid grid-cols-2 gap-2.5">
+              <Input
+                label="Desde"
+                type="date"
+                value={filters.dateFrom}
+                onChange={(event) =>
+                  setFilters((prev) => ({ ...prev, dateFrom: event.target.value }))
+                }
+                placeholder="Desde"
+              />
+              <Input
+                label="Hasta"
+                type="date"
+                value={filters.dateTo}
+                onChange={(event) =>
+                  setFilters((prev) => ({ ...prev, dateTo: event.target.value }))
+                }
+                placeholder="Hasta"
+              />
+            </div>
+          </div>
+          <div className="flex-1 min-w-[200px]">
+            <div className="grid grid-cols-2 gap-2.5">
+              <Input
+                label="Cantidad mín."
+                type="number"
+                value={filters.amountMin}
+                onChange={(event) =>
+                  setFilters((prev) => ({ ...prev, amountMin: event.target.value }))
+                }
+                placeholder="Min"
+              />
+              <Input
+                label="Cantidad máx."
+                type="number"
+                value={filters.amountMax}
+                onChange={(event) =>
+                  setFilters((prev) => ({ ...prev, amountMax: event.target.value }))
+                }
+                placeholder="Max"
+              />
+            </div>
           </div>
         </div>
-      </div>
-      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
-        <div className="space-y-2">
-          <label className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">Tipo</label>
-          <div className="flex flex-wrap items-center gap-1 rounded-lg bg-muted/50 p-1 border border-border/40">
-            {["Todos", "Ingreso", "Gasto", "Inversión", "Ahorro"].map((tipo) => (
-              <button
-                key={tipo}
-                type="button"
-                onClick={() => setFilters((prev) => ({ ...prev, type: tipo }))}
-                className="relative px-2 py-1.5 text-xs font-medium text-muted-foreground transition rounded-md min-h-[44px] md:min-h-0"
-              >
-                {filters.type === tipo && (
-                  <motion.span
-                    layoutId="tipo-pill"
-                    className="absolute inset-0 rounded-md bg-background shadow-sm border border-border/50"
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  />
-                )}
-                <span className={filters.type === tipo ? "relative text-foreground font-medium" : "relative"}>
-                  {tipo === "Todos" ? "Todos" : tipo.slice(0, 3)}
-                </span>
-              </button>
-            ))}
+        <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">Tipo</label>
+            <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1 border border-border/40">
+              {["Todos", "Ingreso", "Gasto", "Inversión", "Ahorro"].map((tipo) => (
+                <button
+                  key={tipo}
+                  type="button"
+                  onClick={() => setFilters((prev) => ({ ...prev, type: tipo }))}
+                  className="relative flex-1 min-w-0 px-2 py-1.5 text-xs font-medium text-muted-foreground transition rounded-md min-h-[44px] md:min-h-0"
+                >
+                  {filters.type === tipo && (
+                    <motion.span
+                      layoutId="tipo-pill"
+                      className="absolute inset-0 rounded-md bg-background shadow-sm border border-border/50"
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                  <span className={filters.type === tipo ? "relative text-foreground font-medium" : "relative"}>
+                    {tipo === "Todos" ? "Todos" : tipo.slice(0, 3)}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="space-y-2 md:col-span-2 xl:col-span-3">
-          <label className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">Categoría</label>
-          <div
-            ref={categoryContainerRef}
-            className="flex flex-wrap items-center gap-1 rounded-lg bg-muted/50 p-1.5 border border-border/40"
-          >
-            <button
-              key="Todas"
-              type="button"
-              onClick={() => setFilters((prev) => ({ ...prev, category: "Todas" }))}
-              className="relative px-2 py-1.5 text-xs font-medium text-muted-foreground transition whitespace-nowrap flex-shrink-0 min-h-[44px] md:min-h-0 rounded-md"
+          <div className="space-y-2 md:col-span-2 xl:col-span-3">
+            <label className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">Categoría</label>
+            <div
+              ref={categoryRef}
+              className="flex flex-wrap items-center gap-1 rounded-lg bg-muted/50 p-1.5 border border-border/40"
             >
-              {filters.category === "Todas" && (
-                <motion.span
-                  layoutId="category-pill"
-                  className="absolute inset-0 rounded-md bg-background shadow-sm border border-border/50"
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                />
-              )}
-              <span className={filters.category === "Todas" ? "relative text-foreground font-medium" : "relative"}>
-                Todas
-              </span>
-            </button>
-            {categoryOptions.slice(0, visibleCategoriesCount).map((category) => (
               <button
-                key={category}
+                key="Todas"
                 type="button"
-                onClick={() => setFilters((prev) => ({ ...prev, category }))}
+                onClick={() => setFilters((prev) => ({ ...prev, category: "Todas" }))}
                 className="relative px-2 py-1.5 text-xs font-medium text-muted-foreground transition whitespace-nowrap flex-shrink-0 min-h-[44px] md:min-h-0 rounded-md"
-                ref={(el) => {
-                  if (el) categoryPillRefs.current.set(category, el);
-                }}
               >
-                {filters.category === category && (
+                {filters.category === "Todas" && (
                   <motion.span
                     layoutId="category-pill"
                     className="absolute inset-0 rounded-md bg-background shadow-sm border border-border/50"
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   />
                 )}
-                <span className={filters.category === category ? "relative text-foreground font-medium" : "relative"}>
-                  {category}
+                <span className={filters.category === "Todas" ? "relative text-foreground font-medium" : "relative"}>
+                  Todas
                 </span>
               </button>
-            ))}
-            {categoryOptions.length > visibleCategoriesCount && (
-              <select
-                className="px-2 py-1.5 text-xs border border-border/40 bg-background/50 text-foreground rounded-md flex-shrink-0 min-w-[100px] min-h-[44px] md:min-h-0 appearance-none cursor-pointer hover:bg-background transition-colors"
-                value={categoryOptions.slice(visibleCategoriesCount).includes(filters.category) ? filters.category : ""}
-                onChange={(event) => {
-                  if (event.target.value) {
-                    setFilters((prev) => ({ ...prev, category: event.target.value }));
-                  }
-                }}
-              >
-                <option value="" disabled>
-                  {categoryOptions.length > visibleCategoriesCount ? `+${categoryOptions.length - visibleCategoriesCount} más` : "Más"}
-                </option>
-                {categoryOptions.slice(visibleCategoriesCount).map((category) => (
-                  <option key={category} value={category}>
+              {categoryOptions.slice(0, visibleCount).map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setFilters((prev) => ({ ...prev, category }))}
+                  className="relative px-2 py-1.5 text-xs font-medium text-muted-foreground transition whitespace-nowrap flex-shrink-0 min-h-[44px] md:min-h-0 rounded-md"
+                  ref={(el) => {
+                    if (el) categoryPillRefs.current.set(category, el);
+                  }}
+                >
+                  {filters.category === category && (
+                    <motion.span
+                      layoutId="category-pill"
+                      className="absolute inset-0 rounded-md bg-background shadow-sm border border-border/50"
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                  <span className={filters.category === category ? "relative text-foreground font-medium" : "relative"}>
                     {category}
+                  </span>
+                </button>
+              ))}
+              {categoryOptions.length > visibleCount && (
+                <select
+                  className="px-2 py-1.5 text-xs border border-border/40 bg-background/50 text-foreground rounded-md flex-shrink-0 min-w-[100px] min-h-[44px] md:min-h-0 appearance-none cursor-pointer hover:bg-background transition-colors"
+                  value={categoryOptions.slice(visibleCount).includes(filters.category) ? filters.category : ""}
+                  onChange={(event) => {
+                    if (event.target.value) {
+                      setFilters((prev) => ({ ...prev, category: event.target.value }));
+                    }
+                  }}
+                >
+                  <option value="" disabled>
+                    {categoryOptions.length > visibleCount ? `+${categoryOptions.length - visibleCount} más` : "Más"}
                   </option>
-                ))}
-              </select>
-            )}
+                  {categoryOptions.slice(visibleCount).map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   const exportCSV = () => {
     const headers = ["Fecha", "Tipo", "Concepto", "Categoría", "Cantidad"];
@@ -476,7 +528,7 @@ export default function MovimientosPage() {
               <SheetTitle>Filtros y exportar</SheetTitle>
             </SheetHeader>
             <div className="mt-6 space-y-4">
-              <FiltersFormContent />
+              <FiltersFormContent categoryRef={mobileCategoryContainerRef} visibleCount={visibleCategoriesCountMobile} />
               <div className="flex flex-col gap-2 pt-4 border-t border-border/40">
                 <Button
                   variant="outline"
@@ -549,7 +601,7 @@ export default function MovimientosPage() {
           </div>
         </div>
         <div className="space-y-4 pt-4">
-          <FiltersFormContent />
+          <FiltersFormContent categoryRef={categoryContainerRef} visibleCount={visibleCategoriesCount} />
         </div>
       </div>
 

@@ -20,7 +20,7 @@ export function Sidebar() {
         <Avatar>
           <span className="bg-gray-900 dark:bg-white text-white dark:text-black rounded-full w-10 h-10 flex items-center justify-center font-bold">FZ</span>
         </Avatar>
-        <span className="font-bold text-lg text-gray-900 dark:text-white">FinanzApp</span>
+        <span className="font-bold text-lg text-foreground">FinanzApp</span>
       </div>
       <Separator className="bg-gray-200 dark:bg-gray-800" />
       <nav className="flex flex-col gap-2 mt-2">
@@ -45,7 +45,7 @@ export function Sidebar() {
       <div className="flex-1" />
       <Separator className="bg-gray-200 dark:bg-gray-800" />
       <div className="flex items-center justify-between mt-4">
-        <div className="text-xs text-gray-400">© 2024 FinanzApp</div>
+        <div className="text-xs text-muted-foreground">© 2024 FinanzApp</div>
         <ThemeToggle />
       </div>
     </aside>

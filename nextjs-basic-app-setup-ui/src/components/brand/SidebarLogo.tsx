@@ -18,7 +18,7 @@ export function SidebarLogo({ collapsed = false }: SidebarLogoProps) {
       {/* Text - Hidden when collapsed */}
       {!collapsed && (
         <div className="flex flex-col group-data-[collapsible=icon]:hidden min-w-0">
-          <span className="font-bold text-lg bg-gradient-to-r from-blue-600 to-green-600 dark:from-blue-400 dark:to-green-400 bg-clip-text text-transparent truncate">
+          <span className="font-bold text-lg text-foreground truncate">
             FinanzApp
           </span>
           <span className="text-[10px] text-sidebar-foreground/60 tracking-wide">

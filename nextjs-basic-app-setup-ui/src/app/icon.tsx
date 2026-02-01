@@ -19,48 +19,44 @@ export default function Icon() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #3b82f6 0%, #22c55e 50%, #10b981 100%)',
+          background: 'linear-gradient(135deg, #0a0a0a 0%, #171717 50%, #000000 100%)',
           borderRadius: '8px',
           position: 'relative',
         }}
       >
-        {/* Outer circle */}
         <div
           style={{
             position: 'absolute',
             width: '24px',
             height: '24px',
-            border: '2px solid rgba(255, 255, 255, 0.4)',
+            border: '2px solid rgba(255, 255, 255, 0.35)',
             borderRadius: '50%',
           }}
         />
-        {/* Middle circle */}
         <div
           style={{
             position: 'absolute',
             width: '16px',
             height: '16px',
-            border: '2px solid rgba(255, 255, 255, 0.6)',
+            border: '2px solid rgba(255, 255, 255, 0.5)',
             borderRadius: '50%',
           }}
         />
-        {/* Inner circle */}
         <div
           style={{
             position: 'absolute',
             width: '8px',
             height: '8px',
-            background: 'rgba(255, 255, 255, 0.8)',
+            background: 'rgba(255, 255, 255, 0.7)',
             borderRadius: '50%',
           }}
         />
-        {/* Center dot */}
         <div
           style={{
             position: 'absolute',
             width: '4px',
             height: '4px',
-            background: 'linear-gradient(135deg, #2563eb 0%, #16a34a 100%)',
+            background: 'linear-gradient(135deg, #0a0a0a 0%, #171717 50%, #000000 100%)',
             borderRadius: '50%',
           }}
         />

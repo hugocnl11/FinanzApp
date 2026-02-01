@@ -369,14 +369,17 @@ export function BudgetManager({
           {hasLabel ? triggerLabel : <Pencil className="h-4 w-4" />}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>Presupuestos mensuales</DialogTitle>
-          <DialogDescription>
-            Define límites por categoría y visualiza tu consumo actual. Cada fila indica si es Fijo o Variable.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
+        <div className="shrink-0 sticky top-0 z-10 bg-background border-b pr-12 pt-4 pb-3 pl-4">
+          <DialogHeader>
+            <DialogTitle>Presupuestos mensuales</DialogTitle>
+            <DialogDescription>
+              Define límites por categoría y visualiza tu consumo actual. Cada fila indica si es Fijo o Variable.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
+        <div className="flex-1 overflow-y-auto p-4">
         <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-4">
             <div className="rounded-2xl border border-border p-4">
@@ -390,7 +393,7 @@ export function BudgetManager({
 
             <div className="space-y-3">
               {displayBudgets.length > 0 ? (
-                <div className="max-h-[28rem] overflow-y-auto space-y-3 pr-1">
+                <div className="max-h-[18rem] md:max-h-[28rem] overflow-y-auto space-y-3 pr-1">
                 {displayBudgets.map((budget) => {
                   const limitNum = budget.limit || 0;
                   const percent = limitNum > 0 ? Math.min((budget.spent / limitNum) * 100, 130) : 0;
@@ -646,6 +649,7 @@ export function BudgetManager({
               <p className="text-xs text-muted-foreground">{statusMessage}</p>
             )}
           </div>
+        </div>
         </div>
       </DialogContent>
     </Dialog>

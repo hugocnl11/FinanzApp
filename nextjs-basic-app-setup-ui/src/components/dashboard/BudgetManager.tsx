@@ -102,21 +102,43 @@ export function BudgetManager({
   const [editingPeriod, setEditingPeriod] = useState<BudgetPeriod | null>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const hasLabel = Boolean(triggerLabel);
-  const expenseCategories = categoriesData.filter((category) => category.type === "expense");
+  // Presupuestos: gasto, inversión o ahorro (categorías con límite mensual)
+  const budgetableCategories = categoriesData.filter((category) =>
+    category.type === "expense" || category.type === "investment" || category.type === "savings"
+  );
 
   // Mapa de categorías para búsqueda rápida
   const categoryMap = useMemo(() => {
     return new Map(categoriesData.map((cat) => [cat.name, cat]));
   }, [categoriesData]);
 
-  // Gastado por categoría en el mes actual
+  // Tipo de movimiento que corresponde a cada tipo de categoría (para calcular "gastado" del presupuesto)
+  const movementTypeByCategoryType = useMemo(
+    () =>
+      new Map<"expense" | "investment" | "savings", Movement["tipo"]>([
+        ["expense", "Gasto"],
+        ["investment", "Inversión"],
+        ["savings", "Ahorro"],
+      ]),
+    []
+  );
+
+  // Gastado/invertido/ahorrado por categoría en el mes actual (según tipo de categoría)
   const spentByCategoryThisMonth = useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     const map = new Map<string, number>();
+    const categoryTypes = new Map(
+      categoriesData
+        .filter((c) => c.type === "expense" || c.type === "investment" || c.type === "savings")
+        .map((c) => [c.name, c.type as "expense" | "investment" | "savings"])
+    );
     movements.forEach((movement) => {
-      if (movement.tipo !== "Gasto") return;
+      const categoryType = categoryTypes.get(movement.categoria);
+      if (!categoryType) return;
+      const expectedTipo = movementTypeByCategoryType.get(categoryType);
+      if (movement.tipo !== expectedTipo) return;
       const date = new Date(movement.fecha);
       if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
         const amount = Math.abs(movement.cantidad);
@@ -124,7 +146,7 @@ export function BudgetManager({
       }
     });
     return map;
-  }, [movements]);
+  }, [movements, categoriesData, movementTypeByCategoryType]);
 
   const budgetsWithSpent = useMemo(
     () =>
@@ -200,19 +222,19 @@ export function BudgetManager({
     return () => window.removeEventListener("finanzapp:data-updated", onUpdate);
   }, []);
 
-  const selectedCategory = expenseCategories.find((cat) => cat.name === formData.category);
+  const selectedCategory = budgetableCategories.find((cat) => cat.name === formData.category);
 
   useEffect(() => {
-    if (!formData.category && expenseCategories.length > 0) {
-      setFormData((prev) => ({ ...prev, category: expenseCategories[0].name }));
+    if (!formData.category && budgetableCategories.length > 0) {
+      setFormData((prev) => ({ ...prev, category: budgetableCategories[0].name }));
     }
-    if (formData.category && !expenseCategories.some((c) => c.name === formData.category)) {
+    if (formData.category && !budgetableCategories.some((c) => c.name === formData.category)) {
       setFormData((prev) => ({
         ...prev,
-        category: expenseCategories[0]?.name ?? "",
+        category: budgetableCategories[0]?.name ?? "",
       }));
     }
-  }, [expenseCategories, formData.category]);
+  }, [budgetableCategories, formData.category]);
 
   // Cerrar dropdown al hacer click fuera
   useEffect(() => {
@@ -539,7 +561,7 @@ export function BudgetManager({
             <div>
               <h3 className="text-sm font-semibold">Nuevo presupuesto</h3>
               <p className="text-xs text-muted-foreground">
-                Selecciona una categoría y su límite mensual.
+                Selecciona una categoría (gasto, inversión o ahorro) y su límite mensual.
               </p>
             </div>
 
@@ -572,9 +594,9 @@ export function BudgetManager({
                   )}
                   <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isCategoryDropdownOpen && "rotate-180")} />
                 </button>
-                {isCategoryDropdownOpen && expenseCategories.length > 0 && (
+                {isCategoryDropdownOpen && budgetableCategories.length > 0 && (
                   <div className="absolute z-50 w-full mt-1 rounded-lg border border-border bg-background shadow-lg max-h-60 overflow-auto">
-                    {expenseCategories.map((category) => {
+                    {budgetableCategories.map((category) => {
                       const Icon = CATEGORY_ICON_MAP[category.icon as CategoryIconKey];
                       const isSelected = formData.category === category.name;
                       return (
@@ -605,9 +627,9 @@ export function BudgetManager({
                     })}
                   </div>
                 )}
-                {expenseCategories.length === 0 && (
+                {budgetableCategories.length === 0 && (
                   <div className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground text-center">
-                    Sin categorías de gasto. Crea categorías en Ajustes.
+                    Sin categorías de gasto, inversión o ahorro. Crea categorías en Ajustes.
                   </div>
                 )}
               </div>

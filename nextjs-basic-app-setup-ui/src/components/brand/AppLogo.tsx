@@ -24,7 +24,7 @@ export function AppLogo({
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       {/* Logo Icon with Gradient - Tracking Chart Design */}
-      <div className={`relative flex ${iconSize} shrink-0 items-center justify-center overflow-hidden rounded-xl`}>
+      <div className={`relative flex ${iconSize} shrink-0 items-center justify-center overflow-hidden rounded-xl dark:border dark:border-white/25`}>
         <svg
           viewBox="0 0 40 40"
           fill="none"

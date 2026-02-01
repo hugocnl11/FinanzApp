@@ -21,6 +21,7 @@ export default function Icon() {
           justifyContent: 'center',
           background: 'linear-gradient(135deg, #0a0a0a 0%, #171717 50%, #000000 100%)',
           borderRadius: '8px',
+          border: '1px solid rgba(255, 255, 255, 0.25)',
           position: 'relative',
         }}
       >

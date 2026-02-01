@@ -6,7 +6,7 @@
       <stop offset="100%" stop-color="#000000" />
     </linearGradient>
   </defs>
-  <rect x="4" y="4" width="32" height="32" rx="8" fill="url(#app-logo-gradient)" />
+  <rect x="4" y="4" width="32" height="32" rx="8" fill="url(#app-logo-gradient)" stroke="white" stroke-opacity="0.25" stroke-width="1" />
   <circle cx="20" cy="20" r="12" fill="none" stroke="white" stroke-width="1.5" opacity="0.35" />
   <circle cx="20" cy="20" r="8" fill="none" stroke="white" stroke-width="1.5" opacity="0.5" />
   <circle cx="20" cy="20" r="4" fill="white" opacity="0.7" />

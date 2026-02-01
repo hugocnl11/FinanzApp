@@ -441,9 +441,9 @@ export default function AjustesPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Ajustes</h1>
+    <div className="space-y-4 min-w-0">
+      <div className="min-w-0">
+        <h1 className="text-2xl md:text-3xl font-bold truncate">Ajustes</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Configura tu cuenta y preferencias
         </p>
@@ -697,7 +697,7 @@ export default function AjustesPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           <details className="group rounded-lg border border-border bg-muted/20">
-            <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 min-h-[44px] hover:bg-muted/40 transition-colors [&::-webkit-details-marker]:hidden touch-manipulation">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white dark:bg-white/95 border border-border p-1.5">
                 <img
                   src="https://cdn.simpleicons.org/notion"

@@ -309,22 +309,23 @@ export default function GraficasPage() {
   return (
     <div className="space-y-6 px-4 md:px-8" aria-label="Gráficas avanzadas">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 id="graficas-titulo" className="text-3xl font-bold">Gráficas Avanzadas</h1>
+        <div className="min-w-0">
+          <h1 id="graficas-titulo" className="text-2xl md:text-3xl font-bold truncate">Gráficas Avanzadas</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Análisis detallado de tus finanzas
           </p>
         </div>
-        <div className="flex gap-2" role="group" aria-label="Acciones de gráficas">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Acciones de gráficas">
           {chartWidgetsLoaded && (
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="outline" size="sm" aria-label="Configurar widgets visibles y orden">
-                  <Settings2 className="h-4 w-4 mr-2" aria-hidden />
-                  Configurar widgets
+                <Button variant="outline" size="touch" className="gap-2 md:min-h-0 md:min-w-0 md:h-8 md:px-3 md:py-1.5 md:text-xs" aria-label="Configurar widgets visibles y orden">
+                  <Settings2 className="h-4 w-4" aria-hidden />
+                  <span className="md:hidden">Configurar</span>
+                  <span className="hidden md:inline">Configurar widgets</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent className="overflow-y-auto">
+              <SheetContent className="overflow-y-auto max-h-[85vh]">
                 <SheetHeader>
                   <SheetTitle>Widgets visibles y orden</SheetTitle>
                   <SheetDescription>
@@ -342,18 +343,18 @@ export default function GraficasPage() {
                         id={`widget-${id}`}
                         checked={chartWidgets.visible.includes(id)}
                         onChange={(e) => setWidgetVisible(id, e.target.checked)}
-                        className="h-4 w-4 rounded border-input"
+                        className="h-5 w-5 rounded border-input touch-manipulation shrink-0"
                         aria-label={`Mostrar u ocultar gráfica: ${WIDGET_LABELS[id as keyof typeof WIDGET_LABELS] ?? id}`}
                       />
-                      <span className="flex-1 text-sm font-medium">
+                      <span className="flex-1 text-sm font-medium min-w-0 truncate">
                         {WIDGET_LABELS[id as keyof typeof WIDGET_LABELS] ?? id}
                       </span>
-                      <div className="flex flex-col gap-0">
+                      <div className="flex flex-col gap-0 shrink-0">
                         <Button
                           type="button"
                           variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
+                          size="touch-icon"
+                          className="h-11 w-11 md:h-7 md:w-7 md:min-h-0 md:min-w-0"
                           onClick={() => moveWidget(id, "up")}
                           disabled={index === 0}
                           aria-label="Subir en el orden"
@@ -363,8 +364,8 @@ export default function GraficasPage() {
                         <Button
                           type="button"
                           variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
+                          size="touch-icon"
+                          className="h-11 w-11 md:h-7 md:w-7 md:min-h-0 md:min-w-0"
                           onClick={() => moveWidget(id, "down")}
                           disabled={index === chartWidgets.order.length - 1}
                           aria-label="Bajar en el orden"
@@ -378,9 +379,9 @@ export default function GraficasPage() {
               </SheetContent>
             </Sheet>
           )}
-          <Button variant="outline" size="sm" onClick={handleExportImage} disabled={exporting} aria-label={exporting ? "Exportando gráficas" : "Exportar gráficas como imagen"}>
-            <ImageDown className="h-4 w-4 mr-2" aria-hidden />
-            {exporting ? "Exportando…" : "Exportar como imagen"}
+          <Button variant="outline" size="touch" className="gap-2 md:min-h-0 md:min-w-0 md:h-8 md:px-3 md:py-1.5 md:text-xs" onClick={handleExportImage} disabled={exporting} aria-label={exporting ? "Exportando gráficas" : "Exportar gráficas como imagen"}>
+            <ImageDown className="h-4 w-4" aria-hidden />
+            {exporting ? "Exportando…" : "Exportar imagen"}
           </Button>
         </div>
       </div>

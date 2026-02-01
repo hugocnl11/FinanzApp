@@ -28,15 +28,15 @@ export const IncomeCard = memo(function IncomeCard() {
   const periodText = period === "Mes" ? "este mes" : "este año";
   
   return (
-    <Card className="p-6 overflow-hidden">
-      <div className="flex flex-col space-y-2">
+    <Card className="p-6 overflow-hidden min-w-0">
+      <div className="flex flex-col space-y-2 min-w-0">
         <h3 className="text-sm font-medium text-muted-foreground">Ingresos</h3>
         <motion.div 
           key={`income-${period}`}
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
-          className="text-2xl font-bold text-primary"
+          className="text-xl md:text-2xl font-bold text-primary truncate"
         >
           {formatCurrency(total, currency)}
         </motion.div>
@@ -68,15 +68,15 @@ export const ExpensesCard = memo(function ExpensesCard() {
   const periodText = period === "Mes" ? "este mes" : "este año";
   
   return (
-    <Card className="p-6 overflow-hidden">
-      <div className="flex flex-col space-y-2">
+    <Card className="p-6 overflow-hidden min-w-0">
+      <div className="flex flex-col space-y-2 min-w-0">
         <h3 className="text-sm font-medium text-muted-foreground">Gastos</h3>
         <motion.div 
           key={`expenses-${period}`}
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
-          className="text-2xl font-bold text-primary"
+          className="text-xl md:text-2xl font-bold text-primary truncate"
         >
           {formatCurrency(total, currency)}
         </motion.div>

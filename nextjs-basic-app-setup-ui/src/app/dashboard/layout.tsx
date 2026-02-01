@@ -1,5 +1,6 @@
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { SessionGuard } from "@/components/auth/SessionGuard";
 import { UserPreferencesSync } from "@/components/UserPreferencesSync";
 import { SkipToContent } from "@/components/SkipToContent";
@@ -17,11 +18,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <NotionSyncPoller />
           <AppSidebar />
           <SidebarInset className="bg-[#f6f6f7] dark:bg-[#111112]">
+            <DashboardHeader />
             <SkipToContent />
             <main
               id="main-content"
               tabIndex={-1}
-              className="flex-1 overflow-auto p-4 md:p-8 outline-none"
+              className="flex-1 overflow-auto p-4 md:p-8 outline-none pb-[max(1rem,env(safe-area-inset-bottom))]"
               role="main"
               aria-label="Contenido principal"
             >

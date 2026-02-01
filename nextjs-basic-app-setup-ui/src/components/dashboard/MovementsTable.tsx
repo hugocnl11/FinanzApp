@@ -102,7 +102,67 @@ export function MovementsTable({ movimientos = [], total, onEdit, onDelete, onAd
             <p className="text-sm">Añade tu primer movimiento para comenzar</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <>
+          <ul className="space-y-3 block md:hidden" role="list">
+            {movimientos.map((m) => {
+              const meta = categoryMap.get(m.categoria);
+              const Icon = meta ? CATEGORY_ICON_MAP[meta.icon] : null;
+              return (
+                <li key={m.id || `${m.fecha}-${m.concepto}`}>
+                  <div className="flex items-start justify-between gap-3 rounded-lg border border-border/40 bg-background p-4 shadow-sm">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        {getTipoIcon(m.tipo)}
+                        <span className={`text-sm font-medium ${getTipoColor(m.tipo)}`}>{m.tipo}</span>
+                        <span className="text-xs text-muted-foreground">{formatDate(m.fecha)}</span>
+                      </div>
+                      <p className="font-medium truncate">{m.concepto}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span
+                          className="flex h-5 w-5 items-center justify-center rounded"
+                          style={{
+                            backgroundColor: meta ? `${meta.color}20` : "hsl(var(--muted))",
+                            color: meta?.color,
+                          }}
+                        >
+                          {Icon ? <Icon className="h-3 w-3" /> : <span className="text-[8px]">•</span>}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{m.categoria}</span>
+                        {m.metodoPago && (
+                          <span className="text-xs text-muted-foreground">· {m.metodoPago}</span>
+                        )}
+                      </div>
+                      <p className={`mt-2 text-base font-semibold ${getTipoColor(m.tipo)}`}>
+                        {m.cantidad > 0 ? "+" : ""}
+                        {m.cantidad.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <Button
+                        variant="ghost"
+                        size="touch-icon"
+                        onClick={() => m.id && onEdit(m)}
+                        className="h-11 w-11"
+                        aria-label="Editar"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="touch-icon"
+                        onClick={() => m.id && onDelete(m.id)}
+                        className="h-11 w-11 text-destructive hover:text-destructive"
+                        aria-label="Eliminar"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <table className="w-full text-sm hidden md:table">
             <thead>
               <tr className="border-b border-border/40">
                 <th className="text-left py-3 px-2 font-semibold text-muted-foreground">Fecha</th>
@@ -179,6 +239,7 @@ export function MovementsTable({ movimientos = [], total, onEdit, onDelete, onAd
               ))}
             </tbody>
           </table>
+          </>
         )}
       </div>
 

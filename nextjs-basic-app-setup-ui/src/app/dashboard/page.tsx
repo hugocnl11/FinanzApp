@@ -36,8 +36,8 @@ export default function DashboardPage() {
     <PeriodProvider>
       <div className="space-y-4 px-4 md:px-8" aria-label="Dashboard">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 id="dashboard-titulo" className="text-3xl font-bold">Dashboard</h1>
+        <div className="min-w-0">
+          <h1 id="dashboard-titulo" className="text-2xl md:text-3xl font-bold truncate">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
             Tu visión financiera en un solo lugar.
           </p>
@@ -45,29 +45,33 @@ export default function DashboardPage() {
         <PeriodSelector />
       </div>
 
-      {/* Resumen + Presupuesto: el bloque de presupuesto se limita a la altura de la columna izquierda para quedar alineado */}
+      {/* Resumen + Presupuesto: en móvil una columna; en desktop dos columnas con altura alineada */}
       <section aria-labelledby="dashboard-titulo">
         <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 lg:items-start">
           {/* Columna Izquierda: Resumen + Ingresos y Gastos diarios */}
-          <div ref={leftColRef} className="space-y-4">
-            <div className="grid gap-4 grid-cols-2">
-              <IncomeCard />
-              <ExpensesCard />
+          <div ref={leftColRef} className="space-y-4 min-w-0">
+            <div className="grid gap-4 grid-cols-2 min-w-0">
+              <div className="min-w-0">
+                <IncomeCard />
+              </div>
+              <div className="min-w-0">
+                <ExpensesCard />
+              </div>
             </div>
             <GoalCard />
             <AnalyticsCharts type="combined" />
           </div>
 
-          {/* Columna Derecha: Presupuesto del mes (altura fija = columna izquierda, min = max) */}
+          {/* Columna Derecha: Presupuesto (en móvil debajo sin altura fija; en desktop altura = columna izquierda) */}
           <div
-            className="min-h-0 flex flex-col w-full"
+            className="min-h-0 flex flex-col w-full lg:h-[var(--budget-col-height)] lg:min-h-[var(--budget-col-height)] lg:max-h-[var(--budget-col-height)]"
             style={
               budgetMaxHeight != null
-                ? { height: budgetMaxHeight, minHeight: budgetMaxHeight, maxHeight: budgetMaxHeight }
+                ? { ["--budget-col-height" as string]: `${budgetMaxHeight}px` }
                 : undefined
             }
           >
-            <BudgetSummary mode="combined" className="h-full min-h-0 max-h-full" />
+            <BudgetSummary mode="combined" className="h-full min-h-0 max-h-full max-lg:min-h-[280px]" />
           </div>
         </div>
       </section>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, memo } from "react";
+import { useCallback, useEffect, useState, memo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { sumFilteredMonths, percentChangeByPeriod } from "@/lib/dashboard/selectors";
@@ -117,7 +117,7 @@ export const GoalCard = memo(function GoalCard() {
     setCurrentGoal(selected ? { ...selected } : null);
   }, [data.goals]);
 
-  useEffect(() => {
+  const refetchAssetOptions = useCallback(() => {
     const today = new Date().toISOString().slice(0, 10);
     Promise.all([
       fetchCategories().then((r) => r.data ?? []),
@@ -140,6 +140,12 @@ export const GoalCard = memo(function GoalCard() {
       })
       .catch(() => setAssetOptions([]));
   }, []);
+
+  useEffect(() => {
+    refetchAssetOptions();
+    window.addEventListener("finanzapp:data-updated", refetchAssetOptions);
+    return () => window.removeEventListener("finanzapp:data-updated", refetchAssetOptions);
+  }, [refetchAssetOptions]);
 
   const handleSaveGoal = async (updatedGoal: EditableGoal) => {
     if (updatedGoal.id && updatedGoal.id !== "new") {

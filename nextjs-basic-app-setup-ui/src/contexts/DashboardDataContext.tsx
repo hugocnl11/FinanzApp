@@ -13,7 +13,7 @@ import type { DashboardData, Goal, Movement } from "@/lib/dashboard/types";
 import { fetchMovements } from "@/lib/api/movements";
 import { fetchBudgets } from "@/lib/api/budgets";
 import { fetchGoals } from "@/lib/api/goals";
-import { fetchAssetSnapshotsByMonth } from "@/lib/api/asset-snapshots";
+import { fetchAssetSnapshotsByMonth, fetchAssetSnapshotsForDate } from "@/lib/api/asset-snapshots";
 import { buildMonthlySeries, latestByCategory, totalsByCategory } from "@/lib/dashboard/derive";
 import { getSession, isDemoUser, saveSession } from "@/lib/auth";
 import { restoreSessionFromCookie } from "@/lib/api/auth";
@@ -151,11 +151,13 @@ export async function loadDashboardDataCore(opts: {
       setLoading(true);
       setError(null);
     }
-    const [movementsRes, budgetsRes, goalsRes, assetSnapshotsRes] = await Promise.all([
+    const today = new Date().toISOString().slice(0, 10);
+    const [movementsRes, budgetsRes, goalsRes, assetSnapshotsRes, snapshotsTodayRes] = await Promise.all([
       fetchMovements(),
       fetchBudgets(),
       fetchGoals(),
       fetchAssetSnapshotsByMonth(12).catch(() => ({ data: [] as { mes: string; valor: number }[] })),
+      fetchAssetSnapshotsForDate(today).catch(() => ({ data: [] as { categoryId: string; categoryName: string; value: number }[] })),
     ]);
 
     if (!isMounted()) return;
@@ -178,16 +180,25 @@ export async function loadDashboardDataCore(opts: {
 
     const ingresosPorCategoria = totalsByCategory(movements, "Ingreso");
     const gastosPorCategoria = totalsByCategory(movements, "Gasto");
-    const inversiones = latestByCategory(movements, "Inversión");
-    const ahorros = latestByCategory(movements, "Ahorro");
-    const distribucionActivos = Array.from(
-      [...inversiones, ...ahorros].reduce((acc, item) => {
-        acc.set(item.name, (acc.get(item.name) ?? 0) + item.value);
-        return acc;
-      }, new Map<string, number>())
-    )
-      .map(([name, value]) => ({ name, value }))
-      .filter((item) => item.value > 0);
+
+    // Distribución de activos: priorizar snapshots de hoy (lo que el usuario edita en Ajustes)
+    const snapshotsToday = snapshotsTodayRes.data ?? [];
+    const distribucionActivos =
+      snapshotsToday.length > 0
+        ? snapshotsToday
+            .map((s) => ({ name: s.categoryName, value: s.value }))
+            .filter((item) => item.value > 0)
+        : Array.from(
+            [...latestByCategory(movements, "Inversión"), ...latestByCategory(movements, "Ahorro")].reduce(
+              (acc, item) => {
+                acc.set(item.name, (acc.get(item.name) ?? 0) + item.value);
+                return acc;
+              },
+              new Map<string, number>()
+            )
+          )
+            .map(([name, value]) => ({ name, value }))
+            .filter((item) => item.value > 0);
 
     if (isMounted()) {
       setData({

@@ -19,12 +19,18 @@ import {
 import type { SalaryEntry } from "@/lib/api/types";
 import { formatCurrency } from "@/lib/format";
 
-const CHART_HEIGHT = 200;
-const CHART_PADDING = { top: 8, right: 8, bottom: 24, left: 48 };
+const CHART_HEIGHT = 140;
+const CHART_PADDING = { top: 4, right: 8, bottom: 28, left: 44 };
+
+function formatShortDate(ymd: string): string {
+  const d = new Date(ymd + "T12:00:00");
+  if (Number.isNaN(d.getTime())) return ymd.slice(0, 7);
+  return d.toLocaleDateString("es-ES", { month: "2-digit", year: "2-digit" });
+}
 
 function SalaryEvolutionChart({ entries }: { entries: SalaryEntry[] }) {
-  const points = useMemo(() => {
-    if (entries.length === 0) return [];
+  const { points, maxAmount, width } = useMemo(() => {
+    if (entries.length === 0) return { points: [] as { x: number; y: number; label: string; shortLabel: string; amount: number }[], maxAmount: 1, width: 280 };
     const sorted = [...entries].sort(
       (a, b) => new Date(a.fromDate).getTime() - new Date(b.fromDate).getTime()
     );
@@ -32,46 +38,47 @@ function SalaryEvolutionChart({ entries }: { entries: SalaryEntry[] }) {
     const maxT = Math.max(
       ...sorted.map((e) => (e.toDate ? new Date(e.toDate).getTime() : Date.now()))
     );
-    const maxAmount = Math.max(...sorted.map((e) => e.amount), 1);
+    const maxAmt = Math.max(...sorted.map((e) => e.amount), 1);
     const rangeT = maxT - minT || 1;
-    return sorted.map((e) => ({
+    const pts = sorted.map((e) => ({
       x: (new Date(e.fromDate).getTime() - minT) / rangeT,
-      y: e.amount / maxAmount,
+      y: e.amount / maxAmt,
       label: formatDateYmd(e.fromDate),
+      shortLabel: formatShortDate(e.fromDate),
       amount: e.amount,
     }));
+    return { points: pts, maxAmount: maxAmt, width: 280 };
   }, [entries]);
 
   if (points.length === 0) return null;
 
-  const width = 320;
   const innerW = width - CHART_PADDING.left - CHART_PADDING.right;
   const innerH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
 
   const toX = (t: number) => CHART_PADDING.left + t * innerW;
   const toY = (v: number) => CHART_PADDING.top + innerH - v * innerH;
 
-  const pathD =
-    points.length > 0
-      ? points
-          .map((p, i) => `${i === 0 ? "M" : "L"} ${toX(p.x)} ${toY(p.y)}`)
-          .join(" ")
-      : "";
+  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${toX(p.x)} ${toY(p.y)}`).join(" ");
+  const areaPath =
+    linePath +
+    (points.length > 0
+      ? ` L ${toX(points[points.length - 1].x)} ${toY(0)} L ${toX(points[0].x)} ${toY(0)} Z`
+      : "");
 
-  const maxAmount = Math.max(...entries.map((e) => e.amount));
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((v) => ({
+  const yTicks = [0, 0.5, 1].map((v) => ({
     y: toY(v),
     label: formatCurrency(Math.round(maxAmount * v)),
   }));
 
   return (
-    <div className="mt-4">
+    <div className="mt-3 rounded-lg border border-border bg-muted/20 p-3">
       <p className="text-xs font-medium text-muted-foreground mb-2">Evolución salarial</p>
       <svg
         width="100%"
         viewBox={`0 0 ${width} ${CHART_HEIGHT}`}
         preserveAspectRatio="xMidYMid meet"
         className="max-w-full h-auto text-muted-foreground"
+        aria-label="Gráfico de evolución salarial"
       >
         {yTicks.map((tick, i) => (
           <g key={i}>
@@ -81,14 +88,14 @@ function SalaryEvolutionChart({ entries }: { entries: SalaryEntry[] }) {
               y1={tick.y}
               y2={tick.y}
               stroke="currentColor"
-              strokeOpacity="0.15"
+              strokeOpacity="0.12"
               strokeDasharray="2 2"
             />
             <text
-              x={CHART_PADDING.left - 6}
-              y={tick.y + 4}
+              x={CHART_PADDING.left - 4}
+              y={tick.y + 3}
               textAnchor="end"
-              fontSize={10}
+              fontSize={9}
               fill="currentColor"
             >
               {tick.label}
@@ -96,10 +103,15 @@ function SalaryEvolutionChart({ entries }: { entries: SalaryEntry[] }) {
           </g>
         ))}
         <path
-          d={pathD}
+          d={areaPath}
+          fill="hsl(var(--primary))"
+          fillOpacity="0.15"
+        />
+        <path
+          d={linePath}
           fill="none"
           stroke="hsl(var(--primary))"
-          strokeWidth={2}
+          strokeWidth={2.5}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -108,19 +120,24 @@ function SalaryEvolutionChart({ entries }: { entries: SalaryEntry[] }) {
             key={i}
             cx={toX(p.x)}
             cy={toY(p.y)}
-            r={4}
+            r={3.5}
             fill="hsl(var(--primary))"
+            stroke="hsl(var(--background))"
+            strokeWidth={1.5}
           />
         ))}
-        <text
-          x={width / 2}
-          y={CHART_HEIGHT - 4}
-          textAnchor="middle"
-          fontSize={10}
-          fill="currentColor"
-        >
-          Tiempo
-        </text>
+        {points.map((p, i) => (
+          <text
+            key={`label-${i}`}
+            x={toX(p.x)}
+            y={CHART_HEIGHT - 8}
+            textAnchor="middle"
+            fontSize={8}
+            fill="currentColor"
+          >
+            {p.shortLabel}
+          </text>
+        ))}
       </svg>
     </div>
   );
@@ -137,6 +154,70 @@ function formatDateYmd(ymd: string): string {
   const d = new Date(ymd + "T12:00:00");
   if (Number.isNaN(d.getTime())) return ymd;
   return d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+/** Aproximación tipo efectivo IRPF España (escalas general 2024) para salario anual bruto. */
+function estimatedEffectiveIrpfSpain(annualGross: number): number {
+  if (annualGross <= 0) return 0;
+  const brackets = [
+    { limit: 12450, rate: 0.19 },
+    { limit: 20200, rate: 0.24 },
+    { limit: 35200, rate: 0.30 },
+    { limit: 60000, rate: 0.37 },
+    { limit: 300000, rate: 0.45 },
+    { limit: Infinity, rate: 0.47 },
+  ];
+  let tax = 0;
+  let prev = 0;
+  for (const b of brackets) {
+    const inBracket = Math.min(annualGross, b.limit) - prev;
+    if (inBracket > 0) tax += inBracket * b.rate;
+    if (annualGross <= b.limit) break;
+    prev = b.limit;
+  }
+  return tax / annualGross;
+}
+
+function SalaryTotals({ entries }: { entries: SalaryEntry[] }) {
+  const { totalGross, totalNet, totalYears } = useMemo(() => {
+    if (entries.length === 0) return { totalGross: 0, totalNet: 0, totalYears: 0 };
+    const today = Date.now();
+    let gross = 0;
+    for (const e of entries) {
+      const start = new Date(e.fromDate).getTime();
+      const end = e.toDate ? new Date(e.toDate).getTime() : today;
+      const years = Math.max(0, (end - start) / (365.25 * 24 * 3600 * 1000));
+      gross += e.amount * years;
+    }
+    const totalYears = entries.reduce((acc, e) => {
+      const start = new Date(e.fromDate).getTime();
+      const end = e.toDate ? new Date(e.toDate).getTime() : today;
+      return acc + Math.max(0, (end - start) / (365.25 * 24 * 3600 * 1000));
+    }, 0);
+    const avgAnnual = totalYears > 0 ? gross / totalYears : 0;
+    const effectiveRate = estimatedEffectiveIrpfSpain(avgAnnual);
+    const totalNet = gross * (1 - effectiveRate);
+    return { totalGross: gross, totalNet, totalYears };
+  }, [entries]);
+
+  if (entries.length === 0 || (totalGross === 0 && totalYears === 0)) return null;
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1">
+      <p className="text-xs font-medium text-muted-foreground">Total ganado en este puesto</p>
+      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm">
+        <span>
+          <strong>Bruto:</strong> {formatCurrency(Math.round(totalGross * 100) / 100)}
+        </span>
+        <span>
+          <strong>Neto (est. IRPF España):</strong> {formatCurrency(Math.round(totalNet * 100) / 100)}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Estimación según escalas IRPF España; no incluye deducciones autonómicas ni otros conceptos.
+      </p>
+    </div>
+  );
 }
 
 export default function PerfilPage() {
@@ -515,7 +596,9 @@ export default function PerfilPage() {
               ) : salaryEntries.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Aún no hay entradas. Añade la primera para ver tu progresión.</p>
               ) : (
-                <ul className="space-y-2">
+                <>
+                  <SalaryTotals entries={salaryEntries} />
+                  <ul className="space-y-2">
                   {salaryEntries.map((entry) => (
                     <li
                       key={entry.id}
@@ -556,6 +639,7 @@ export default function PerfilPage() {
                     </li>
                   ))}
                 </ul>
+                </>
               )}
 
               {salaryEntries.length > 0 && (

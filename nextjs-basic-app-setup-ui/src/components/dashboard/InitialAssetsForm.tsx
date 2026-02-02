@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Wallet, Plus } from "lucide-react";
 import { getSession, isDemoUser, updateSessionUser } from "@/lib/auth";
 import { updateProfile } from "@/lib/api/auth";
@@ -212,21 +211,23 @@ export function InitialAssetsForm() {
             <>
               <div className="space-y-3">
                 <p className="text-xs font-medium text-muted-foreground">Saldo o valor actual por categoría</p>
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   {rows.map((row) => (
-                    <li key={row.categoryId} className="flex items-center gap-2">
-                      <span className="text-sm flex-1 min-w-0 truncate">{row.name}</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        placeholder="0"
-                        value={row.value}
-                        onChange={(e) => handleValueChange(row.categoryId, e.target.value)}
-                        className="w-28 shrink-0 h-9"
-                        aria-label={valueLabel(row.type)}
-                      />
-                      <span className="text-xs text-muted-foreground shrink-0">€</span>
+                    <li key={row.categoryId} className="space-y-1.5 rounded-lg border border-border p-3 bg-muted/20">
+                      <span className="font-medium text-sm text-foreground block">{row.name}</span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          placeholder="0"
+                          value={row.value}
+                          onChange={(e) => handleValueChange(row.categoryId, e.target.value)}
+                          aria-label={valueLabel(row.type)}
+                          className="h-9 w-28 rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-gray-900 dark:text-white border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        />
+                        <span className="text-sm text-muted-foreground">€</span>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -237,31 +238,50 @@ export function InitialAssetsForm() {
                   <Plus className="h-3.5 w-3.5" />
                   Añadir otra
                 </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Input
-                    placeholder="Nombre (ej. Fondo emergencia)"
-                    value={newRow.name}
-                    onChange={(e) => handleNewRowChange("name", e.target.value)}
-                    className="flex-1 min-w-[140px] h-9"
-                  />
-                  <select
-                    value={newRow.type}
-                    onChange={(e) => handleNewRowChange("type", e.target.value)}
-                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <option value="savings">Ahorro</option>
-                    <option value="investment">Inversión</option>
-                  </select>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    placeholder="0"
-                    value={newRow.value}
-                    onChange={(e) => handleNewRowChange("value", e.target.value)}
-                    className="w-24 h-9"
-                  />
-                  <span className="text-xs text-muted-foreground">€</span>
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="newRow-name" className="text-xs text-muted-foreground">
+                      Nombre (ej. Fondo emergencia)
+                    </label>
+                    <input
+                      id="newRow-name"
+                      type="text"
+                      placeholder="Nombre de la categoría"
+                      value={newRow.name}
+                      onChange={(e) => handleNewRowChange("name", e.target.value)}
+                      className="h-9 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-gray-900 dark:text-white border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="newRow-type" className="text-xs text-muted-foreground">
+                      Tipo
+                    </label>
+                    <select
+                      id="newRow-type"
+                      value={newRow.type}
+                      onChange={(e) => handleNewRowChange("type", e.target.value)}
+                      className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-gray-900 dark:text-white border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="savings">Ahorro</option>
+                      <option value="investment">Inversión</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1 min-w-[6rem]">
+                    <label htmlFor="newRow-value" className="text-xs text-muted-foreground">
+                      Valor (€)
+                    </label>
+                    <input
+                      id="newRow-value"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="0"
+                      value={newRow.value}
+                      onChange={(e) => handleNewRowChange("value", e.target.value)}
+                      className="h-9 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-gray-900 dark:text-white border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    />
+                  </div>
+                  <span className="text-sm text-muted-foreground self-center pb-2 sm:pb-0">€</span>
                 </div>
               </div>
             </>

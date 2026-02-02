@@ -56,6 +56,33 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: series });
   }
 
+  // GET ?month=YYYY-MM → todos los snapshots del mes (para gráfica rentabilidad por día)
+  const monthParam = searchParams.get("month");
+  if (monthParam) {
+    const match = monthParam.trim().match(/^(\d{4})-(\d{2})$/);
+    if (!match) return jsonError("Parámetro month inválido (usar YYYY-MM)");
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10) - 1;
+    if (month < 0 || month > 11) return jsonError("Mes inválido");
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0, 23, 59, 59, 999);
+    const snapshotsInMonth = await prisma.assetSnapshot.findMany({
+      where: {
+        userId,
+        date: { gte: firstDay, lte: lastDay },
+      },
+      orderBy: { date: "asc" },
+      include: { category: true },
+    });
+    const data = snapshotsInMonth.map((s) => ({
+      date: s.date.toISOString().slice(0, 10),
+      categoryId: s.categoryId,
+      categoryName: s.category.name,
+      value: Number(s.value),
+    }));
+    return NextResponse.json({ data });
+  }
+
   // GET ?date=YYYY-MM-DD → valor por categoría para ese día (para editor de activos: valor actual del día)
   const dateParam = searchParams.get("date");
   if (dateParam) {

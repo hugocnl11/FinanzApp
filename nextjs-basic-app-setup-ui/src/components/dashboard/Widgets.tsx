@@ -7,11 +7,14 @@ import { sumFilteredMonths, percentChangeByPeriod } from "@/lib/dashboard/select
 import { formatNumber, formatCurrency } from "@/lib/format";
 import { useCurrency } from "@/hooks/useCurrency";
 import { usePeriod } from "@/contexts/PeriodContext";
-import { GoalEditorDialog, type EditableGoal } from "@/components/dashboard/GoalEditorDialog";
+import { GoalEditorDialog, type EditableGoal, type AssetOption } from "@/components/dashboard/GoalEditorDialog";
 import { GoalProgressWithMilestones } from "@/components/dashboard/GoalProgressWithMilestones";
 import { motion } from "framer-motion";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { createGoal, updateGoal } from "@/lib/api/goals";
+import { fetchCategories } from "@/lib/api/categories";
+import { fetchAssetSnapshotsForDate } from "@/lib/api/asset-snapshots";
+import type { Category } from "@/lib/dashboard/types";
 import { Pencil } from "lucide-react";
 
 // Componente individual para Ingresos (memoizado para evitar re-renders innecesarios)
@@ -99,6 +102,7 @@ export const GoalCard = memo(function GoalCard() {
   const currency = useCurrency();
   const { data } = useDashboardData();
   const [currentGoal, setCurrentGoal] = useState<EditableGoal | null>(null);
+  const [assetOptions, setAssetOptions] = useState<AssetOption[]>([]);
 
   useEffect(() => {
     const primaryId =
@@ -112,6 +116,30 @@ export const GoalCard = memo(function GoalCard() {
       null;
     setCurrentGoal(selected ? { ...selected } : null);
   }, [data.goals]);
+
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    Promise.all([
+      fetchCategories().then((r) => r.data ?? []),
+      fetchAssetSnapshotsForDate(today).then((r) => r.data ?? []),
+    ])
+      .then(([cats, snapshots]) => {
+        const categories = cats as Category[];
+        const snapshotByCategory = new Map(
+          (snapshots as { categoryId: string; value: number }[]).map((s) => [s.categoryId, s.value])
+        );
+        const options: AssetOption[] = categories
+          .filter((c) => (c.type === "investment" || c.type === "savings") && c.active !== false)
+          .map((c) => ({
+            id: c.id,
+            name: c.name,
+            value: snapshotByCategory.get(c.id) ?? 0,
+            type: c.type as "investment" | "savings",
+          }));
+        setAssetOptions(options);
+      })
+      .catch(() => setAssetOptions([]));
+  }, []);
 
   const handleSaveGoal = async (updatedGoal: EditableGoal) => {
     if (updatedGoal.id && updatedGoal.id !== "new") {
@@ -131,11 +159,19 @@ export const GoalCard = memo(function GoalCard() {
   }
 
   const isBudgetGoal = Boolean(currentGoal.linkedBudgetId);
+  const isAssetGoal = Array.isArray(currentGoal.linkedCategoryIds) && currentGoal.linkedCategoryIds.length > 0;
   const budget = isBudgetGoal && data.budgets?.length
     ? data.budgets.find((b) => b.id === currentGoal.linkedBudgetId)
     : null;
   const target = isBudgetGoal && budget ? budget.limit : (currentGoal.target ?? 0);
-  const saved = isBudgetGoal && budget ? budget.spent : (currentGoal.saved ?? 0);
+  const saved = isBudgetGoal && budget
+    ? budget.spent
+    : isAssetGoal
+      ? currentGoal.linkedCategoryIds!.reduce(
+          (sum, id) => sum + (assetOptions.find((a) => a.id === id)?.value ?? 0),
+          0
+        )
+      : (currentGoal.saved ?? 0);
   const porcentaje = isBudgetGoal && target > 0
     ? Math.min(100, Math.max(0, ((target - saved) / target) * 100))
     : target ? (saved / target) * 100 : 0;
@@ -150,6 +186,7 @@ export const GoalCard = memo(function GoalCard() {
         <GoalEditorDialog
           goal={currentGoal}
           onSave={handleSaveGoal}
+          assetOptions={assetOptions}
           budgetOptions={(data.budgets ?? []).map((b) => ({ id: b.id, category: b.category, limit: b.limit, spent: b.spent }))}
           trigger={
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Editar objetivo">

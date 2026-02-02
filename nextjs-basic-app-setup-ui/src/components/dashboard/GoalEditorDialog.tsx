@@ -30,7 +30,7 @@ export type EditableGoal = {
   isPrimary?: boolean;
 };
 
-export type AssetOption = { id: string; name: string; value: number };
+export type AssetOption = { id: string; name: string; value: number; type?: "investment" | "savings" };
 export type BudgetOption = { id: string; category: string; limit: number; spent: number };
 
 const typeLabels = {
@@ -192,6 +192,7 @@ export function GoalEditorDialog({
                 <ul className="space-y-1.5 max-h-40 overflow-y-auto rounded-lg border border-border p-2">
                   {assetOptions.map((asset) => {
                     const selected = (form.linkedCategoryIds ?? []).includes(asset.id);
+                    const label = asset.type === "savings" ? "Saldo" : "Valor actual";
                     return (
                       <li key={asset.id}>
                         <label className="flex items-center gap-3 min-h-[44px] rounded-md px-2 py-2 hover:bg-muted/50 cursor-pointer">
@@ -202,7 +203,7 @@ export function GoalEditorDialog({
                             className="h-4 w-4 rounded border-input"
                           />
                           <span className="flex-1 text-sm">{asset.name}</span>
-                          <span className="text-xs text-muted-foreground tabular-nums">{asset.value.toLocaleString("es-ES")} €</span>
+                          <span className="text-xs text-muted-foreground tabular-nums">{label}: {asset.value.toLocaleString("es-ES")} €</span>
                         </label>
                       </li>
                     );
@@ -282,22 +283,24 @@ export function GoalEditorDialog({
             />
           )}
 
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">Tipo</label>
-            <select
-              className="w-full min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              value={form.type}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, type: event.target.value as EditableGoal["type"] }))
-              }
-            >
-              {Object.entries(typeLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {goalKind !== "asset" && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Tipo</label>
+              <select
+                className="w-full min-h-[44px] rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                value={form.type}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, type: event.target.value as EditableGoal["type"] }))
+                }
+              >
+                {Object.entries(typeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <Input
             label="Fecha objetivo"
@@ -307,24 +310,27 @@ export function GoalEditorDialog({
             className="min-h-[44px]"
           />
 
-          <Input
-            label="Descripción"
-            value={form.description ?? ""}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, description: event.target.value }))
-            }
-            className="min-h-[44px]"
-          />
-
-          <label className="flex items-center gap-3 min-h-[44px] cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.isPrimary ?? false}
-              onChange={(e) => setForm((prev) => ({ ...prev, isPrimary: e.target.checked }))}
-              className="h-4 w-4 rounded border-input"
-            />
-            <span className="text-sm font-medium">Marcar como objetivo principal</span>
-          </label>
+          {goalKind !== "asset" && (
+            <>
+              <Input
+                label="Descripción"
+                value={form.description ?? ""}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, description: event.target.value }))
+                }
+                className="min-h-[44px]"
+              />
+              <label className="flex items-center gap-3 min-h-[44px] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.isPrimary ?? false}
+                  onChange={(e) => setForm((prev) => ({ ...prev, isPrimary: e.target.checked }))}
+                  className="h-4 w-4 rounded border-input"
+                />
+                <span className="text-sm font-medium">Marcar como objetivo principal</span>
+              </label>
+            </>
+          )}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">

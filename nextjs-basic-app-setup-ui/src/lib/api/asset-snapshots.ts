@@ -15,6 +15,14 @@ export type AssetSnapshotByMonth = {
   valor: number;
 };
 
+/** Snapshots del mes (para gráfica rentabilidad por día): date YYYY-MM-DD, categoryId, categoryName, value */
+export type AssetSnapshotInMonth = {
+  date: string;
+  categoryId: string;
+  categoryName: string;
+  value: number;
+};
+
 export function fetchAssetSnapshotsLatest() {
   return apiFetch<ApiResponse<AssetSnapshotLatest[]>>("/asset-snapshots");
 }
@@ -28,6 +36,13 @@ export function fetchAssetSnapshotsForDate(date: string) {
 export function fetchAssetSnapshotsByMonth(months = 12) {
   return apiFetch<ApiResponse<AssetSnapshotByMonth[]>>(
     `/asset-snapshots?months=${months}`
+  );
+}
+
+/** GET ?month=YYYY-MM → todos los snapshots del mes (para gráfica rentabilidad por día) */
+export function fetchAssetSnapshotsInMonth(month: string) {
+  return apiFetch<ApiResponse<AssetSnapshotInMonth[]>>(
+    `/asset-snapshots?month=${encodeURIComponent(month)}`
   );
 }
 

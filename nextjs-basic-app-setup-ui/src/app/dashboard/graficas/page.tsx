@@ -13,8 +13,10 @@ import { curveMonotoneX } from "d3-shape";
 import { motion } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useDashboardData } from "@/hooks/useDashboardData";
-import { fetchAssetSnapshotsForDate } from "@/lib/api/asset-snapshots";
-import type { AssetSnapshotLatest } from "@/lib/api/asset-snapshots";
+import { fetchAssetSnapshotsForDate, fetchAssetSnapshotsInMonth } from "@/lib/api/asset-snapshots";
+import type { AssetSnapshotLatest, AssetSnapshotInMonth } from "@/lib/api/asset-snapshots";
+import { fetchCategories } from "@/lib/api/categories";
+import type { Category } from "@/lib/dashboard/types";
 import { ImageDown, Settings2, ChevronUp, ChevronDown } from "lucide-react";
 import {
   Sheet,
@@ -77,6 +79,8 @@ export default function GraficasPage() {
   const { data } = useDashboardData();
   const { ingresosMensuales, gastosMensuales, gastosPorCategoria, ingresosPorCategoria, movimientos } = data;
   const [snapshotsToday, setSnapshotsToday] = useState<AssetSnapshotLatest[]>([]);
+  const [snapshotsInMonth, setSnapshotsInMonth] = useState<AssetSnapshotInMonth[]>([]);
+  const [categoriesList, setCategoriesList] = useState<Category[]>([]);
   const [exporting, setExporting] = useState(false);
   const [chartWidgets, setChartWidgets] = useState<ChartWidgetsPref>(defaultChartWidgets);
   const [chartWidgetsLoaded, setChartWidgetsLoaded] = useState(false);
@@ -167,6 +171,23 @@ export default function GraficasPage() {
       .catch(() => setSnapshotsToday([]));
   }, []);
 
+  useEffect(() => {
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    Promise.all([
+      fetchCategories().then((r) => r.data ?? []),
+      fetchAssetSnapshotsInMonth(month).then((r) => r.data ?? []),
+    ])
+      .then(([cats, snaps]) => {
+        setCategoriesList(cats as Category[]);
+        setSnapshotsInMonth(snaps as AssetSnapshotInMonth[]);
+      })
+      .catch(() => {
+        setCategoriesList([]);
+        setSnapshotsInMonth([]);
+      });
+  }, []);
+
   // 1. Flujo de Caja Mensual (últimos 12 meses)
   const flujoCaja = useMemo(() => {
     const ultimos12Ingresos = filterMonthsByPeriod(ingresosMensuales, 12);
@@ -219,30 +240,69 @@ export default function GraficasPage() {
     [gastosPorCategoria]
   );
 
-  // Rentabilidad por activo: invertido (suma movimientos Inversión/Ahorro) vs valor actual (snapshot hoy)
-  const rentabilidadPorActivo = useMemo(() => {
-    const invertidoByCategory = new Map<string, number>();
+  // Invertido por categoría: solo movimientos tipo Inversión (no Ahorro)
+  const invertidoByCategoryName = useMemo(() => {
+    const map = new Map<string, number>();
     for (const m of movimientos) {
-      if (m.tipo !== "Inversión" && m.tipo !== "Ahorro") continue;
-      const current = invertidoByCategory.get(m.categoria) ?? 0;
-      invertidoByCategory.set(m.categoria, current + Math.abs(m.cantidad));
+      if (m.tipo !== "Inversión") continue;
+      const current = map.get(m.categoria) ?? 0;
+      map.set(m.categoria, current + Math.abs(m.cantidad));
     }
-    const valorActualByCategory = new Map<string, number>();
-    for (const s of snapshotsToday) {
-      valorActualByCategory.set(s.categoryName, s.value);
+    return map;
+  }, [movimientos]);
+
+  // Solo categorías de tipo inversión (excluir ahorro)
+  const investmentCategoryNames = useMemo(
+    () => new Set(categoriesList.filter((c) => c.type === "investment").map((c) => c.name)),
+    [categoriesList]
+  );
+
+  // Rentabilidad por día del mes: una serie por activo de inversión (día → %)
+  const rentabilidadPorDiaPorActivo = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+
+    const names = Array.from(investmentCategoryNames).filter(
+      (name) => (invertidoByCategoryName.get(name) ?? 0) > 0
+    );
+    if (names.length === 0) return { daysInMonth, series: [] as { name: string; color: string; points: { day: number; rentabilidad: number }[] }[] };
+
+    // Por categoría: último valor conocido por día (snapshots ordenados por fecha)
+    const snapByCategoryAndDate = new Map<string, Map<string, number>>();
+    for (const s of snapshotsInMonth) {
+      if (!investmentCategoryNames.has(s.categoryName)) continue;
+      let byDate = snapByCategoryAndDate.get(s.categoryName);
+      if (!byDate) {
+        byDate = new Map<string, number>();
+        snapByCategoryAndDate.set(s.categoryName, byDate);
+      }
+      byDate.set(s.date, s.value);
     }
-    const categories = new Set([...invertidoByCategory.keys(), ...valorActualByCategory.keys()]);
-    return Array.from(categories)
-      .map((name) => {
-        const invertido = invertidoByCategory.get(name) ?? 0;
-        const valorActual = valorActualByCategory.get(name) ?? 0;
-        const rentabilidad =
-          invertido > 0 ? ((valorActual - invertido) / invertido) * 100 : (valorActual > 0 ? 100 : 0);
-        return { name, rentabilidad, invertido, valorActual };
-      })
-      .filter((r) => r.invertido > 0 || r.valorActual > 0)
-      .sort((a, b) => Math.abs(b.rentabilidad) - Math.abs(a.rentabilidad));
-  }, [movimientos, snapshotsToday]);
+
+    const series: { name: string; color: string; points: { day: number; rentabilidad: number }[] }[] = [];
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i];
+      const invertido = invertidoByCategoryName.get(name) ?? 0;
+      const byDate = snapByCategoryAndDate.get(name);
+      const points: { day: number; rentabilidad: number }[] = [];
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const datesOnOrBefore = Array.from(byDate?.keys() ?? []).filter((d) => d <= dateStr).sort();
+        const value = datesOnOrBefore.length > 0 ? byDate!.get(datesOnOrBefore[datesOnOrBefore.length - 1])! : 0;
+        const rentabilidad = invertido > 0 ? ((value - invertido) / invertido) * 100 : 0;
+        points.push({ day, rentabilidad });
+      }
+      series.push({
+        name,
+        color: COLORS[i % COLORS.length],
+        points,
+      });
+    }
+    return { daysInMonth, series };
+  }, [movimientos, categoriesList, snapshotsInMonth, investmentCategoryNames, invertidoByCategoryName]);
 
   const comparativaAnualData = useMemo(() => comparativaAnual(movimientos), [movimientos]);
   const proyeccionesData = useMemo(
@@ -933,9 +993,9 @@ export default function GraficasPage() {
               <h3 className="text-sm font-medium text-muted-foreground">Rentabilidad por activo</h3>
               <p className="text-xs text-muted-foreground mt-1">Positiva o negativa respecto al valor ingresado</p>
             </div>
-            {rentabilidadPorActivo.length === 0 ? (
+            {rentabilidadPorDiaPorActivo.series.length === 0 ? (
               <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: CHART_HEIGHT_PX }}>
-                Sin datos suficientes. Añade activos y valor actual en Editar activos.
+                Sin datos suficientes. Añade activos de inversión y valor actual en Editar activos.
               </div>
             ) : (
               <div style={{ height: CHART_HEIGHT_PX }}>
@@ -944,70 +1004,83 @@ export default function GraficasPage() {
                     const margin = CHART_MARGIN;
                     const innerWidth = width - margin.left - margin.right;
                     const innerHeight = height - margin.top - margin.bottom;
-                    const maxAbs = Math.max(...rentabilidadPorActivo.map((d) => Math.abs(d.rentabilidad)), 1);
-                    const yScale = scaleBand({
-                      domain: rentabilidadPorActivo.map((d) => d.name),
-                      range: [0, innerHeight],
-                      padding: 0.25,
-                    });
+                    const { daysInMonth, series } = rentabilidadPorDiaPorActivo;
+                    const allRent = series.flatMap((s) => s.points.map((p) => p.rentabilidad));
+                    const minR = Math.min(...allRent, 0);
+                    const maxR = Math.max(...allRent, 0);
+                    const padding = Math.max(1, (maxR - minR) * 0.1) || 1;
                     const xScale = scaleLinear({
-                      domain: [-maxAbs, maxAbs],
+                      domain: [1, daysInMonth],
                       range: [0, innerWidth],
                       nice: true,
                     });
-                    const zeroX = xScale(0);
+                    const yScale = scaleLinear({
+                      domain: [minR - padding, maxR + padding],
+                      range: [innerHeight, 0],
+                      nice: true,
+                    });
                     return (
                       <svg width={width} height={height} className="text-foreground">
-                        <g transform={`translate(${margin.left},${margin.top})`} fill="currentColor">
+                        <g transform={`translate(${margin.left},${margin.top})`}>
+                          {series.map((s) => (
+                            <g key={s.name}>
+                              <LinePath
+                                data={s.points}
+                                x={(d) => xScale(d.day)}
+                                y={(d) => yScale(d.rentabilidad)}
+                                curve={curveMonotoneX}
+                                stroke={s.color}
+                                strokeWidth={2}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </g>
+                          ))}
                           <line
-                            x1={zeroX}
-                            x2={zeroX}
-                            y1={0}
-                            y2={innerHeight}
+                            x1={0}
+                            x2={innerWidth}
+                            y1={yScale(0)}
+                            y2={yScale(0)}
                             stroke="currentColor"
                             strokeDasharray="4 2"
                             className="text-muted-foreground/40"
                           />
-                          {rentabilidadPorActivo.map((d, i) => {
-                            const barWidth = Math.abs(xScale(d.rentabilidad) - zeroX);
-                            const barX = d.rentabilidad >= 0 ? zeroX : xScale(d.rentabilidad);
-                            const labelY = (yScale(d.name) ?? 0) + yScale.bandwidth() / 2;
-                            return (
-                              <g key={d.name}>
-                                <motion.rect
-                                  x={barX}
-                                  y={yScale(d.name)}
-                                  width={barWidth}
-                                  height={yScale.bandwidth()}
-                                  fill={d.rentabilidad >= 0 ? "#22c55e" : "#ef4444"}
-                                  rx={4}
-                                  initial={{ scaleX: 0 }}
-                                  animate={{ scaleX: 1 }}
-                                  transition={{ duration: 0.5, delay: i * 0.05 }}
-                                  style={{ transformOrigin: d.rentabilidad >= 0 ? "left" : "right" }}
-                                />
-                                <text
-                                  x={zeroX + (d.rentabilidad >= 0 ? 1 : -1) * (barWidth + 6)}
-                                  y={labelY}
-                                  textAnchor={d.rentabilidad >= 0 ? "start" : "end"}
-                                  fontSize={CHART_FONT_SIZE_AXIS}
-                                  dominantBaseline="middle"
-                                  fill="currentColor"
-                                >
-                                  {d.rentabilidad >= 0 ? "+" : ""}
-                                  {d.rentabilidad.toFixed(1)}%
-                                </text>
-                                <foreignObject x={-96} y={(yScale(d.name) ?? 0) + 4} width={88} height={20} style={{ pointerEvents: "none" }}>
-                                  <div className="truncate text-[11px] font-medium text-foreground">{d.name}</div>
-                                </foreignObject>
-                              </g>
-                            );
-                          })}
+                          <g className="text-muted-foreground" fontSize={CHART_FONT_SIZE_AXIS}>
+                            {[1, Math.ceil(daysInMonth / 2), daysInMonth].filter((d) => d <= daysInMonth).map((day) => (
+                              <text
+                                key={day}
+                                x={xScale(day)}
+                                y={innerHeight + 20}
+                                textAnchor="middle"
+                                fill="currentColor"
+                              >
+                                {day}
+                              </text>
+                            ))}
+                          </g>
+                          <text x={innerWidth / 2} y={innerHeight + 28} textAnchor="middle" fill="currentColor" className="text-muted-foreground" fontSize={CHART_FONT_SIZE_AXIS}>
+                            Día del mes
+                          </text>
+                        </g>
+                        <g transform={`translate(${margin.left},${margin.top})`} className="text-muted-foreground" fontSize={CHART_FONT_SIZE_AXIS}>
+                          <text x={-8} y={innerHeight / 2} textAnchor="end" dominantBaseline="middle" fill="currentColor">
+                            %
+                          </text>
                         </g>
                       </svg>
                     );
                   }}
                 </ParentSize>
+                {rentabilidadPorDiaPorActivo.series.length > 0 && (
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 max-h-[72px] overflow-y-auto">
+                    {rentabilidadPorDiaPorActivo.series.map((s) => (
+                      <span key={s.name} className="flex items-center gap-1.5 text-xs">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                        <span className="truncate">{s.name}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

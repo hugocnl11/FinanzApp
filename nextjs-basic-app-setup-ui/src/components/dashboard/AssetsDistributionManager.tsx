@@ -577,7 +577,7 @@ export function AssetsDistributionManager() {
                   {savingsRows.map((row, index) => {
                     const IconComponent = CATEGORY_ICON_MAP[row.icon];
                     return (
-                      <div key={row.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_1fr_1fr_36px] sm:items-end">
+                      <div key={row.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_1fr_36px] sm:items-end">
                         <button
                           type="button"
                           onClick={() => openIconDialog("savings", index, row.icon, row.color)}
@@ -598,14 +598,6 @@ export function AssetsDistributionManager() {
                         )}
                         <Input
                           label="Saldo (€)"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={row.value}
-                          onChange={(e) => handleSavingsValueChange(index, e.target.value)}
-                        />
-                        <Input
-                          label="Valor actual (€)"
                           type="number"
                           min="0"
                           step="0.01"

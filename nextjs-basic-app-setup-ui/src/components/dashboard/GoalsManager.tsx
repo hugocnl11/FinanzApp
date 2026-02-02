@@ -86,7 +86,12 @@ export function GoalsManager() {
         const snapshotByCategory = new Map(snapshots.map((s) => [s.categoryId, s.value]));
         const assets: AssetOption[] = categories
           .filter((c) => (c.type === "investment" || c.type === "savings") && c.active !== false)
-          .map((c) => ({ id: c.id, name: c.name, value: snapshotByCategory.get(c.id) ?? 0 }));
+          .map((c) => ({
+            id: c.id,
+            name: c.name,
+            value: snapshotByCategory.get(c.id) ?? 0,
+            type: c.type as "investment" | "savings",
+          }));
         setAssetOptions(assets);
 
         const budgets = (budgetsRes.data ?? []) as Budget[];

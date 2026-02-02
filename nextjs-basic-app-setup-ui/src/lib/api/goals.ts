@@ -18,6 +18,10 @@ export function fetchGoals() {
         type: g.type as Goal["type"],
         dueDate: g.dueDate,
         description: g.description,
+        milestones: g.milestones,
+        linkedCategoryIds: (g as Goal).linkedCategoryIds,
+        linkedBudgetId: (g as Goal).linkedBudgetId,
+        isPrimary: (g as Goal).isPrimary ?? false,
       })),
     } as ApiResponse<Goal[]>);
   }

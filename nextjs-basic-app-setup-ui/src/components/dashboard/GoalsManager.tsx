@@ -11,11 +11,15 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
-import { GoalEditorDialog, type EditableGoal } from "@/components/dashboard/GoalEditorDialog";
+import { GoalEditorDialog, type EditableGoal, type AssetOption, type BudgetOption } from "@/components/dashboard/GoalEditorDialog";
 import { GoalProgressWithMilestones } from "@/components/dashboard/GoalProgressWithMilestones";
 import { fetchGoals, createGoal, updateGoal, deleteGoal } from "@/lib/api/goals";
+import { fetchCategories } from "@/lib/api/categories";
+import { fetchBudgets } from "@/lib/api/budgets";
+import { fetchAssetSnapshotsForDate } from "@/lib/api/asset-snapshots";
 import { getUserId } from "@/lib/auth";
+import type { Category } from "@/lib/dashboard/types";
+import type { Budget } from "@/lib/dashboard/types";
 
 type GoalItem = EditableGoal;
 
@@ -27,72 +31,161 @@ const typeLabels = {
   "aumentar-ingreso": "Aumentar ingresos",
 };
 
+const NEW_GOAL_ID = "new";
+
+function draftNewGoal(): EditableGoal {
+  return {
+    id: NEW_GOAL_ID,
+    title: "",
+    target: 0,
+    saved: 0,
+    type: "ahorro",
+    dueDate: new Date().toISOString().slice(0, 10),
+    linkedCategoryIds: undefined,
+    linkedBudgetId: undefined,
+    isPrimary: false,
+  };
+}
+
 export function GoalsManager() {
   const [goals, setGoals] = useState<GoalItem[]>(initialGoals);
   const [primaryGoalId, setPrimaryGoalId] = useState<string>("");
-  const [formData, setFormData] = useState({
-    title: "",
-    target: "",
-    type: "ahorro" as GoalItem["type"],
-    dueDate: "",
-  });
+  const [assetOptions, setAssetOptions] = useState<AssetOption[]>([]);
+  const [budgetOptions, setBudgetOptions] = useState<BudgetOption[]>([]);
 
-  const progressStats = useMemo(() => {
-    const completed = goals.filter((goal) => goal.saved >= goal.target).length;
-    return { total: goals.length, completed };
-  }, [goals]);
+  const primaryFromApi = useMemo(() => goals.find((g) => g.isPrimary)?.id ?? null, [goals]);
+  const effectivePrimaryId = primaryFromApi ?? (primaryGoalId || (goals[0]?.id ?? ""));
 
   useEffect(() => {
     const load = async () => {
       try {
         if (!getUserId()) {
           setGoals([]);
+          setAssetOptions([]);
+          setBudgetOptions([]);
           return;
         }
-        const response = await fetchGoals();
-        setGoals(response.data as GoalItem[]);
-        const storedPrimary =
-          typeof window !== "undefined"
-            ? window.localStorage.getItem("finanzapp:primary-goal")
-            : "";
-        setPrimaryGoalId(storedPrimary || response.data[0]?.id || "");
+        const today = new Date().toISOString().slice(0, 10);
+        const [goalsRes, categoriesRes, budgetsRes, snapshotsRes] = await Promise.all([
+          fetchGoals(),
+          fetchCategories(),
+          fetchBudgets(),
+          fetchAssetSnapshotsForDate(today).catch(() => ({ data: [] as { categoryId: string; categoryName: string; value: number }[] })),
+        ]);
+        const goalsData = goalsRes.data as GoalItem[];
+        setGoals(goalsData);
+
+        const hasPrimary = goalsData.some((g) => g.isPrimary);
+        const storedPrimary = typeof window !== "undefined" ? window.localStorage.getItem("finanzapp:primary-goal") : "";
+        if (!hasPrimary && (storedPrimary || goalsData[0]?.id)) {
+          setPrimaryGoalId(storedPrimary || (goalsData[0]?.id ?? ""));
+        }
+
+        const categories = (categoriesRes.data ?? []) as Category[];
+        const snapshots = snapshotsRes.data ?? [];
+        const snapshotByCategory = new Map(snapshots.map((s) => [s.categoryId, s.value]));
+        const assets: AssetOption[] = categories
+          .filter((c) => (c.type === "investment" || c.type === "savings") && c.active !== false)
+          .map((c) => ({ id: c.id, name: c.name, value: snapshotByCategory.get(c.id) ?? 0 }));
+        setAssetOptions(assets);
+
+        const budgets = (budgetsRes.data ?? []) as Budget[];
+        setBudgetOptions(budgets.map((b) => ({ id: b.id, category: b.category, limit: b.limit, spent: b.spent })));
       } catch {
         setGoals([]);
+        setAssetOptions([]);
+        setBudgetOptions([]);
       }
     };
     void load();
   }, []);
 
-  useEffect(() => {
-    if (!primaryGoalId && goals.length > 0) {
-        setPrimaryGoalId(goals[0]?.id ?? "");
-    }
-  }, [goals, primaryGoalId]);
+  const assetValueByCategoryId = useMemo(() => {
+    const map = new Map<string, number>();
+    assetOptions.forEach((a) => map.set(a.id, a.value));
+    return map;
+  }, [assetOptions]);
 
-  useEffect(() => {
-    if (primaryGoalId) {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("finanzapp:primary-goal", primaryGoalId);
+  const budgetsMap = useMemo(() => {
+    const map = new Map<string, BudgetOption>();
+    budgetOptions.forEach((b) => map.set(b.id, b));
+    return map;
+  }, [budgetOptions]);
+
+  const displayGoals = useMemo(() => {
+    return goals.map((goal) => {
+      if (goal.linkedBudgetId) {
+        const budget = budgetsMap.get(goal.linkedBudgetId);
+        if (budget) {
+          const limit = budget.limit;
+          const spent = budget.spent;
+          const percent = limit > 0 ? Math.min(100, Math.max(0, ((limit - spent) / limit) * 100)) : 0;
+          return { ...goal, target: limit, saved: spent, _percent: percent, _isBudget: true };
+        }
       }
-      window.dispatchEvent(new Event("finanzapp:data-updated"));
-    }
-  }, [primaryGoalId]);
-
-  const handleAddGoal = async () => {
-    const target = Number(formData.target);
-    if (!formData.title.trim() || !target || !formData.dueDate) return;
-    const created = await createGoal({
-      title: formData.title.trim(),
-      target,
-      saved: 0,
-      type: formData.type,
-      dueDate: formData.dueDate,
+      if (goal.linkedCategoryIds?.length) {
+        const savedFromAssets = goal.linkedCategoryIds.reduce(
+          (sum, cid) => sum + (assetValueByCategoryId.get(cid) ?? 0),
+          0
+        );
+        const saved = savedFromAssets;
+        const target = goal.target;
+        const percent = target > 0 ? Math.min(100, (saved / target) * 100) : 0;
+        return { ...goal, saved, _percent: percent, _isBudget: false };
+      }
+      const percent = goal.target > 0 ? Math.min(100, (goal.saved / goal.target) * 100) : 0;
+      return { ...goal, _percent: percent, _isBudget: false };
     });
-    setGoals((prev) => [...prev, created.data as GoalItem]);
-    if (!primaryGoalId) {
-      setPrimaryGoalId((created.data as GoalItem).id);
+  }, [goals, budgetsMap, assetValueByCategoryId]);
+
+  useEffect(() => {
+    if (effectivePrimaryId && typeof window !== "undefined") {
+      window.localStorage.setItem("finanzapp:primary-goal", effectivePrimaryId);
     }
-    setFormData({ title: "", target: "", type: "ahorro", dueDate: "" });
+    window.dispatchEvent(new Event("finanzapp:data-updated"));
+  }, [effectivePrimaryId]);
+
+  const progressStats = useMemo(() => {
+    const total = displayGoals.length;
+    const completed = displayGoals.filter((g) =>
+      g._isBudget ? (g.saved <= g.target) : (g.saved >= g.target)
+    ).length;
+    return { total, completed };
+  }, [displayGoals]);
+
+  const handleSetPrimary = async (id: string) => {
+    try {
+      await updateGoal(id, { isPrimary: true });
+      setGoals((prev) =>
+        prev.map((g) => (g.id === id ? { ...g, isPrimary: true } : { ...g, isPrimary: false }))
+      );
+      setPrimaryGoalId(id);
+      window.dispatchEvent(new Event("finanzapp:data-updated"));
+    } catch {
+      // keep previous state
+    }
+  };
+
+  const handleSaveGoal = async (updated: GoalItem) => {
+    if (updated.id === NEW_GOAL_ID) {
+      const { id: _id, ...payload } = updated;
+      const created = await createGoal({
+        title: payload.title,
+        target: payload.target,
+        saved: payload.saved,
+        type: payload.type,
+        dueDate: payload.dueDate,
+        description: payload.description,
+        milestones: payload.milestones,
+        linkedCategoryIds: payload.linkedCategoryIds,
+        linkedBudgetId: payload.linkedBudgetId,
+        isPrimary: payload.isPrimary ?? false,
+      });
+      setGoals((prev) => [...prev, created.data as GoalItem]);
+    } else {
+      const saved = await updateGoal(updated.id, updated);
+      setGoals((prev) => prev.map((g) => (g.id === updated.id ? (saved.data as GoalItem) : g)));
+    }
     window.dispatchEvent(new Event("finanzapp:data-updated"));
   };
 
@@ -105,9 +198,7 @@ export function GoalsManager() {
   };
 
   const handleEditGoal = async (updated: GoalItem) => {
-    const saved = await updateGoal(updated.id, updated);
-    setGoals((prev) => prev.map((goal) => (goal.id === updated.id ? (saved.data as GoalItem) : goal)));
-    window.dispatchEvent(new Event("finanzapp:data-updated"));
+    await handleSaveGoal(updated);
   };
 
   const handleRemove = async (id: string) => {
@@ -123,15 +214,15 @@ export function GoalsManager() {
           Gestionar Objetivos
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Objetivos financieros</DialogTitle>
           <DialogDescription>
-            Define metas, visualiza el progreso y recibe alertas al cumplir hitos.
+            Define metas por activos o por presupuesto, visualiza el progreso y recibe alertas al cumplir hitos.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
+        <div className="flex-1 overflow-y-auto grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
@@ -143,28 +234,32 @@ export function GoalsManager() {
             </div>
 
             <div className="space-y-3">
-              {goals.map((goal) => {
-                const percent = Math.min((goal.saved / goal.target) * 100, 100);
+              {displayGoals.map((goal) => {
+                const isBudget = goal._isBudget ?? false;
+                const percent = goal._percent ?? 0;
                 return (
                   <div key={goal.id} className="rounded-2xl border border-border p-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                       <div>
                         <p className="text-sm font-semibold">{goal.title}</p>
                         <p className="text-xs text-muted-foreground">
                           {typeLabels[goal.type]} · Vence {goal.dueDate}
+                          {isBudget && " · Gastar menos del límite"}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
-                          variant={primaryGoalId === goal.id ? "default" : "outline"}
+                          variant={effectivePrimaryId === goal.id ? "default" : "outline"}
                           size="sm"
-                          onClick={() => setPrimaryGoalId(goal.id)}
+                          onClick={() => handleSetPrimary(goal.id)}
                         >
-                          {primaryGoalId === goal.id ? "Principal" : "Hacer principal"}
+                          {effectivePrimaryId === goal.id ? "Principal" : "Hacer principal"}
                         </Button>
                         <GoalEditorDialog
                           goal={goal}
                           onSave={handleEditGoal}
+                          assetOptions={assetOptions}
+                          budgetOptions={budgetOptions}
                           trigger={
                             <Button variant="outline" size="sm">
                               Editar
@@ -177,7 +272,11 @@ export function GoalsManager() {
                       </div>
                     </div>
                     <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>€ {goal.saved} de € {goal.target}</span>
+                      {isBudget ? (
+                        <span>Gastado {Number(goal.saved).toLocaleString("es-ES")} € de {Number(goal.target).toLocaleString("es-ES")} € (límite)</span>
+                      ) : (
+                        <span>€ {Number(goal.saved).toLocaleString("es-ES")} de € {Number(goal.target).toLocaleString("es-ES")}</span>
+                      )}
                       <span>{percent.toFixed(0)}%</span>
                     </div>
                     <GoalProgressWithMilestones
@@ -186,16 +285,18 @@ export function GoalsManager() {
                       milestones={goal.milestones}
                       className="mt-2"
                     />
-                    <div className="mt-3 flex items-center gap-2">
-                      <Input
-                        label="Aporte"
-                        type="number"
-                        value={goal.saved}
-                        onChange={(event) =>
-                          handleUpdateSaved(goal.id, Number(event.target.value))
-                        }
-                      />
-                    </div>
+                    {!isBudget && !(goal.linkedCategoryIds?.length) && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <Input
+                          label="Aporte"
+                          type="number"
+                          value={goal.saved}
+                          onChange={(event) =>
+                            handleUpdateSaved(goal.id, Number(event.target.value))
+                          }
+                        />
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -206,51 +307,22 @@ export function GoalsManager() {
             <div>
               <h3 className="text-sm font-semibold">Nuevo objetivo</h3>
               <p className="text-xs text-muted-foreground">
-                Define el objetivo y su fecha de cumplimiento.
+                Por activos (meta en €) o por presupuesto (gastar menos del límite).
               </p>
             </div>
-
-            <Input
-              label="Título"
-              placeholder="Ej. Viaje a Japón"
-              value={formData.title}
-              onChange={(event) => setFormData((prev) => ({ ...prev, title: event.target.value }))}
-            />
-
-            <Input
-              label="Cantidad objetivo (€)"
-              type="number"
-              value={formData.target}
-              onChange={(event) => setFormData((prev) => ({ ...prev, target: event.target.value }))}
-            />
-
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">Tipo</label>
-              <select
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                value={formData.type}
-                onChange={(event) =>
-                  setFormData((prev) => ({ ...prev, type: event.target.value as GoalItem["type"] }))
-                }
-              >
-                {Object.entries(typeLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Input
-              label="Fecha objetivo"
-              type="date"
-              value={formData.dueDate}
-              onChange={(event) =>
-                setFormData((prev) => ({ ...prev, dueDate: event.target.value }))
+            <GoalEditorDialog
+              goal={draftNewGoal()}
+              onSave={handleSaveGoal}
+              title="Crear objetivo"
+              description="Elige tipo por activos o por presupuesto, define la meta y la fecha."
+              assetOptions={assetOptions}
+              budgetOptions={budgetOptions}
+              trigger={
+                <Button className="w-full min-h-[44px]">
+                  Añadir objetivo
+                </Button>
               }
             />
-
-            <Button onClick={handleAddGoal}>Crear objetivo</Button>
           </div>
         </div>
       </DialogContent>

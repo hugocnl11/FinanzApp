@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { fetchMovements, createMovement, updateMovement } from "@/lib/api/movements";
+import { fetchMovements } from "@/lib/api/movements";
 import { fetchCategories, createCategory, updateCategory } from "@/lib/api/categories";
 import { fetchAssetSnapshotsForDate, createAssetSnapshot } from "@/lib/api/asset-snapshots";
 import { CATEGORY_ICON_MAP, type CategoryIconKey } from "@/lib/category-icons";
@@ -86,7 +86,10 @@ const buildLatestByCategory = (movements: Movement[], tipo: Movement["tipo"]) =>
 };
 
 const buildInvestmentRows = (movements: Movement[], categories: Category[]) => {
-  const investmentCategories = categories.filter((cat) => cat.type === "investment");
+  const investmentCategories = categories.filter(
+    (cat) => cat.type === "investment" && cat.active !== false
+  );
+  const activeNames = new Set(investmentCategories.map((c) => c.name));
   const latestByCategory = buildLatestByCategory(movements, "Inversión");
   const rows: InvestmentRow[] = investmentCategories.map((category, index) => {
     const movement = latestByCategory.get(category.name);
@@ -103,7 +106,7 @@ const buildInvestmentRows = (movements: Movement[], categories: Category[]) => {
   });
 
   for (const movement of latestByCategory.values()) {
-    if (!rows.some((row) => row.name === movement.categoria)) {
+    if (activeNames.has(movement.categoria) && !rows.some((row) => row.name === movement.categoria)) {
       rows.push({
         id: movement.id ?? `inv-${movement.categoria}`,
         name: movement.categoria,
@@ -120,7 +123,10 @@ const buildInvestmentRows = (movements: Movement[], categories: Category[]) => {
 };
 
 const buildSavingsRows = (movements: Movement[], categories: Category[]) => {
-  const savingsCategories = categories.filter((cat) => cat.type === "savings");
+  const savingsCategories = categories.filter(
+    (cat) => cat.type === "savings" && cat.active !== false
+  );
+  const activeNames = new Set(savingsCategories.map((c) => c.name));
   const latestByCategory = buildLatestByCategory(movements, "Ahorro");
   const rows: SavingsRow[] = savingsCategories.map((category, index) => {
     const movement = latestByCategory.get(category.name);
@@ -137,7 +143,7 @@ const buildSavingsRows = (movements: Movement[], categories: Category[]) => {
   });
 
   for (const movement of latestByCategory.values()) {
-    if (!rows.some((row) => row.name === movement.categoria)) {
+    if (activeNames.has(movement.categoria) && !rows.some((row) => row.name === movement.categoria)) {
       rows.push({
         id: movement.id ?? `sav-${movement.categoria}`,
         name: movement.categoria,
@@ -354,26 +360,16 @@ export function AssetsDistributionManager() {
   };
 
   const persistRemoval = async (
-    row: { categoryId?: string; name: string; movementId?: string },
-    tipo: "Inversión" | "Ahorro",
-    conceptPrefix: string
+    row: { categoryId?: string; name: string },
+    _tipo: "Inversión" | "Ahorro",
+    _conceptPrefix: string
   ) => {
     const name = row.name.trim();
     if (!name) return;
-    const payload = {
-      fecha: new Date().toISOString().split("T")[0],
-      concepto: `${conceptPrefix}: ${name}`,
-      categoria: name,
-      categoryId: row.categoryId,
-      tipo,
-      cantidad: 0,
-    };
-    if (row.movementId) {
-      await updateMovement(row.movementId, payload);
-    } else {
-      await createMovement(payload);
-    }
+    const today = new Date().toISOString().split("T")[0];
+    // No tocamos movimientos; solo dejamos valor actual a 0 para hoy y desactivamos la categoría.
     if (row.categoryId) {
+      await createAssetSnapshot({ categoryId: row.categoryId, value: 0, date: today });
       await updateCategory(row.categoryId, { active: false });
     }
   };
@@ -398,7 +394,6 @@ export function AssetsDistributionManager() {
       for (const row of investmentRows) {
         const name = row.name.trim();
         if (!name) continue;
-        const amount = Math.max(0, Number(row.value || 0));
         const resolvedColor = resolveColor(row.color);
         let categoryId = row.categoryId;
         if (!categoryId) {
@@ -418,20 +413,9 @@ export function AssetsDistributionManager() {
           categoryId = (created.data as Category).id;
         }
         await updateCategory(categoryId, { name, icon: row.icon, color: resolvedColor, active: true });
-        const payload = {
-          fecha: today,
-          concepto: `Ajuste activos: ${name}`,
-          categoryId,
-          tipo: "Inversión" as const,
-          cantidad: amount,
-        };
-        if (row.movementId) {
-          await updateMovement(row.movementId, payload);
-        } else {
-          await createMovement(payload);
-        }
-        const currentVal = Number(row.currentValue || 0);
-        if (currentVal > 0 && categoryId) {
+        // La distribución de activos es independiente de los movimientos: solo guardamos el valor actual (snapshot).
+        const currentVal = Math.max(0, Number(row.currentValue || 0));
+        if (categoryId) {
           await createAssetSnapshot({ categoryId, value: currentVal, date: today });
         }
       }
@@ -439,7 +423,6 @@ export function AssetsDistributionManager() {
       for (const row of savingsRows) {
         const name = row.name.trim();
         if (!name) continue;
-        const amount = Math.max(0, Number(row.value || 0));
         const resolvedColor =
           name.toLowerCase() === "fondo de emergencia" ? "#ef4444" : resolveColor(row.color);
         let categoryId = row.categoryId;
@@ -460,20 +443,9 @@ export function AssetsDistributionManager() {
           categoryId = (created.data as Category).id;
         }
         await updateCategory(categoryId, { name, icon: row.icon, color: resolvedColor, active: true });
-        const payload = {
-          fecha: today,
-          concepto: `Ajuste ahorro: ${name}`,
-          categoryId,
-          tipo: "Ahorro" as const,
-          cantidad: amount,
-        };
-        if (row.movementId) {
-          await updateMovement(row.movementId, payload);
-        } else {
-          await createMovement(payload);
-        }
-        const currentVal = Number(row.currentValue || 0);
-        if (currentVal > 0 && categoryId) {
+        // La distribución de activos es independiente de los movimientos: solo guardamos el valor actual (snapshot).
+        const currentVal = Math.max(0, Number(row.currentValue || 0));
+        if (categoryId) {
           await createAssetSnapshot({ categoryId, value: currentVal, date: today });
         }
       }

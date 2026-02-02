@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getUserId, jsonError } from "@/app/api/_helpers";
 import type { GoalType } from "@prisma/client";
 
-type GoalMilestonePayload = { date: string; amount: number };
+type GoalMilestonePayload = { date?: string; amount: number };
 
 type GoalPayload = {
   title: string;
@@ -13,6 +13,9 @@ type GoalPayload = {
   dueDate: string;
   description?: string;
   milestones?: GoalMilestonePayload[];
+  linkedCategoryIds?: string[];
+  linkedBudgetId?: string | null;
+  isPrimary?: boolean;
 };
 
 const toGoalType = (value: string): GoalType | null => {
@@ -29,6 +32,22 @@ const fromGoalType = (value: GoalType) => {
   return "aumentar-ingreso";
 };
 
+function goalToJson(goal: { id: string; title: string; target: unknown; saved: unknown; type: GoalType; dueDate: Date; description: string | null; milestones: unknown; linkedCategoryIds: unknown; linkedBudgetId: string | null; isPrimary: boolean }) {
+  return {
+    id: goal.id,
+    title: goal.title,
+    target: Number(goal.target),
+    saved: Number(goal.saved),
+    type: fromGoalType(goal.type),
+    dueDate: goal.dueDate.toISOString().slice(0, 10),
+    description: goal.description ?? undefined,
+    milestones: (goal.milestones as GoalMilestonePayload[] | null) ?? undefined,
+    linkedCategoryIds: Array.isArray(goal.linkedCategoryIds) ? goal.linkedCategoryIds : undefined,
+    linkedBudgetId: goal.linkedBudgetId ?? undefined,
+    isPrimary: goal.isPrimary,
+  };
+}
+
 export async function GET(request: Request) {
   const userId = await getUserId(request);
   if (!userId) return jsonError("userId es obligatorio");
@@ -38,16 +57,7 @@ export async function GET(request: Request) {
     orderBy: { dueDate: "asc" },
   });
   return NextResponse.json({
-    data: goals.map((goal) => ({
-      id: goal.id,
-      title: goal.title,
-      target: Number(goal.target),
-      saved: Number(goal.saved),
-      type: fromGoalType(goal.type),
-      dueDate: goal.dueDate.toISOString().slice(0, 10),
-      description: goal.description ?? undefined,
-      milestones: (goal.milestones as GoalMilestonePayload[] | null) ?? undefined,
-    })),
+    data: goals.map(goalToJson),
   });
 }
 
@@ -62,13 +72,21 @@ export async function POST(request: Request) {
     return jsonError("Payload inválido");
   }
 
-  const { title, target, saved, type, dueDate, description, milestones } = payload;
+  const { title, target, saved, type, dueDate, description, milestones, linkedCategoryIds, linkedBudgetId, isPrimary } = payload;
   if (!title || typeof target !== "number" || !type || !dueDate) {
     return jsonError("Campos requeridos: title, target, type, dueDate");
   }
 
   const mappedType = toGoalType(type);
   if (!mappedType) return jsonError("Tipo de objetivo inválido");
+
+  // Solo uno de los dos: por activos o por presupuesto
+  const categoryIds = linkedBudgetId ? null : (Array.isArray(linkedCategoryIds) ? linkedCategoryIds : null);
+  const budgetId = linkedBudgetId?.trim() || null;
+
+  if (isPrimary === true) {
+    await prisma.goal.updateMany({ where: { userId }, data: { isPrimary: false } });
+  }
 
   const goal = await prisma.goal.create({
     data: {
@@ -80,22 +98,11 @@ export async function POST(request: Request) {
       dueDate: new Date(dueDate),
       description,
       milestones: Array.isArray(milestones) ? milestones : undefined,
+      linkedCategoryIds: categoryIds ?? undefined,
+      linkedBudgetId: budgetId ?? undefined,
+      isPrimary: isPrimary === true,
     },
   });
 
-  return NextResponse.json(
-    {
-      data: {
-        id: goal.id,
-        title: goal.title,
-        target: Number(goal.target),
-        saved: Number(goal.saved),
-        type: fromGoalType(goal.type),
-        dueDate: goal.dueDate.toISOString().slice(0, 10),
-        description: goal.description ?? undefined,
-        milestones: (goal.milestones as GoalMilestonePayload[] | null) ?? undefined,
-      },
-    },
-    { status: 201 }
-  );
+  return NextResponse.json({ data: goalToJson(goal) }, { status: 201 });
 }

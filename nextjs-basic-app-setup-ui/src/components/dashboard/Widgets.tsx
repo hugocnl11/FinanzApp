@@ -105,15 +105,19 @@ export const GoalCard = memo(function GoalCard() {
       typeof window !== "undefined"
         ? window.localStorage.getItem("finanzapp:primary-goal")
         : null;
-    const selected = data.goals.find((goal) => goal.id === primaryId) ?? data.goals[0] ?? null;
+    const selected =
+      data.goals.find((goal) => goal.isPrimary) ??
+      data.goals.find((goal) => goal.id === primaryId) ??
+      data.goals[0] ??
+      null;
     setCurrentGoal(selected ? { ...selected } : null);
   }, [data.goals]);
 
   const handleSaveGoal = async (updatedGoal: EditableGoal) => {
-    if (updatedGoal.id) {
+    if (updatedGoal.id && updatedGoal.id !== "new") {
       await updateGoal(updatedGoal.id, updatedGoal);
     } else {
-      await createGoal(updatedGoal);
+      await createGoal(updatedGoal as Omit<EditableGoal, "id">);
     }
     window.dispatchEvent(new Event("finanzapp:data-updated"));
   };
@@ -126,7 +130,15 @@ export const GoalCard = memo(function GoalCard() {
     );
   }
 
-  const porcentaje = currentGoal.target ? (currentGoal.saved / currentGoal.target) * 100 : 0;
+  const isBudgetGoal = Boolean(currentGoal.linkedBudgetId);
+  const budget = isBudgetGoal && data.budgets?.length
+    ? data.budgets.find((b) => b.id === currentGoal.linkedBudgetId)
+    : null;
+  const target = isBudgetGoal && budget ? budget.limit : (currentGoal.target ?? 0);
+  const saved = isBudgetGoal && budget ? budget.spent : (currentGoal.saved ?? 0);
+  const porcentaje = isBudgetGoal && target > 0
+    ? Math.min(100, Math.max(0, ((target - saved) / target) * 100))
+    : target ? (saved / target) * 100 : 0;
 
   return (
     <Card className="p-6 space-y-3">
@@ -138,6 +150,7 @@ export const GoalCard = memo(function GoalCard() {
         <GoalEditorDialog
           goal={currentGoal}
           onSave={handleSaveGoal}
+          budgetOptions={(data.budgets ?? []).map((b) => ({ id: b.id, category: b.category, limit: b.limit, spent: b.spent }))}
           trigger={
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Editar objetivo">
               <Pencil className="h-4 w-4" />
@@ -146,18 +159,21 @@ export const GoalCard = memo(function GoalCard() {
         />
       </div>
       <div className="text-2xl font-bold">
-        {formatCurrency(currentGoal.saved, currency)}{" "}
+        {formatCurrency(saved, currency)}{" "}
         <span className="text-sm text-muted-foreground">
-          / {formatCurrency(currentGoal.target ?? 0, currency)}
+          / {formatCurrency(target, currency)}
+          {isBudgetGoal && " (límite)"}
         </span>
       </div>
       <GoalProgressWithMilestones
-        value={porcentaje}
-        target={currentGoal.target ?? 0}
+        value={Math.min(100, porcentaje)}
+        target={target}
         milestones={currentGoal.milestones}
         animated
       />
-      <div className="text-xs text-muted-foreground">{Math.round(porcentaje)}% completado</div>
+      <div className="text-xs text-muted-foreground">
+        {isBudgetGoal ? `${Math.round(porcentaje)}% resto disponible` : `${Math.round(porcentaje)}% completado`}
+      </div>
     </Card>
   );
 });

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getUserId, jsonError } from "@/app/api/_helpers";
 import type { GoalType } from "@prisma/client";
 
-type GoalMilestonePayload = { date: string; amount: number };
+type GoalMilestonePayload = { date?: string; amount: number };
 
 type GoalPayload = {
   title?: string;
@@ -13,6 +13,9 @@ type GoalPayload = {
   dueDate?: string;
   description?: string;
   milestones?: GoalMilestonePayload[];
+  linkedCategoryIds?: string[] | null;
+  linkedBudgetId?: string | null;
+  isPrimary?: boolean;
 };
 
 const toGoalType = (value: string): GoalType | null => {
@@ -28,6 +31,22 @@ const fromGoalType = (value: GoalType) => {
   if (value === "REDUCIR_GASTO") return "reducir-gasto";
   return "aumentar-ingreso";
 };
+
+function goalToJson(goal: { id: string; title: string; target: unknown; saved: unknown; type: GoalType; dueDate: Date; description: string | null; milestones: unknown; linkedCategoryIds: unknown; linkedBudgetId: string | null; isPrimary: boolean }) {
+  return {
+    id: goal.id,
+    title: goal.title,
+    target: Number(goal.target),
+    saved: Number(goal.saved),
+    type: fromGoalType(goal.type),
+    dueDate: goal.dueDate.toISOString().slice(0, 10),
+    description: goal.description ?? undefined,
+    milestones: (goal.milestones as GoalMilestonePayload[] | null) ?? undefined,
+    linkedCategoryIds: Array.isArray(goal.linkedCategoryIds) ? goal.linkedCategoryIds : undefined,
+    linkedBudgetId: goal.linkedBudgetId ?? undefined,
+    isPrimary: goal.isPrimary,
+  };
+}
 
 export async function PUT(request: Request, context: { params: { id: string } }) {
   const userId = await getUserId(request);
@@ -52,6 +71,15 @@ export async function PUT(request: Request, context: { params: { id: string } })
   if (payload.dueDate) data.dueDate = new Date(payload.dueDate);
   if (payload.description !== undefined) data.description = payload.description;
   if (payload.milestones !== undefined) data.milestones = Array.isArray(payload.milestones) ? payload.milestones : null;
+  const hasBudget = payload.linkedBudgetId !== undefined && (payload.linkedBudgetId?.trim() || null);
+  if (payload.linkedBudgetId !== undefined) data.linkedBudgetId = payload.linkedBudgetId?.trim() || null;
+  if (hasBudget) data.linkedCategoryIds = null;
+  else if (payload.linkedCategoryIds !== undefined) data.linkedCategoryIds = Array.isArray(payload.linkedCategoryIds) ? payload.linkedCategoryIds : null;
+  if (typeof payload.isPrimary === "boolean") data.isPrimary = payload.isPrimary;
+
+  if (payload.isPrimary === true) {
+    await prisma.goal.updateMany({ where: { userId, id: { not: context.params.id } }, data: { isPrimary: false } });
+  }
 
   const updated = await prisma.goal.updateMany({
     where: { id: context.params.id, userId },
@@ -60,18 +88,7 @@ export async function PUT(request: Request, context: { params: { id: string } })
   if (!updated.count) return jsonError("Objetivo no encontrado", 404);
   const goal = await prisma.goal.findUnique({ where: { id: context.params.id } });
   if (!goal) return jsonError("Objetivo no encontrado", 404);
-  return NextResponse.json({
-    data: {
-      id: goal.id,
-      title: goal.title,
-      target: Number(goal.target),
-      saved: Number(goal.saved),
-      type: fromGoalType(goal.type),
-      dueDate: goal.dueDate.toISOString().slice(0, 10),
-      description: goal.description ?? undefined,
-      milestones: (goal.milestones as GoalMilestonePayload[] | null) ?? undefined,
-    },
-  });
+  return NextResponse.json({ data: goalToJson(goal) });
 }
 
 export async function DELETE(request: Request, context: { params: { id: string } }) {

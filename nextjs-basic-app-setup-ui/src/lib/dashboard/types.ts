@@ -27,7 +27,7 @@ export type CategoryAmount = {
   value: number;
 };
 
-export type GoalMilestone = { date: string; amount: number };
+export type GoalMilestone = { date?: string; amount: number };
 
 export type Goal = {
   id: string;
@@ -38,6 +38,9 @@ export type Goal = {
   dueDate?: string;
   description?: string;
   milestones?: GoalMilestone[];
+  linkedCategoryIds?: string[];
+  linkedBudgetId?: string;
+  isPrimary?: boolean;
 };
 
 export type Budget = {

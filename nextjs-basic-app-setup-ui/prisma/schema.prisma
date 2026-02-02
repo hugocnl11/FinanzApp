@@ -121,17 +121,20 @@ model Budget {
 }
 
 model Goal {
-  id          String   @id @default(cuid())
-  userId      String
-  title       String
-  target      Decimal  @db.Decimal(14, 2)
-  saved       Decimal  @db.Decimal(14, 2) @default(0)
-  type        GoalType
-  dueDate     DateTime
-  description String?
-  milestones  Json?    // [{ date: "YYYY-MM-DD", amount: number }, ...]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  userId             String
+  title              String
+  target             Decimal  @db.Decimal(14, 2)
+  saved              Decimal  @db.Decimal(14, 2) @default(0)
+  type               GoalType
+  dueDate            DateTime
+  description        String?
+  milestones         Json?    // [{ amount: number }, ...]
+  linkedCategoryIds  Json?    // [categoryId] — activos (investment/savings)
+  linkedBudgetId     String?  // presupuesto: meta = gastar menos
+  isPrimary          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

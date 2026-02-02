@@ -249,6 +249,7 @@ export const DASHBOARD_MOCK: DashboardData = {
       type: "ahorro",
       dueDate: "2026-06-30",
       description: "Para sobrevivir 8 meses sin ingresos",
+      isPrimary: true,
     },
     {
       id: "goal-2",
@@ -258,6 +259,7 @@ export const DASHBOARD_MOCK: DashboardData = {
       type: "ahorro",
       dueDate: "2026-08-01",
       description: "Ahorro para vacaciones de verano",
+      isPrimary: false,
     },
     {
       id: "goal-3",
@@ -267,6 +269,7 @@ export const DASHBOARD_MOCK: DashboardData = {
       type: "ahorro",
       dueDate: "2026-05-15",
       description: "Renovar equipo de trabajo",
+      isPrimary: false,
     },
   ],
   notifications: [

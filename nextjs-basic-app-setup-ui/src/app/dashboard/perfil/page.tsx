@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,113 @@ import {
 } from "@/lib/api/salary-history";
 import type { SalaryEntry } from "@/lib/api/types";
 import { formatCurrency } from "@/lib/format";
+
+const CHART_HEIGHT = 200;
+const CHART_PADDING = { top: 8, right: 8, bottom: 24, left: 48 };
+
+function SalaryEvolutionChart({ entries }: { entries: SalaryEntry[] }) {
+  const points = useMemo(() => {
+    if (entries.length === 0) return [];
+    const sorted = [...entries].sort(
+      (a, b) => new Date(a.fromDate).getTime() - new Date(b.fromDate).getTime()
+    );
+    const minT = Math.min(...sorted.map((e) => new Date(e.fromDate).getTime()));
+    const maxT = Math.max(
+      ...sorted.map((e) => (e.toDate ? new Date(e.toDate).getTime() : Date.now()))
+    );
+    const maxAmount = Math.max(...sorted.map((e) => e.amount), 1);
+    const rangeT = maxT - minT || 1;
+    return sorted.map((e) => ({
+      x: (new Date(e.fromDate).getTime() - minT) / rangeT,
+      y: e.amount / maxAmount,
+      label: formatDateYmd(e.fromDate),
+      amount: e.amount,
+    }));
+  }, [entries]);
+
+  if (points.length === 0) return null;
+
+  const width = 320;
+  const innerW = width - CHART_PADDING.left - CHART_PADDING.right;
+  const innerH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
+
+  const toX = (t: number) => CHART_PADDING.left + t * innerW;
+  const toY = (v: number) => CHART_PADDING.top + innerH - v * innerH;
+
+  const pathD =
+    points.length > 0
+      ? points
+          .map((p, i) => `${i === 0 ? "M" : "L"} ${toX(p.x)} ${toY(p.y)}`)
+          .join(" ")
+      : "";
+
+  const maxAmount = Math.max(...entries.map((e) => e.amount));
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((v) => ({
+    y: toY(v),
+    label: formatCurrency(Math.round(maxAmount * v)),
+  }));
+
+  return (
+    <div className="mt-4">
+      <p className="text-xs font-medium text-muted-foreground mb-2">Evolución salarial</p>
+      <svg
+        width="100%"
+        viewBox={`0 0 ${width} ${CHART_HEIGHT}`}
+        preserveAspectRatio="xMidYMid meet"
+        className="max-w-full h-auto text-muted-foreground"
+      >
+        {yTicks.map((tick, i) => (
+          <g key={i}>
+            <line
+              x1={CHART_PADDING.left}
+              x2={width - CHART_PADDING.right}
+              y1={tick.y}
+              y2={tick.y}
+              stroke="currentColor"
+              strokeOpacity="0.15"
+              strokeDasharray="2 2"
+            />
+            <text
+              x={CHART_PADDING.left - 6}
+              y={tick.y + 4}
+              textAnchor="end"
+              fontSize={10}
+              fill="currentColor"
+            >
+              {tick.label}
+            </text>
+          </g>
+        ))}
+        <path
+          d={pathD}
+          fill="none"
+          stroke="hsl(var(--primary))"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {points.map((p, i) => (
+          <circle
+            key={i}
+            cx={toX(p.x)}
+            cy={toY(p.y)}
+            r={4}
+            fill="hsl(var(--primary))"
+          />
+        ))}
+        <text
+          x={width / 2}
+          y={CHART_HEIGHT - 4}
+          textAnchor="middle"
+          fontSize={10}
+          fill="currentColor"
+        >
+          Tiempo
+        </text>
+      </svg>
+    </div>
+  );
+}
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -451,38 +558,62 @@ export default function PerfilPage() {
                 </ul>
               )}
 
+              {salaryEntries.length > 0 && (
+                <SalaryEvolutionChart entries={salaryEntries} />
+              )}
+
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 pt-2">
-                <Input
-                  id="fromDate"
-                  label="Desde (fecha)"
-                  type="date"
-                  value={salaryForm.fromDate}
-                  onChange={handleSalaryFormChange}
-                />
-                <Input
-                  id="toDate"
-                  label="Hasta (opcional)"
-                  type="date"
-                  value={salaryForm.toDate}
-                  onChange={handleSalaryFormChange}
-                  placeholder="Vacío = actual"
-                />
-                <Input
-                  id="amount"
-                  label="Importe bruto anual (€)"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={salaryForm.amount}
-                  onChange={handleSalaryFormChange}
-                />
-                <Input
-                  id="note"
-                  label="Nota (opcional)"
-                  placeholder="Ej. Promoción"
-                  value={salaryForm.note}
-                  onChange={handleSalaryFormChange}
-                />
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="fromDate" className="text-xs text-muted-foreground">
+                    Desde (fecha)
+                  </label>
+                  <input
+                    id="fromDate"
+                    type="date"
+                    value={salaryForm.fromDate}
+                    onChange={handleSalaryFormChange}
+                    className="h-9 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-gray-900 dark:text-white border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="toDate" className="text-xs text-muted-foreground">
+                    Hasta (opcional)
+                  </label>
+                  <input
+                    id="toDate"
+                    type="date"
+                    value={salaryForm.toDate}
+                    onChange={handleSalaryFormChange}
+                    className="h-9 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-gray-900 dark:text-white border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                </div>
+                <div className="flex flex-col gap-1 min-w-[7rem]">
+                  <label htmlFor="amount" className="text-xs text-muted-foreground">
+                    Importe bruto anual (€)
+                  </label>
+                  <input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={salaryForm.amount}
+                    onChange={handleSalaryFormChange}
+                    className="h-9 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-gray-900 dark:text-white border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="note" className="text-xs text-muted-foreground">
+                    Nota (opcional)
+                  </label>
+                  <input
+                    id="note"
+                    type="text"
+                    placeholder="Ej. Promoción"
+                    value={salaryForm.note}
+                    onChange={handleSalaryFormChange}
+                    className="h-9 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-gray-900 dark:text-white border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 placeholder:text-muted-foreground"
+                  />
+                </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button

@@ -79,6 +79,12 @@ export function InitialAssetsForm() {
       setChecked(true);
       return;
     }
+    const prefsFromSession = (session.user?.preferences ?? {}) as UserPreferences;
+    if (prefsFromSession.initialAssetsDone === true) {
+      setOpen(false);
+      setChecked(true);
+      return;
+    }
     fetch("/api/auth/me", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {

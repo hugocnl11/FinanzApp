@@ -72,10 +72,15 @@ export function WelcomeWizard() {
       setChecked(true);
       return;
     }
-    // Usuarios reales: cargar preferencias desde la API para no mostrar el wizard en cada login.
-    // Solo se muestra la primera vez (al crear la cuenta), cuando onboardingWizardSeen no está a true.
+    // Usuarios reales: solo mostrar la primera vez. Preferencias desde sesión (restaurada de cookie) o API.
     const session = getSession();
     if (!session) {
+      setChecked(true);
+      return;
+    }
+    const prefsFromSession = (session.user?.preferences ?? {}) as UserPreferences;
+    if (prefsFromSession.onboardingWizardSeen === true) {
+      setOpen(false);
       setChecked(true);
       return;
     }

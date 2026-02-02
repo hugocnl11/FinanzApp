@@ -63,18 +63,21 @@ model User {
   notionIntegration NotionIntegration?
   assetSnapshots   AssetSnapshot[]
   sessions        Session[]
+  salaryEntries   SalaryEntry[]
 }
 
 model Category {
-  id        String       @id @default(cuid())
-  userId    String
-  name      String
-  type      CategoryType
-  icon      String
-  color     String
-  active    Boolean      @default(true)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id              String       @id @default(cuid())
+  userId          String
+  name            String
+  type            CategoryType
+  icon            String
+  color           String
+  active          Boolean      @default(true)
+  investedAmount  Decimal?     @db.Decimal(14, 2) // valor ingresado (solo inversión)
+  taePercent      Decimal?     @db.Decimal(5, 2)  // % TAE opcional (solo ahorro)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   movements      Movement[]
@@ -196,4 +199,20 @@ model Session {
 
   @@index([userId])
   @@index([token])
+}
+
+model SalaryEntry {
+  id        String    @id @default(cuid())
+  userId    String
+  fromDate  DateTime
+  toDate    DateTime?
+  amount    Decimal   @db.Decimal(14, 2)
+  note      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, fromDate])
 }

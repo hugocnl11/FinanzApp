@@ -9,6 +9,8 @@ type CategoryPayload = {
   icon?: string;
   color?: string;
   active?: boolean;
+  investedAmount?: number | null;
+  taePercent?: number | null;
 };
 
 const toCategoryType = (value: string): CategoryType | null => {
@@ -48,6 +50,8 @@ export async function PUT(request: Request, context: { params: { id: string } })
   if (payload.icon) data.icon = payload.icon;
   if (payload.color) data.color = payload.color;
   if (typeof payload.active === "boolean") data.active = payload.active;
+  if (payload.investedAmount !== undefined) data.investedAmount = payload.investedAmount;
+  if (payload.taePercent !== undefined) data.taePercent = payload.taePercent;
 
   const updated = await prisma.category.updateMany({
     where: { id: context.params.id, userId },
@@ -57,7 +61,14 @@ export async function PUT(request: Request, context: { params: { id: string } })
   if (!updated.count) return jsonError("Categoría no encontrada", 404);
   const category = await prisma.category.findUnique({ where: { id: context.params.id } });
   if (!category) return jsonError("Categoría no encontrada", 404);
-  return NextResponse.json({ data: { ...category, type: fromCategoryType(category.type) } });
+  return NextResponse.json({
+    data: {
+      ...category,
+      type: fromCategoryType(category.type),
+      investedAmount: category.investedAmount != null ? Number(category.investedAmount) : null,
+      taePercent: category.taePercent != null ? Number(category.taePercent) : null,
+    },
+  });
 }
 
 export async function DELETE(request: Request, context: { params: { id: string } }) {

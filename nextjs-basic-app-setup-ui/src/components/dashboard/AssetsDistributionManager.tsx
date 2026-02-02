@@ -37,6 +37,7 @@ type SavingsRow = {
   name: string;
   value: string;
   currentValue: string;
+  taePercent: string;
   icon: CategoryIconKey;
   color: string;
   movementId?: string;
@@ -136,6 +137,7 @@ const buildSavingsRows = (movements: Movement[], categories: Category[]) => {
       name: category.name,
       value: movement ? Math.abs(movement.cantidad).toString() : "",
       currentValue: "",
+      taePercent: "",
       icon: (category.icon as CategoryIconKey) ?? DEFAULT_SAVINGS_ICON,
       color: category.color ?? SAVINGS_COLORS[index % SAVINGS_COLORS.length],
       movementId: movement?.id,
@@ -149,6 +151,7 @@ const buildSavingsRows = (movements: Movement[], categories: Category[]) => {
         name: movement.categoria,
         value: Math.abs(movement.cantidad).toString(),
         currentValue: "",
+        taePercent: "",
         icon: DEFAULT_SAVINGS_ICON,
         color: SAVINGS_COLORS[rows.length % SAVINGS_COLORS.length],
         movementId: movement.id,
@@ -197,21 +200,29 @@ export function AssetsDistributionManager() {
           fetchAssetSnapshotsForDate(today).catch(() => ({ data: [] as { categoryId: string; value: number }[] })),
         ]);
         const categories = categoriesRes.data as Category[];
+        const categoryById = new Map(categories.map((c) => [c.id, c]));
         const snapshotByCategory = new Map(
           (snapshotsRes.data ?? []).map((s) => [s.categoryId, s.value])
         );
-        const invRows = buildInvestmentRows(movementsRes.data, categories).map((row) => ({
-          ...row,
-          currentValue: row.categoryId && snapshotByCategory.has(row.categoryId)
-            ? String(snapshotByCategory.get(row.categoryId))
-            : "",
-        }));
-        const savRows = buildSavingsRows(movementsRes.data, categories).map((row) => ({
-          ...row,
-          currentValue: row.categoryId && snapshotByCategory.has(row.categoryId)
-            ? String(snapshotByCategory.get(row.categoryId))
-            : "",
-        }));
+        const invRows = buildInvestmentRows(movementsRes.data, categories).map((row) => {
+          const currentValue =
+            row.categoryId && snapshotByCategory.has(row.categoryId)
+              ? String(snapshotByCategory.get(row.categoryId))
+              : "";
+          const cat = row.categoryId ? categoryById.get(row.categoryId) : undefined;
+          const value =
+            cat?.investedAmount != null ? String(cat.investedAmount) : row.value;
+          return { ...row, currentValue, value };
+        });
+        const savRows = buildSavingsRows(movementsRes.data, categories).map((row) => {
+          const currentValue =
+            row.categoryId && snapshotByCategory.has(row.categoryId)
+              ? String(snapshotByCategory.get(row.categoryId))
+              : "";
+          const cat = row.categoryId ? categoryById.get(row.categoryId) : undefined;
+          const taePercent = cat?.taePercent != null ? String(cat.taePercent) : "";
+          return { ...row, currentValue, taePercent };
+        });
         setInvestmentRows(invRows);
         setSavingsRows(savRows);
         setRemovedInvestments([]);
@@ -260,6 +271,7 @@ export function AssetsDistributionManager() {
         name: "",
         value: "",
         currentValue: "",
+        taePercent: "",
         icon: DEFAULT_SAVINGS_ICON,
         color: SAVINGS_COLORS[prev.length % SAVINGS_COLORS.length],
       },
@@ -289,6 +301,12 @@ export function AssetsDistributionManager() {
   const handleSavingsCurrentValueChange = (index: number, value: string) => {
     setSavingsRows((prev) =>
       prev.map((row, i) => (i === index ? { ...row, currentValue: value } : row))
+    );
+  };
+
+  const handleSavingsTaePercentChange = (index: number, value: string) => {
+    setSavingsRows((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, taePercent: value } : row))
     );
   };
 
@@ -412,8 +430,13 @@ export function AssetsDistributionManager() {
           });
           categoryId = (created.data as Category).id;
         }
-        await updateCategory(categoryId, { name, icon: row.icon, color: resolvedColor, active: true });
-        // La distribución de activos es independiente de los movimientos: solo guardamos el valor actual (snapshot).
+        await updateCategory(categoryId, {
+          name,
+          icon: row.icon,
+          color: resolvedColor,
+          active: true,
+          investedAmount: row.value ? Number(row.value) : null,
+        });
         const currentVal = Math.max(0, Number(row.currentValue || 0));
         if (categoryId) {
           await createAssetSnapshot({ categoryId, value: currentVal, date: today });
@@ -442,8 +465,13 @@ export function AssetsDistributionManager() {
           });
           categoryId = (created.data as Category).id;
         }
-        await updateCategory(categoryId, { name, icon: row.icon, color: resolvedColor, active: true });
-        // La distribución de activos es independiente de los movimientos: solo guardamos el valor actual (snapshot).
+        await updateCategory(categoryId, {
+          name,
+          icon: row.icon,
+          color: resolvedColor,
+          active: true,
+          taePercent: row.taePercent ? Number(row.taePercent) : null,
+        });
         const currentVal = Math.max(0, Number(row.currentValue || 0));
         if (categoryId) {
           await createAssetSnapshot({ categoryId, value: currentVal, date: today });
@@ -529,22 +557,28 @@ export function AssetsDistributionManager() {
                             onChange={(e) => handleInvestmentNameChange(index, e.target.value)}
                           />
                         )}
-                        <Input
-                          label="Valor ingresado (€)"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={row.value}
-                          onChange={(e) => handleInvestmentValueChange(index, e.target.value)}
-                        />
-                        <Input
-                          label="Valor actual (€)"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={row.currentValue}
-                          onChange={(e) => handleInvestmentCurrentValueChange(index, e.target.value)}
-                        />
+                        <div className="flex flex-col gap-1 min-w-[7rem]">
+                          <label className="text-xs text-muted-foreground">Valor ingresado (€)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={row.value}
+                            onChange={(e) => handleInvestmentValueChange(index, e.target.value)}
+                            className="h-9 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-gray-900 dark:text-white border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1 min-w-[7rem]">
+                          <label className="text-xs text-muted-foreground">Valor actual (€)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={row.currentValue}
+                            onChange={(e) => handleInvestmentCurrentValueChange(index, e.target.value)}
+                            className="h-9 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-gray-900 dark:text-white border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                          />
+                        </div>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -577,7 +611,7 @@ export function AssetsDistributionManager() {
                   {savingsRows.map((row, index) => {
                     const IconComponent = CATEGORY_ICON_MAP[row.icon];
                     return (
-                      <div key={row.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_1fr_36px] sm:items-end">
+                      <div key={row.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_1fr_1fr_36px] sm:items-end">
                         <button
                           type="button"
                           onClick={() => openIconDialog("savings", index, row.icon, row.color)}
@@ -596,14 +630,29 @@ export function AssetsDistributionManager() {
                             onChange={(e) => handleSavingsNameChange(index, e.target.value)}
                           />
                         )}
-                        <Input
-                          label="Saldo (€)"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={row.currentValue}
-                          onChange={(e) => handleSavingsCurrentValueChange(index, e.target.value)}
-                        />
+                        <div className="flex flex-col gap-1 min-w-[7rem]">
+                          <label className="text-xs text-muted-foreground">Saldo (€)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={row.currentValue}
+                            onChange={(e) => handleSavingsCurrentValueChange(index, e.target.value)}
+                            className="h-9 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-gray-900 dark:text-white border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1 min-w-[5rem]">
+                          <label className="text-xs text-muted-foreground">% TAE (opc.)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            placeholder="Ej. 3.5"
+                            value={row.taePercent}
+                            onChange={(e) => handleSavingsTaePercentChange(index, e.target.value)}
+                            className="h-9 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-gray-900 dark:text-white border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                          />
+                        </div>
                         <Button
                           variant="ghost"
                           size="icon"

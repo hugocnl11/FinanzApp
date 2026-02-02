@@ -71,6 +71,8 @@ export type Category = {
   icon: string;
   color: string;
   active: boolean;
+  investedAmount?: number | null;
+  taePercent?: number | null;
 };
 
 export type MovementType = "Ingreso" | "Gasto" | "Inversión" | "Ahorro";

@@ -10,6 +10,8 @@ type CategoryPayload = {
   icon: string;
   color: string;
   active?: boolean;
+  investedAmount?: number | null;
+  taePercent?: number | null;
 };
 
 const toCategoryType = (value: string): CategoryType | null => {
@@ -54,6 +56,8 @@ export async function GET(request: Request) {
       data: categories.map((category) => ({
         ...category,
         type: fromCategoryType(category.type),
+        investedAmount: category.investedAmount != null ? Number(category.investedAmount) : null,
+        taePercent: category.taePercent != null ? Number(category.taePercent) : null,
       })),
     });
   } catch (e) {
@@ -76,7 +80,7 @@ export async function POST(request: Request) {
     return jsonError("Payload inválido");
   }
 
-  const { name, type, icon, color, active } = payload;
+  const { name, type, icon, color, active, investedAmount, taePercent } = payload;
   if (!name || !type || !icon || !color) {
     return jsonError("Campos requeridos: name, type, icon, color");
   }
@@ -84,19 +88,30 @@ export async function POST(request: Request) {
   const mappedType = toCategoryType(type);
   if (!mappedType) return jsonError("Tipo de categoría inválido");
 
+  const createData: { userId: string; name: string; type: CategoryType; icon: string; color: string; active: boolean; investedAmount?: number | null; taePercent?: number | null } = {
+    userId,
+    name,
+    type: mappedType,
+    icon,
+    color,
+    active: active ?? true,
+  };
+  if (investedAmount !== undefined) createData.investedAmount = investedAmount;
+  if (taePercent !== undefined) createData.taePercent = taePercent;
+
   const category = await prisma.category.create({
-    data: {
-      userId,
-      name,
-      type: mappedType,
-      icon,
-      color,
-      active: active ?? true,
-    },
+    data: createData,
   });
 
   return NextResponse.json(
-    { data: { ...category, type: fromCategoryType(category.type) } },
+    {
+      data: {
+        ...category,
+        type: fromCategoryType(category.type),
+        investedAmount: category.investedAmount != null ? Number(category.investedAmount) : null,
+        taePercent: category.taePercent != null ? Number(category.taePercent) : null,
+      },
+    },
     { status: 201 }
   );
 }

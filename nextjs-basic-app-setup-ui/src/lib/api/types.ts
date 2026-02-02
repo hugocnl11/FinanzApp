@@ -24,6 +24,7 @@ export type UserPreferences = {
   notifications?: boolean;
   chartWidgets?: ChartWidgetsPref;
   onboardingWizardSeen?: boolean;
+  initialAssetsDone?: boolean;
 };
 
 export type AuthResponse = {
@@ -35,4 +36,19 @@ export type AuthResponse = {
     image?: string;
     preferences?: UserPreferences | Record<string, unknown> | null;
   };
+};
+
+export type SalaryEntry = {
+  id: string;
+  fromDate: string;
+  toDate: string | null;
+  amount: number;
+  note?: string;
+};
+
+export type SalaryEntryPayload = {
+  fromDate: string;
+  toDate?: string | null;
+  amount: number;
+  note?: string | null;
 };

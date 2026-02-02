@@ -4,6 +4,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { SessionGuard } from "@/components/auth/SessionGuard";
 import { UserPreferencesSync } from "@/components/UserPreferencesSync";
 import { SkipToContent } from "@/components/SkipToContent";
+import { InitialAssetsForm } from "@/components/dashboard/InitialAssetsForm";
 import { WelcomeWizard } from "@/components/dashboard/WelcomeWizard";
 import { NotionSyncPoller } from "@/components/dashboard/NotionSyncPoller";
 import { DashboardDataProvider } from "@/contexts/DashboardDataContext";
@@ -13,6 +14,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <SidebarProvider>
       <SessionGuard>
         <UserPreferencesSync />
+        <InitialAssetsForm />
         <WelcomeWizard />
         <DashboardDataProvider>
           <NotionSyncPoller />

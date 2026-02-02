@@ -6,16 +6,30 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, LogOut, Camera, Briefcase } from "lucide-react";
+import { User, LogOut, Camera, Briefcase, ChevronRight, Trash2, Pencil } from "lucide-react";
 import { getSession, updateSessionUser } from "@/lib/auth";
 import { updateProfile, logout } from "@/lib/api/auth";
 import { loadFromStorage, saveToStorage } from "@/lib/storage";
+import {
+  fetchSalaryHistory,
+  createSalaryEntry,
+  updateSalaryEntry,
+  deleteSalaryEntry,
+} from "@/lib/api/salary-history";
+import type { SalaryEntry } from "@/lib/api/types";
+import { formatCurrency } from "@/lib/format";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function formatDateYmd(ymd: string): string {
+  const d = new Date(ymd + "T12:00:00");
+  if (Number.isNaN(d.getTime())) return ymd;
+  return d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 export default function PerfilPage() {
@@ -36,6 +50,12 @@ export default function PerfilPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [salaryEntries, setSalaryEntries] = useState<SalaryEntry[]>([]);
+  const [salaryLoading, setSalaryLoading] = useState(false);
+  const [salaryError, setSalaryError] = useState<string | null>(null);
+  const [salaryForm, setSalaryForm] = useState({ fromDate: "", toDate: "", amount: "", note: "" });
+  const [salarySaving, setSalarySaving] = useState(false);
+  const [editingSalaryId, setEditingSalaryId] = useState<string | null>(null);
 
   useEffect(() => {
     const session = getSession();
@@ -72,6 +92,17 @@ export default function PerfilPage() {
     });
     if (image) setImagePreview(image);
   }, [router]);
+
+  useEffect(() => {
+    const s = getSession();
+    if (!s) return;
+    setSalaryLoading(true);
+    setSalaryError(null);
+    fetchSalaryHistory()
+      .then(setSalaryEntries)
+      .catch(() => setSalaryError("No se pudo cargar el historial salarial"))
+      .finally(() => setSalaryLoading(false));
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({
@@ -122,6 +153,82 @@ export default function PerfilPage() {
       setStatus(err instanceof Error ? err.message : "No se pudieron guardar los cambios.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSalaryFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setSalaryForm((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const loadSalaryList = () => {
+    fetchSalaryHistory()
+      .then(setSalaryEntries)
+      .catch(() => setSalaryError("Error al actualizar"));
+  };
+
+  const handleSalarySubmit = async () => {
+    const fromDate = salaryForm.fromDate.trim();
+    const amount = parseFloat(salaryForm.amount);
+    if (!fromDate) {
+      setSalaryError("La fecha desde es obligatoria");
+      return;
+    }
+    if (Number.isNaN(amount) || amount <= 0) {
+      setSalaryError("El importe debe ser un número positivo");
+      return;
+    }
+    setSalaryError(null);
+    setSalarySaving(true);
+    try {
+      const toDate = salaryForm.toDate.trim() || null;
+      const note = salaryForm.note.trim() || undefined;
+      if (editingSalaryId) {
+        await updateSalaryEntry(editingSalaryId, {
+          fromDate,
+          toDate: toDate ?? undefined,
+          amount,
+          note: note || null,
+        });
+        setEditingSalaryId(null);
+      } else {
+        await createSalaryEntry({
+          fromDate,
+          toDate: toDate ?? undefined,
+          amount,
+          note: note || null,
+        });
+      }
+      setSalaryForm({ fromDate: "", toDate: "", amount: "", note: "" });
+      loadSalaryList();
+    } catch (err) {
+      setSalaryError(err instanceof Error ? err.message : "No se pudo guardar");
+    } finally {
+      setSalarySaving(false);
+    }
+  };
+
+  const handleEditSalary = (entry: SalaryEntry) => {
+    setEditingSalaryId(entry.id);
+    setSalaryForm({
+      fromDate: entry.fromDate,
+      toDate: entry.toDate ?? "",
+      amount: String(entry.amount),
+      note: entry.note ?? "",
+    });
+  };
+
+  const handleCancelEditSalary = () => {
+    setEditingSalaryId(null);
+    setSalaryForm({ fromDate: "", toDate: "", amount: "", note: "" });
+  };
+
+  const handleDeleteSalary = async (id: string) => {
+    try {
+      await deleteSalaryEntry(id);
+      loadSalaryList();
+    } catch {
+      setSalaryError("No se pudo eliminar");
     }
   };
 
@@ -251,7 +358,9 @@ export default function PerfilPage() {
               id="salarioBrutoAnual"
               label="Salario bruto anual actual (€)"
               type="number"
-              placeholder="Ej. 35000"
+              step="0.01"
+              min="0"
+              placeholder="Ej. 35000,50"
               value={formData.salarioBrutoAnual}
               onChange={handleInputChange}
             />
@@ -279,7 +388,121 @@ export default function PerfilPage() {
               className="sm:col-span-2"
             />
           </div>
-          <div className="flex flex-wrap gap-2 pt-1 border-t border-border">
+
+          <details className="group mt-4 border border-border rounded-lg overflow-hidden">
+            <summary className="flex items-center gap-2 list-none cursor-pointer px-4 py-3 bg-muted/50 hover:bg-muted/70 transition-colors [&::-webkit-details-marker]:hidden">
+              <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" aria-hidden />
+              <span className="font-medium">Evolución salarial</span>
+              {salaryEntries.length > 0 && (
+                <span className="text-xs text-muted-foreground">({salaryEntries.length} entradas)</span>
+              )}
+            </summary>
+            <div className="px-4 pb-4 pt-2 space-y-4 border-t border-border">
+              {salaryError && (
+                <p className="text-sm text-destructive" role="alert">
+                  {salaryError}
+                </p>
+              )}
+              {salaryLoading ? (
+                <p className="text-sm text-muted-foreground">Cargando historial…</p>
+              ) : salaryEntries.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Aún no hay entradas. Añade la primera para ver tu progresión.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {salaryEntries.map((entry) => (
+                    <li
+                      key={entry.id}
+                      className="flex flex-wrap items-center justify-between gap-2 py-2 px-3 rounded-md bg-muted/30"
+                    >
+                      <div className="min-w-0">
+                        <span className="text-sm">
+                          Desde {formatDateYmd(entry.fromDate)} –{" "}
+                          {entry.toDate ? `Hasta ${formatDateYmd(entry.toDate)}` : "Actual"}
+                          : {formatCurrency(entry.amount)}/año
+                        </span>
+                        {entry.note && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{entry.note}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => handleEditSalary(entry)}
+                          aria-label="Editar"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteSalary(entry.id)}
+                          aria-label="Eliminar"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 pt-2">
+                <Input
+                  id="fromDate"
+                  label="Desde (fecha)"
+                  type="date"
+                  value={salaryForm.fromDate}
+                  onChange={handleSalaryFormChange}
+                />
+                <Input
+                  id="toDate"
+                  label="Hasta (opcional)"
+                  type="date"
+                  value={salaryForm.toDate}
+                  onChange={handleSalaryFormChange}
+                  placeholder="Vacío = actual"
+                />
+                <Input
+                  id="amount"
+                  label="Importe bruto anual (€)"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={salaryForm.amount}
+                  onChange={handleSalaryFormChange}
+                />
+                <Input
+                  id="note"
+                  label="Nota (opcional)"
+                  placeholder="Ej. Promoción"
+                  value={salaryForm.note}
+                  onChange={handleSalaryFormChange}
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSalarySubmit}
+                  disabled={salarySaving || !salaryForm.fromDate || !salaryForm.amount}
+                >
+                  {salarySaving ? "Guardando…" : editingSalaryId ? "Guardar cambios" : "Añadir actualización"}
+                </Button>
+                {editingSalaryId && (
+                  <Button type="button" size="sm" variant="outline" onClick={handleCancelEditSalary}>
+                    Cancelar
+                  </Button>
+                )}
+              </div>
+            </div>
+          </details>
+
+          <div className="flex flex-wrap gap-2 pt-1 border-t border-border mt-4">
             <Button onClick={handleSave} disabled={saving} variant="outline">
               {saving ? "Guardando…" : "Guardar datos laborales"}
             </Button>

@@ -13,6 +13,7 @@ import type { DashboardData, Goal, Movement } from "@/lib/dashboard/types";
 import { fetchMovements } from "@/lib/api/movements";
 import { fetchBudgets } from "@/lib/api/budgets";
 import { fetchGoals } from "@/lib/api/goals";
+import { fetchCategories } from "@/lib/api/categories";
 import { fetchAssetSnapshotsByMonth, fetchAssetSnapshotsForDate } from "@/lib/api/asset-snapshots";
 import { buildMonthlySeries, latestByCategory, totalsByCategory } from "@/lib/dashboard/derive";
 import { getSession, isDemoUser, saveSession } from "@/lib/auth";
@@ -152,12 +153,13 @@ export async function loadDashboardDataCore(opts: {
       setError(null);
     }
     const today = new Date().toISOString().slice(0, 10);
-    const [movementsRes, budgetsRes, goalsRes, assetSnapshotsRes, snapshotsTodayRes] = await Promise.all([
+    const [movementsRes, budgetsRes, goalsRes, categoriesRes, assetSnapshotsRes, snapshotsTodayRes] = await Promise.all([
       fetchMovements(),
       fetchBudgets(),
       fetchGoals(),
+      fetchCategories().catch(() => ({ data: [] })),
       fetchAssetSnapshotsByMonth(12).catch(() => ({ data: [] as { mes: string; valor: number }[] })),
-      fetchAssetSnapshotsForDate(today).catch(() => ({ data: [] as { categoryId: string; categoryName: string; value: number }[] })),
+      fetchAssetSnapshotsForDate(today).catch(() => ({ data: [] as { categoryId: string; categoryName: string; value: number; date?: string }[] })),
     ]);
 
     if (!isMounted()) return;
@@ -183,10 +185,27 @@ export async function loadDashboardDataCore(opts: {
 
     // Distribución de activos: priorizar snapshots de hoy (lo que el usuario edita en Ajustes)
     const snapshotsToday = snapshotsTodayRes.data ?? [];
+    const categories = (categoriesRes.data ?? []) as { id: string; taePercent?: number | null }[];
+    const categoryById = new Map(categories.map((c) => [c.id, c]));
+
+    const applyTaeIfSavings = (categoryId: string, value: number, snapshotDateStr?: string): number => {
+      const cat = categoryById.get(categoryId);
+      if (cat?.taePercent == null || cat.taePercent <= 0) return value;
+      const snapshotDate = snapshotDateStr ? new Date(snapshotDateStr + "T12:00:00") : new Date();
+      const todayDate = new Date();
+      if (Number.isNaN(snapshotDate.getTime()) || snapshotDate >= todayDate) return value;
+      const days = (todayDate.getTime() - snapshotDate.getTime()) / (1000 * 60 * 60 * 24);
+      const factor = Math.pow(1 + cat.taePercent / 100, days / 365);
+      return value * factor;
+    };
+
     const distribucionActivos =
       snapshotsToday.length > 0
         ? snapshotsToday
-            .map((s) => ({ name: s.categoryName, value: s.value }))
+            .map((s) => ({
+              name: s.categoryName,
+              value: applyTaeIfSavings(s.categoryId, s.value, s.date),
+            }))
             .filter((item) => item.value > 0)
         : Array.from(
             [...latestByCategory(movements, "Inversión"), ...latestByCategory(movements, "Ahorro")].reduce(

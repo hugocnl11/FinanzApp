@@ -183,10 +183,21 @@ export async function loadDashboardDataCore(opts: {
     const ingresosPorCategoria = totalsByCategory(movements, "Ingreso");
     const gastosPorCategoria = totalsByCategory(movements, "Gasto");
 
-    // Distribución de activos: priorizar snapshots de hoy (lo que el usuario edita en Ajustes)
+    // Distribución de activos: usar todas las categorías de activos (inversión + ahorro) y priorizar
+    // snapshot de hoy; si no hay snapshot, usar el valor del último movimiento. Así la gráfica de
+    // tipo queso siempre refleja Acciones y el resto al actualizar en el diálogo.
     const snapshotsToday = snapshotsTodayRes.data ?? [];
-    const categories = (categoriesRes.data ?? []) as { id: string; taePercent?: number | null }[];
+    const categories = (categoriesRes.data ?? []) as {
+      id: string;
+      name: string;
+      type: string;
+      active?: boolean;
+      taePercent?: number | null;
+    }[];
     const categoryById = new Map(categories.map((c) => [c.id, c]));
+    const assetCategories = categories.filter(
+      (c) => (c.type === "investment" || c.type === "savings") && c.active !== false
+    );
 
     const applyTaeIfSavings = (categoryId: string, value: number, snapshotDateStr?: string): number => {
       const cat = categoryById.get(categoryId);
@@ -199,13 +210,28 @@ export async function loadDashboardDataCore(opts: {
       return value * factor;
     };
 
+    const snapshotByCategoryId = new Map(
+      snapshotsToday.map((s) => [s.categoryId, { value: s.value, date: s.date }])
+    );
+    const movementByCategoryName = new Map<string, number>();
+    for (const item of [
+      ...latestByCategory(movements, "Inversión"),
+      ...latestByCategory(movements, "Ahorro"),
+    ]) {
+      movementByCategoryName.set(item.name, (movementByCategoryName.get(item.name) ?? 0) + item.value);
+    }
+
     const distribucionActivos =
-      snapshotsToday.length > 0
-        ? snapshotsToday
-            .map((s) => ({
-              name: s.categoryName,
-              value: applyTaeIfSavings(s.categoryId, s.value, s.date),
-            }))
+      assetCategories.length > 0
+        ? assetCategories
+            .map((cat) => {
+              const snapshot = snapshotByCategoryId.get(cat.id);
+              const valueFromSnapshot =
+                snapshot != null ? applyTaeIfSavings(cat.id, snapshot.value, snapshot.date) : null;
+              const valueFromMovement = movementByCategoryName.get(cat.name) ?? 0;
+              const value = valueFromSnapshot ?? valueFromMovement;
+              return { name: cat.name, value };
+            })
             .filter((item) => item.value > 0)
         : Array.from(
             [...latestByCategory(movements, "Inversión"), ...latestByCategory(movements, "Ahorro")].reduce(

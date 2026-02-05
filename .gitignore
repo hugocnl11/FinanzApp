@@ -29,3 +29,5 @@ dist/
 build/
 .next/
 out/
+remotion-promo/node_modules/.cache/webpack/remotion-development-4.0.418/72816c795416c8f685fc3daaf164f8ec/0.pack
+remotion-promo/node_modules/.cache/webpack/remotion-development-4.0.418/72816c795416c8f685fc3daaf164f8ec/index.pack

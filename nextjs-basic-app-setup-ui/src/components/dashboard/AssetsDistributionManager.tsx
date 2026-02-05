@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { fetchMovements } from "@/lib/api/movements";
 import { fetchCategories, createCategory, updateCategory } from "@/lib/api/categories";
@@ -87,9 +88,8 @@ const buildLatestByCategory = (movements: Movement[], tipo: Movement["tipo"]) =>
 };
 
 const buildInvestmentRows = (movements: Movement[], categories: Category[]) => {
-  const investmentCategories = categories.filter(
-    (cat) => cat.type === "investment" && cat.active !== false
-  );
+  // Incluir activas e inactivas para que al "volver a añadir" exista la fila con categoryId y no falle el guardado (unique userId+name)
+  const investmentCategories = categories.filter((cat) => cat.type === "investment");
   const activeNames = new Set(investmentCategories.map((c) => c.name));
   const latestByCategory = buildLatestByCategory(movements, "Inversión");
   const rows: InvestmentRow[] = investmentCategories.map((category, index) => {
@@ -124,9 +124,8 @@ const buildInvestmentRows = (movements: Movement[], categories: Category[]) => {
 };
 
 const buildSavingsRows = (movements: Movement[], categories: Category[]) => {
-  const savingsCategories = categories.filter(
-    (cat) => cat.type === "savings" && cat.active !== false
-  );
+  // Incluir activas e inactivas para que al "volver a añadir" exista la fila con categoryId y no falle el guardado (unique userId+name)
+  const savingsCategories = categories.filter((cat) => cat.type === "savings");
   const activeNames = new Set(savingsCategories.map((c) => c.name));
   const latestByCategory = buildLatestByCategory(movements, "Ahorro");
   const rows: SavingsRow[] = savingsCategories.map((category, index) => {
@@ -173,11 +172,31 @@ export function AssetsDistributionManager() {
   const [savingsRows, setSavingsRows] = useState<SavingsRow[]>([]);
   const [removedInvestments, setRemovedInvestments] = useState<InvestmentRow[]>([]);
   const [removedSavings, setRemovedSavings] = useState<SavingsRow[]>([]);
+  const [allAssetCategories, setAllAssetCategories] = useState<Category[]>([]);
+  const [creatingNewInvestmentIds, setCreatingNewInvestmentIds] = useState<Set<string>>(new Set());
+  const [creatingNewSavingsIds, setCreatingNewSavingsIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const canEdit = useMemo(() => Boolean(getUserId()), []);
+
+  const investmentCategoryOptions = useMemo(() => {
+    const list = allAssetCategories.filter((c) => c.type === "investment");
+    return [
+      { value: "", label: "Seleccionar categoría..." },
+      ...list.map((c) => ({ value: c.id, label: c.active ? c.name : `${c.name} (inactiva)` })),
+      { value: "__new__", label: "Crear nueva categoría" },
+    ];
+  }, [allAssetCategories]);
+  const savingsCategoryOptions = useMemo(() => {
+    const list = allAssetCategories.filter((c) => c.type === "savings");
+    return [
+      { value: "", label: "Seleccionar categoría..." },
+      ...list.map((c) => ({ value: c.id, label: c.active ? c.name : `${c.name} (inactiva)` })),
+      { value: "__new__", label: "Crear nueva categoría" },
+    ];
+  }, [allAssetCategories]);
 
   useEffect(() => {
     if (!open) return;
@@ -225,8 +244,13 @@ export function AssetsDistributionManager() {
         });
         setInvestmentRows(invRows);
         setSavingsRows(savRows);
+        setAllAssetCategories(
+          (categories as Category[]).filter((c) => c.type === "investment" || c.type === "savings")
+        );
         setRemovedInvestments([]);
         setRemovedSavings([]);
+        setCreatingNewInvestmentIds(new Set());
+        setCreatingNewSavingsIds(new Set());
       } catch {
         setInvestmentRows([]);
         setSavingsRows([]);
@@ -251,9 +275,65 @@ export function AssetsDistributionManager() {
     );
   };
 
+  const handleInvestmentCategorySelect = (index: number, value: string) => {
+    if (value === "__new__") {
+      setCreatingNewInvestmentIds((prev) => new Set(prev).add(investmentRows[index]?.id ?? ""));
+      return;
+    }
+    setCreatingNewInvestmentIds((prev) => {
+      const next = new Set(prev);
+      next.delete(investmentRows[index]?.id ?? "");
+      return next;
+    });
+    if (!value) return;
+    const cat = allAssetCategories.find((c) => c.id === value && c.type === "investment");
+    if (!cat) return;
+    setInvestmentRows((prev) =>
+      prev.map((row, i) =>
+        i === index
+          ? {
+              ...row,
+              categoryId: cat.id,
+              name: cat.name,
+              icon: (cat.icon as CategoryIconKey) ?? DEFAULT_INVESTMENT_ICON,
+              color: cat.color ?? INVESTMENT_COLORS[index % INVESTMENT_COLORS.length],
+            }
+          : row
+      )
+    );
+  };
+
   const handleSavingsNameChange = (index: number, name: string) => {
     setSavingsRows((prev) =>
       prev.map((row, i) => (i === index ? { ...row, name } : row))
+    );
+  };
+
+  const handleSavingsCategorySelect = (index: number, value: string) => {
+    if (value === "__new__") {
+      setCreatingNewSavingsIds((prev) => new Set(prev).add(savingsRows[index]?.id ?? ""));
+      return;
+    }
+    setCreatingNewSavingsIds((prev) => {
+      const next = new Set(prev);
+      next.delete(savingsRows[index]?.id ?? "");
+      return next;
+    });
+    if (!value) return;
+    const cat = allAssetCategories.find((c) => c.id === value && c.type === "savings");
+    if (!cat) return;
+    setSavingsRows((prev) =>
+      prev.map((row, i) =>
+        i === index
+          ? {
+              ...row,
+              categoryId: cat.id,
+              name: cat.name,
+              icon: (cat.icon as CategoryIconKey) ?? DEFAULT_SAVINGS_ICON,
+              color: cat.color ?? SAVINGS_COLORS[index % SAVINGS_COLORS.length],
+            }
+          : row
+      )
     );
   };
 
@@ -360,6 +440,7 @@ export function AssetsDistributionManager() {
   const handleRemoveInvestmentRow = (index: number) => {
     setInvestmentRows((prev) => {
       const row = prev[index];
+      if (row?.id) setCreatingNewInvestmentIds((prevSet) => { const s = new Set(prevSet); s.delete(row.id); return s; });
       if (row?.categoryId || row?.movementId) {
         setRemovedInvestments((existing) => [...existing, row]);
       }
@@ -370,6 +451,7 @@ export function AssetsDistributionManager() {
   const handleRemoveSavingsRow = (index: number) => {
     setSavingsRows((prev) => {
       const row = prev[index];
+      if (row?.id) setCreatingNewSavingsIds((prevSet) => { const s = new Set(prevSet); s.delete(row.id); return s; });
       if (row?.categoryId || row?.movementId) {
         setRemovedSavings((existing) => [...existing, row]);
       }
@@ -409,6 +491,19 @@ export function AssetsDistributionManager() {
         return next;
       };
 
+      // Cargar todas las categorías (incl. inactivas) para reutilizar por nombre y evitar duplicados al re-añadir activos
+      let allCategories: Category[] = [];
+      try {
+        const res = await fetchCategories();
+        allCategories = (res.data ?? []) as Category[];
+      } catch {
+        // seguir sin lookup
+      }
+      const findExistingCategory = (name: string, type: "investment" | "savings") =>
+        allCategories.find(
+          (c) => c.name.trim().toLowerCase() === name.trim().toLowerCase() && c.type === type
+        );
+
       for (const row of investmentRows) {
         const name = row.name.trim();
         if (!name) continue;
@@ -418,6 +513,12 @@ export function AssetsDistributionManager() {
           const nameMatch = investmentRows.find((item) => item.name.trim() === name && item.categoryId);
           if (nameMatch?.categoryId) {
             categoryId = nameMatch.categoryId;
+          }
+        }
+        if (!categoryId) {
+          const existing = findExistingCategory(name, "investment");
+          if (existing) {
+            categoryId = existing.id;
           }
         }
         if (!categoryId) {
@@ -453,6 +554,12 @@ export function AssetsDistributionManager() {
           const nameMatch = savingsRows.find((item) => item.name.trim() === name && item.categoryId);
           if (nameMatch?.categoryId) {
             categoryId = nameMatch.categoryId;
+          }
+        }
+        if (!categoryId) {
+          const existing = findExistingCategory(name, "savings");
+          if (existing) {
+            categoryId = existing.id;
           }
         }
         if (!categoryId) {
@@ -550,11 +657,19 @@ export function AssetsDistributionManager() {
                         </button>
                         {row.categoryId ? (
                           <div className="flex items-center text-sm font-medium">{row.name}</div>
-                        ) : (
+                        ) : creatingNewInvestmentIds.has(row.id) ? (
                           <Input
-                            label="Activo"
+                            label="Nombre del activo"
                             value={row.name}
                             onChange={(e) => handleInvestmentNameChange(index, e.target.value)}
+                            placeholder="Ej. Acciones, Fondos indexados"
+                          />
+                        ) : (
+                          <Select
+                            label="Activo"
+                            value=""
+                            options={investmentCategoryOptions}
+                            onChange={(val) => handleInvestmentCategorySelect(index, val)}
                           />
                         )}
                         <div className="flex flex-col gap-1 min-w-[7rem]">
@@ -623,11 +738,19 @@ export function AssetsDistributionManager() {
                         </button>
                         {row.categoryId ? (
                           <div className="flex items-center text-sm font-medium">{row.name}</div>
-                        ) : (
+                        ) : creatingNewSavingsIds.has(row.id) ? (
                           <Input
-                            label="Cuenta"
+                            label="Nombre de la cuenta"
                             value={row.name}
                             onChange={(e) => handleSavingsNameChange(index, e.target.value)}
+                            placeholder="Ej. Fondo de emergencia, Cuenta ahorro"
+                          />
+                        ) : (
+                          <Select
+                            label="Cuenta"
+                            value=""
+                            options={savingsCategoryOptions}
+                            onChange={(val) => handleSavingsCategorySelect(index, val)}
                           />
                         )}
                         <div className="flex flex-col gap-1 min-w-[7rem]">

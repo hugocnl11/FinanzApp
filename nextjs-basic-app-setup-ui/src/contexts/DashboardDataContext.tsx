@@ -14,7 +14,7 @@ import { fetchMovements } from "@/lib/api/movements";
 import { fetchBudgets } from "@/lib/api/budgets";
 import { fetchGoals } from "@/lib/api/goals";
 import { fetchCategories } from "@/lib/api/categories";
-import { fetchAssetSnapshotsByMonth, fetchAssetSnapshotsForDate } from "@/lib/api/asset-snapshots";
+import { fetchAssetSnapshotsByMonth, fetchAssetSnapshotsForDate, fetchAssetSnapshotsLatest } from "@/lib/api/asset-snapshots";
 import { buildMonthlySeries, latestByCategory, totalsByCategory } from "@/lib/dashboard/derive";
 import { getSession, isDemoUser, saveSession } from "@/lib/auth";
 import { restoreSessionFromCookie } from "@/lib/api/auth";
@@ -153,13 +153,14 @@ export async function loadDashboardDataCore(opts: {
       setError(null);
     }
     const today = new Date().toISOString().slice(0, 10);
-    const [movementsRes, budgetsRes, goalsRes, categoriesRes, assetSnapshotsRes, snapshotsTodayRes] = await Promise.all([
+    const [movementsRes, budgetsRes, goalsRes, categoriesRes, assetSnapshotsRes, snapshotsTodayRes, snapshotsLatestRes] = await Promise.all([
       fetchMovements(),
       fetchBudgets(),
       fetchGoals(),
       fetchCategories().catch(() => ({ data: [] })),
       fetchAssetSnapshotsByMonth(12).catch(() => ({ data: [] as { mes: string; valor: number }[] })),
       fetchAssetSnapshotsForDate(today).catch(() => ({ data: [] as { categoryId: string; categoryName: string; value: number; date?: string }[] })),
+      fetchAssetSnapshotsLatest().catch(() => ({ data: [] as { categoryId: string; categoryName: string; value: number; date?: string }[] })),
     ]);
 
     if (!isMounted()) return;
@@ -193,6 +194,7 @@ export async function loadDashboardDataCore(opts: {
       type: string;
       active?: boolean;
       taePercent?: number | null;
+      investedAmount?: number | null;
     }[];
     const categoryById = new Map(categories.map((c) => [c.id, c]));
     const assetCategories = categories.filter(
@@ -210,8 +212,12 @@ export async function loadDashboardDataCore(opts: {
       return value * factor;
     };
 
-    const snapshotByCategoryId = new Map(
-      snapshotsToday.map((s) => [s.categoryId, { value: s.value, date: s.date }])
+    const snapshotsTodayMap = new Map(
+      (snapshotsTodayRes.data ?? []).map((s) => [s.categoryId, { value: s.value, date: s.date }])
+    );
+    const snapshotsLatest = snapshotsLatestRes.data ?? [];
+    const snapshotLatestByCategoryId = new Map(
+      snapshotsLatest.map((s) => [s.categoryId, { value: s.value, date: s.date }])
     );
     const movementByCategoryName = new Map<string, number>();
     for (const item of [
@@ -225,11 +231,21 @@ export async function loadDashboardDataCore(opts: {
       assetCategories.length > 0
         ? assetCategories
             .map((cat) => {
-              const snapshot = snapshotByCategoryId.get(cat.id);
-              const valueFromSnapshot =
-                snapshot != null ? applyTaeIfSavings(cat.id, snapshot.value, snapshot.date) : null;
+              const snapshotToday = snapshotsTodayMap.get(cat.id);
+              const snapshotLatest = snapshotLatestByCategoryId.get(cat.id);
+              const valueFromSnapshotToday =
+                snapshotToday != null ? applyTaeIfSavings(cat.id, snapshotToday.value, snapshotToday.date) : null;
+              const valueFromSnapshotLatest =
+                snapshotLatest != null ? applyTaeIfSavings(cat.id, snapshotLatest.value, snapshotLatest.date) : null;
               const valueFromMovement = movementByCategoryName.get(cat.name) ?? 0;
-              const value = valueFromSnapshot ?? valueFromMovement;
+              const valueFromInvested =
+                cat.type === "investment" && cat.investedAmount != null ? Number(cat.investedAmount) : null;
+              const value =
+                valueFromSnapshotToday ??
+                valueFromSnapshotLatest ??
+                valueFromMovement ??
+                valueFromInvested ??
+                0;
               return { name: cat.name, value };
             })
             .filter((item) => item.value > 0)

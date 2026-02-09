@@ -16,7 +16,7 @@ import { Select } from "@/components/ui/select";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { fetchMovements } from "@/lib/api/movements";
 import { fetchCategories, createCategory, updateCategory } from "@/lib/api/categories";
-import { fetchAssetSnapshotsForDate, createAssetSnapshot } from "@/lib/api/asset-snapshots";
+import { fetchAssetSnapshotsForDate, fetchAssetSnapshotsLatest, createAssetSnapshot } from "@/lib/api/asset-snapshots";
 import { CATEGORY_ICON_MAP, type CategoryIconKey } from "@/lib/category-icons";
 import type { Movement, Category } from "@/lib/dashboard/types";
 import { getUserId } from "@/lib/auth";
@@ -88,8 +88,10 @@ const buildLatestByCategory = (movements: Movement[], tipo: Movement["tipo"]) =>
 };
 
 const buildInvestmentRows = (movements: Movement[], categories: Category[]) => {
-  // Incluir activas e inactivas para que al "volver a añadir" exista la fila con categoryId y no falle el guardado (unique userId+name)
-  const investmentCategories = categories.filter((cat) => cat.type === "investment");
+  // Solo activas: las borradas (active false) no vuelven a aparecer hasta que el usuario cree otra
+  const investmentCategories = categories.filter(
+    (cat) => cat.type === "investment" && cat.active !== false
+  );
   const activeNames = new Set(investmentCategories.map((c) => c.name));
   const latestByCategory = buildLatestByCategory(movements, "Inversión");
   const rows: InvestmentRow[] = investmentCategories.map((category, index) => {
@@ -124,8 +126,10 @@ const buildInvestmentRows = (movements: Movement[], categories: Category[]) => {
 };
 
 const buildSavingsRows = (movements: Movement[], categories: Category[]) => {
-  // Incluir activas e inactivas para que al "volver a añadir" exista la fila con categoryId y no falle el guardado (unique userId+name)
-  const savingsCategories = categories.filter((cat) => cat.type === "savings");
+  // Solo activas: las borradas (active false) no vuelven a aparecer hasta que el usuario cree otra
+  const savingsCategories = categories.filter(
+    (cat) => cat.type === "savings" && cat.active !== false
+  );
   const activeNames = new Set(savingsCategories.map((c) => c.name));
   const latestByCategory = buildLatestByCategory(movements, "Ahorro");
   const rows: SavingsRow[] = savingsCategories.map((category, index) => {
@@ -213,21 +217,27 @@ export function AssetsDistributionManager() {
           return;
         }
         const today = new Date().toISOString().slice(0, 10);
-        const [movementsRes, categoriesRes, snapshotsRes] = await Promise.all([
+        const [movementsRes, categoriesRes, snapshotsTodayRes, snapshotsLatestRes] = await Promise.all([
           fetchMovements(),
           fetchCategories(),
           fetchAssetSnapshotsForDate(today).catch(() => ({ data: [] as { categoryId: string; value: number }[] })),
+          fetchAssetSnapshotsLatest().catch(() => ({ data: [] as { categoryId: string; value: number }[] })),
         ]);
         const categories = categoriesRes.data as Category[];
         const categoryById = new Map(categories.map((c) => [c.id, c]));
-        const snapshotByCategory = new Map(
-          (snapshotsRes.data ?? []).map((s) => [s.categoryId, s.value])
+        const snapshotTodayByCategory = new Map(
+          (snapshotsTodayRes.data ?? []).map((s) => [s.categoryId, s.value])
+        );
+        const snapshotLatestByCategory = new Map(
+          (snapshotsLatestRes.data ?? []).map((s) => [s.categoryId, s.value])
         );
         const invRows = buildInvestmentRows(movementsRes.data, categories).map((row) => {
           const currentValue =
-            row.categoryId && snapshotByCategory.has(row.categoryId)
-              ? String(snapshotByCategory.get(row.categoryId))
-              : "";
+            row.categoryId && snapshotTodayByCategory.has(row.categoryId)
+              ? String(snapshotTodayByCategory.get(row.categoryId))
+              : row.categoryId && snapshotLatestByCategory.has(row.categoryId)
+                ? String(snapshotLatestByCategory.get(row.categoryId))
+                : "";
           const cat = row.categoryId ? categoryById.get(row.categoryId) : undefined;
           const value =
             cat?.investedAmount != null ? String(cat.investedAmount) : row.value;
@@ -235,9 +245,11 @@ export function AssetsDistributionManager() {
         });
         const savRows = buildSavingsRows(movementsRes.data, categories).map((row) => {
           const currentValue =
-            row.categoryId && snapshotByCategory.has(row.categoryId)
-              ? String(snapshotByCategory.get(row.categoryId))
-              : "";
+            row.categoryId && snapshotTodayByCategory.has(row.categoryId)
+              ? String(snapshotTodayByCategory.get(row.categoryId))
+              : row.categoryId && snapshotLatestByCategory.has(row.categoryId)
+                ? String(snapshotLatestByCategory.get(row.categoryId))
+                : "";
           const cat = row.categoryId ? categoryById.get(row.categoryId) : undefined;
           const taePercent = cat?.taePercent != null ? String(cat.taePercent) : "";
           return { ...row, currentValue, taePercent };
@@ -245,7 +257,9 @@ export function AssetsDistributionManager() {
         setInvestmentRows(invRows);
         setSavingsRows(savRows);
         setAllAssetCategories(
-          (categories as Category[]).filter((c) => c.type === "investment" || c.type === "savings")
+          (categories as Category[]).filter(
+            (c) => (c.type === "investment" || c.type === "savings") && c.active !== false
+          )
         );
         setRemovedInvestments([]);
         setRemovedSavings([]);

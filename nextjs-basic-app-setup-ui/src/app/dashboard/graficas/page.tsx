@@ -448,7 +448,7 @@ export default function GraficasPage() {
 
       <section
         ref={chartsRef}
-        className="grid gap-3 md:grid-cols-2"
+        className="grid min-w-0 gap-3 md:grid-cols-2"
         style={{ display: "grid" }}
         aria-labelledby="graficas-titulo"
         role="region"
@@ -456,6 +456,7 @@ export default function GraficasPage() {
       >
         {/* 1. Flujo de Caja Mensual */}
         <div
+          className="min-w-0"
           key="flujoCaja"
           style={{
             display: visibleOrder.includes("flujoCaja") ? undefined : "none",
@@ -577,6 +578,7 @@ export default function GraficasPage() {
 
         {/* 2. Tasa de Ahorro Mensual */}
         <div
+          className="min-w-0"
           key="tasaAhorro"
           style={{
             display: visibleOrder.includes("tasaAhorro") ? undefined : "none",
@@ -707,6 +709,7 @@ export default function GraficasPage() {
 
         {/* 3. Presupuesto vs Gasto por Categoría */}
         <div
+          className="min-w-0"
           key="presupuestoVsGasto"
           style={{
             display: visibleOrder.includes("presupuestoVsGasto") ? undefined : "none",
@@ -869,6 +872,7 @@ export default function GraficasPage() {
 
         {/* 4. Tendencia de Saldo Acumulado */}
         <div
+          className="min-w-0"
           key="saldoAcumulado"
           style={{
             display: visibleOrder.includes("saldoAcumulado") ? undefined : "none",
@@ -981,6 +985,7 @@ export default function GraficasPage() {
 
         {/* Rentabilidad por activo */}
         <div
+          className="min-w-0"
           key="rentabilidadPorActivo"
           style={{
             display: visibleOrder.includes("rentabilidadPorActivo") ? undefined : "none",
@@ -1089,6 +1094,7 @@ export default function GraficasPage() {
 
         {/* Actividad por día (calendario del mes) */}
         <div
+          className="min-w-0"
           key="actividadPorDia"
           style={{
             display: visibleOrder.includes("actividadPorDia") ? undefined : "none",
@@ -1145,6 +1151,7 @@ export default function GraficasPage() {
 
         {/* Comparativa anual */}
         <div
+          className="min-w-0"
           key="comparativaAnual"
           style={{
             display: visibleOrder.includes("comparativaAnual") ? undefined : "none",
@@ -1256,6 +1263,7 @@ export default function GraficasPage() {
 
         {/* Proyecciones */}
         <div
+          className="min-w-0"
           key="proyecciones"
           style={{
             display: visibleOrder.includes("proyecciones") ? undefined : "none",
@@ -1335,6 +1343,7 @@ export default function GraficasPage() {
 
         {/* 5. Ingresos por Categoría */}
         <div
+          className="min-w-0"
           key="ingresosPorCategoria"
           style={{
             display: visibleOrder.includes("ingresosPorCategoria") ? undefined : "none",
@@ -1410,6 +1419,7 @@ export default function GraficasPage() {
 
         {/* 6. Gastos por Categoría (expandido) */}
         <div
+          className="min-w-0"
           key="gastosPorCategoria"
           style={{
             display: visibleOrder.includes("gastosPorCategoria") ? undefined : "none",

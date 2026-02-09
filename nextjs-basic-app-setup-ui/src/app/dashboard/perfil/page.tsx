@@ -442,9 +442,9 @@ export default function PerfilPage() {
   if (!session) return null;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Perfil</h1>
+    <div className="max-w-3xl mx-auto space-y-6 min-w-0">
+      <div className="min-w-0">
+        <h1 className="text-2xl md:text-3xl font-bold truncate">Perfil</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Gestiona tu foto, datos personales y laborales para analíticas y seguimiento
         </p>

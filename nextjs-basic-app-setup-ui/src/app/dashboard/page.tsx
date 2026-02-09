@@ -64,7 +64,7 @@ export default function DashboardPage() {
 
           {/* Columna Derecha: Presupuesto (en móvil debajo sin altura fija; en desktop altura = columna izquierda) */}
           <div
-            className="min-h-0 flex flex-col w-full lg:h-[var(--budget-col-height)] lg:min-h-[var(--budget-col-height)] lg:max-h-[var(--budget-col-height)]"
+            className="min-w-0 min-h-0 flex flex-col w-full lg:h-[var(--budget-col-height)] lg:min-h-[var(--budget-col-height)] lg:max-h-[var(--budget-col-height)]"
             style={
               budgetMaxHeight != null
                 ? { ["--budget-col-height" as string]: `${budgetMaxHeight}px` }
@@ -77,10 +77,14 @@ export default function DashboardPage() {
       </section>
 
       {/* Resto de gráficas */}
-      <section>
+      <section className="min-w-0">
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-          <AnalyticsCharts type="patrimonio" />
-          <DashboardCategoryBreakdowns type="assets" />
+          <div className="min-w-0">
+            <AnalyticsCharts type="patrimonio" />
+          </div>
+          <div className="min-w-0">
+            <DashboardCategoryBreakdowns type="assets" />
+          </div>
         </div>
       </section>
 

@@ -499,10 +499,10 @@ export default function MovimientosPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Movimientos</h1>
+    <div className="space-y-6 min-w-0">
+      <div className="flex items-center justify-between min-w-0">
+        <div className="min-w-0">
+          <h1 className="text-2xl md:text-3xl font-bold truncate">Movimientos</h1>
           <p className="text-muted-foreground mt-1">
             Gestiona tus ingresos, gastos e inversiones
           </p>

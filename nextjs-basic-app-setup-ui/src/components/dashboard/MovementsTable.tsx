@@ -81,9 +81,9 @@ export function MovementsTable({ movimientos = [], total, onEdit, onDelete, onAd
   };
 
   return (
-    <Card className="p-6">
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <div>
+    <Card className="p-6 min-w-0 overflow-hidden">
+      <div className="flex items-center justify-between gap-4 mb-6 min-w-0">
+        <div className="min-w-0">
           <h3 className="text-lg font-semibold">Movimientos</h3>
           <p className="text-sm text-muted-foreground">
             Gestiona tus ingresos, gastos e inversiones

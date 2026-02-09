@@ -450,8 +450,8 @@ export default function AjustesPage() {
       </div>
 
       {/* Categorías y Objetivos - Movidos arriba */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 min-w-0">
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Mail className="h-4 w-4 text-orange-500" />
@@ -463,7 +463,7 @@ export default function AjustesPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-yellow-500" />
@@ -475,7 +475,7 @@ export default function AjustesPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Wallet className="h-4 w-4 text-green-500" />
@@ -489,8 +489,8 @@ export default function AjustesPage() {
       </div>
 
       {/* Preferencias, Seguridad y Datos en una fila */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 min-w-0">
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2 flex-wrap">
               <Sun className="h-4 w-4 text-blue-500" />
@@ -565,7 +565,7 @@ export default function AjustesPage() {
         </Card>
 
       {/* Seguridad */}
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2 flex-wrap">
               <Shield className="h-4 w-4 text-red-500" />
@@ -637,7 +637,7 @@ export default function AjustesPage() {
         </Card>
 
         {/* Datos */}
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2 flex-wrap">
               <Database className="h-4 w-4 text-purple-500" />
@@ -688,7 +688,7 @@ export default function AjustesPage() {
       </div>
 
       {/* Integraciones */}
-      <Card>
+      <Card className="min-w-0 overflow-hidden">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Link2 className="h-4 w-4 text-blue-500" />

@@ -97,7 +97,7 @@ export async function GET(request: Request) {
         userId,
         date: { gte: startOfDay, lte: endOfDay },
       },
-      orderBy: { date: "desc" },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       include: { category: true },
     });
     const onePerCategory = new Map<
@@ -173,15 +173,43 @@ export async function POST(request: Request) {
   });
   if (!category) return jsonError("Categoría no encontrada", 404);
 
-  const dateObj = date ? new Date(date) : new Date();
-  if (Number.isNaN(dateObj.getTime())) return jsonError("Fecha inválida");
+  const dateStr = date ? String(date).trim().slice(0, 10) : new Date().toISOString().slice(0, 10);
+  const startOfDay = new Date(dateStr + "T00:00:00.000Z");
+  const endOfDay = new Date(dateStr + "T23:59:59.999Z");
+  if (Number.isNaN(startOfDay.getTime())) return jsonError("Fecha inválida");
+
+  const existing = await prisma.assetSnapshot.findFirst({
+    where: {
+      userId,
+      categoryId,
+      date: { gte: startOfDay, lte: endOfDay },
+    },
+    include: { category: true },
+  });
+
+  if (existing) {
+    const updated = await prisma.assetSnapshot.update({
+      where: { id: existing.id },
+      data: { value },
+      include: { category: true },
+    });
+    return NextResponse.json({
+      data: {
+        id: updated.id,
+        categoryId: updated.categoryId,
+        categoryName: updated.category.name,
+        value: Number(updated.value),
+        date: updated.date.toISOString().slice(0, 10),
+      },
+    });
+  }
 
   const snapshot = await prisma.assetSnapshot.create({
     data: {
       userId,
       categoryId,
       value,
-      date: dateObj,
+      date: startOfDay,
     },
     include: { category: true },
   });

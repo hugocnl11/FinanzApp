@@ -6,7 +6,7 @@ import { scaleLinear, scalePoint } from "@visx/scale";
 import { curveMonotoneX } from "d3-shape";
 import { ParentSize } from "@visx/responsive";
 import { motion } from "framer-motion";
-import { last, previous, patrimonioConActivos, percentChange, filterMonthsByPeriod, getDailyIncomeAndExpenses } from "@/lib/dashboard/selectors";
+import { last, previous, percentChange, filterMonthsByPeriod, getDailyIncomeAndExpenses } from "@/lib/dashboard/selectors";
 import { buildMonthlySeries } from "@/lib/dashboard/derive";
 import type { MoneyByMonth, MoneyByDay, Movement } from "@/lib/dashboard/types";
 import { formatNumber } from "@/lib/format";
@@ -626,14 +626,13 @@ export function AnalyticsCharts({ type = "combined" }: AnalyticsChartsProps) {
     chartInversiones = filterMonthsByPeriod(inversionesMensuales, monthCount);
   }
   
-  // Patrimonio: activos + ingresos − gastos (últimos 12 meses)
+  // Patrimonio: solo activos (últimos 12 meses) para cuadrar con el patrimonio real
   const ingresos12 = filterMonthsByPeriod(ingresosMensuales, 12);
-  const gastos12 = filterMonthsByPeriod(gastosMensuales, 12);
   const activos12 = ingresos12.map((m, i) => ({
     mes: m.mes,
     valor: activosPorMes?.[i]?.valor ?? 0,
   }));
-  const patrimonioMensual12 = patrimonioConActivos(ingresos12, gastos12, activos12);
+  const patrimonioMensual12 = activos12;
   const patrimonioActual = last(patrimonioMensual12)?.valor ?? 0;
   const patrimonioPrevio = previous(patrimonioMensual12)?.valor ?? 0;
   const patrimonioPercent = percentChange(patrimonioActual, patrimonioPrevio);

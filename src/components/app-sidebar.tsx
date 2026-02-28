@@ -16,7 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarLogo } from "@/components/brand/SidebarLogo";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, List, BarChart2, Settings, User } from "lucide-react";
+import { Home, List, BarChart2, Wallet, Target, Settings, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getSession, isDemoUser } from "@/lib/auth";
 
@@ -24,6 +24,8 @@ const allItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Movimientos", url: "/dashboard/movimientos", icon: List },
   { title: "Gráficas", url: "/dashboard/graficas", icon: BarChart2 },
+  { title: "Presupuestos", url: "/dashboard/presupuestos", icon: Wallet },
+  { title: "Objetivos", url: "/dashboard/objetivos", icon: Target },
   { title: "Ajustes", url: "/dashboard/ajustes", icon: Settings },
   { title: "Perfil", url: "/dashboard/perfil", icon: User },
 ];

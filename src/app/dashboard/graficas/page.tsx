@@ -61,8 +61,8 @@ const CHART_WIDGETS_KEY = "finanzapp:chartWidgets";
 const CHART_HEIGHT_PX = 200;
 /** Altura fija de cada Card estándar */
 const CARD_HEIGHT_PX = 320;
-/** Altura de card para Actividad por día (calendario mes completo) */
-const CARD_HEIGHT_ACTIVIDAD_PX = 520;
+/** Altura base para card Actividad por día (se ajusta dinámicamente al calendario) */
+const CARD_ACTIVIDAD_HEADER_PX = 60;
 /** Altura de card para Pie charts (donut + leyenda) */
 const CARD_HEIGHT_PIE_PX = 380;
 /** Altura del donut en Pie charts */
@@ -343,6 +343,15 @@ export default function GraficasPage() {
     }
     return { byDay, firstDay, daysInMonth };
   }, [movimientos]);
+
+  const actividadCardHeight = useMemo(() => {
+    const emptyStart = (actividadPorDia.firstDay.getDay() + 6) % 7;
+    const totalCells = emptyStart + actividadPorDia.daysInMonth;
+    const rows = Math.ceil(totalCells / 7);
+    const rowHeight = 36;
+    const gridHeight = 28 + rows * rowHeight;
+    return CARD_ACTIVIDAD_HEADER_PX + gridHeight + 24;
+  }, [actividadPorDia.firstDay, actividadPorDia.daysInMonth]);
 
   const handleExportImage = async () => {
     if (!chartsRef.current || exporting) return;
@@ -1005,7 +1014,7 @@ export default function GraficasPage() {
             order: visibleOrder.includes("actividadPorDia") ? visibleOrder.indexOf("actividadPorDia") : 999,
           }}
         >
-        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_ACTIVIDAD_PX }}>
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: actividadCardHeight }}>
           <div className="space-y-2">
             <div>
               <h3 className="text-sm font-medium text-muted-foreground">Actividad por día</h3>
@@ -1013,8 +1022,8 @@ export default function GraficasPage() {
                 Gastado, ingresos e inversiones en el mes actual
               </p>
             </div>
-            <div className="flex-1 min-h-0 flex items-start justify-center">
-            <div className="grid grid-cols-7 gap-2 text-center min-w-[200px]">
+            <div className="flex justify-center">
+            <div className="grid grid-cols-7 gap-2 text-center w-fit">
               {WEEKDAYS.map((wd) => (
                 <div key={wd} className="text-[11px] font-medium text-muted-foreground py-1.5">
                   {wd}

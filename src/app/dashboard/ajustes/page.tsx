@@ -6,8 +6,6 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CategoryManager } from "@/components/dashboard/CategoryManager";
-import { BudgetManager } from "@/components/dashboard/BudgetManager";
-import { GoalsManager } from "@/components/dashboard/GoalsManager";
 import { NotionIntegrationManager } from "@/components/dashboard/NotionIntegrationManager";
 import {
   Dialog,
@@ -27,7 +25,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Shield, Database, Download, Upload, Mail, Globe, Sun, Target, DollarSign, Calendar, Wallet, Link2, ChevronRight } from "lucide-react";
+import { Shield, Database, Download, Upload, Mail, Globe, Sun, DollarSign, Calendar, Link2, ChevronRight } from "lucide-react";
 import { loadFromStorage, saveToStorage } from "@/lib/storage";
 import { isDemoUser, updateSessionUser, clearSession } from "@/lib/auth";
 import { updateProfile, fetch2FAStatus, setup2FA, verify2FASetup, disable2FA } from "@/lib/api/auth";
@@ -449,8 +447,8 @@ export default function AjustesPage() {
         </p>
       </div>
 
-      {/* Categorías y Objetivos - Movidos arriba */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 min-w-0">
+      {/* Categorías */}
+      <div className="grid grid-cols-1 gap-4 min-w-0">
         <Card className="min-w-0 overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
@@ -460,30 +458,6 @@ export default function AjustesPage() {
           </CardHeader>
           <CardContent>
             <CategoryManager />
-          </CardContent>
-        </Card>
-
-        <Card className="min-w-0 overflow-hidden">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Target className="h-4 w-4 text-yellow-500" />
-              <CardTitle className="text-lg">Objetivos</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <GoalsManager />
-          </CardContent>
-        </Card>
-
-        <Card className="min-w-0 overflow-hidden">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-green-500" />
-              <CardTitle className="text-lg">Presupuestos</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <BudgetManager triggerLabel="Gestionar Presupuestos" />
           </CardContent>
         </Card>
       </div>

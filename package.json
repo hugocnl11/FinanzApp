@@ -1,5 +1,5 @@
 {
-  "name": "nextjs-basic-app",
+  "name": "finanzapp",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -12,9 +12,9 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "rm -rf node_modules/.prisma && prisma generate",
-    "db:up": "cd .. && docker compose up -d",
-    "db:down": "cd .. && docker compose down",
-    "db:reset": "cd .. && docker compose down -v && docker compose up -d",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v && docker compose up -d",
     "db:migrate": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio"

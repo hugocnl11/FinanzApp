@@ -2,7 +2,7 @@
 
 ## Desarrollo local (PostgreSQL con Docker)
 
-La base de datos local se levanta con Docker desde la **raíz del repo** (`FinanzApp/`), no desde `nextjs-basic-app-setup-ui/`.
+La base de datos local se levanta con Docker desde la **raíz del repo** (`FinanzApp/`).
 
 **Credenciales (en `docker-compose.yml`):**
 - Usuario: `finanzapp`
@@ -16,15 +16,14 @@ cd /ruta/a/FinanzApp
 docker compose up -d
 ```
 
-**2. Configurar `.env`** en `nextjs-basic-app-setup-ui/`:
-Copia `.env.example` a `.env` o asegúrate de tener:
+**2. Configurar `.env`** en la raíz del proyecto:
+Copia `.env.example` a `.env` en la raíz o asegúrate de tener:
 ```
 DATABASE_URL="postgresql://finanzapp:finanzapp_dev@localhost:5434/finanzapp"
 ```
 
-**3. Aplicar migraciones** (desde la carpeta del proyecto Next.js):
+**3. Aplicar migraciones** (desde la raíz del repo):
 ```bash
-cd nextjs-basic-app-setup-ui
 npx prisma migrate deploy
 ```
 
@@ -34,7 +33,7 @@ cd /ruta/a/FinanzApp
 docker compose down -v
 docker compose up -d
 ```
-Espera unos segundos a que Postgres arranque y luego ejecuta de nuevo `npx prisma migrate deploy` desde `nextjs-basic-app-setup-ui`.
+Espera unos segundos a que Postgres arranque y luego ejecuta de nuevo `npx prisma migrate deploy` desde la raíz del repo.
 
 ---
 
@@ -154,6 +153,7 @@ Puedes agregar un script en `package.json`:
 
 ## Notas Importantes
 
+- **Root Directory en Vercel:** en **Settings → General → Root Directory** deja el valor vacío (o `.`) para que el build se ejecute desde la raíz del repo.
 - **Prisma funciona perfectamente en Vercel** - solo necesitas la `DATABASE_URL` correcta
 - La base de datos debe estar accesible desde internet (no localhost)
 - Usa SSL en la connection string (`?sslmode=require`)

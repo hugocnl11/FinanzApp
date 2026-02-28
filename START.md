@@ -22,8 +22,9 @@ El script `start.sh` levanta PostgreSQL, espera a que esté listo, ejecuta `pris
 
 ### 2. Aplicación Next.js (servidor de desarrollo)
 
+Desde la raíz del proyecto:
+
 ```bash
-cd nextjs-basic-app-setup-ui
 npm run dev
 ```
 
@@ -63,10 +64,9 @@ docker compose up -d
 ### Reiniciar solo la app Next.js
 
 1. En la terminal del `npm run dev`: **Ctrl+C**.
-2. Luego:
+2. Luego, desde la raíz:
 
 ```bash
-cd nextjs-basic-app-setup-ui
 npm run dev
 ```
 
@@ -83,7 +83,6 @@ npm run dev
 
    ```bash
    docker compose up -d
-   cd nextjs-basic-app-setup-ui
    npm run dev
    ```
 
@@ -91,7 +90,7 @@ O, desde la raíz, usar el script y luego la app:
 
 ```bash
 ./start.sh
-cd nextjs-basic-app-setup-ui && npm run dev
+npm run dev
 ```
 
 ---
@@ -101,11 +100,11 @@ cd nextjs-basic-app-setup-ui && npm run dev
 | Acción              | Comando |
 |---------------------|--------|
 | **Encender DB**     | `docker compose up -d` |
-| **Encender app**    | `cd nextjs-basic-app-setup-ui && npm run dev` |
+| **Encender app**    | `npm run dev` (desde la raíz) |
 | **Apagar DB**       | `docker compose down` |
 | **Apagar app**      | Ctrl+C en la terminal de `npm run dev` |
 | **Reiniciar DB**    | `docker compose down && docker compose up -d` |
-| **Todo con script** | `./start.sh` (solo DB + migraciones; luego `cd nextjs-basic-app-setup-ui && npm run dev`) |
+| **Todo con script** | `./start.sh` (solo DB + migraciones; luego `npm run dev`) |
 
 ---
 
@@ -113,4 +112,4 @@ cd nextjs-basic-app-setup-ui && npm run dev
 
 - **Docker** en marcha (para la base de datos).
 - **Node.js** ≥ 18 y **npm** ≥ 9 (para la app).
-- Variables de entorno en `nextjs-basic-app-setup-ui/.env` o `.env.development.local` (p. ej. `DATABASE_URL`, `APP_URL`). Ver `nextjs-basic-app-setup-ui/README.md`.
+- Variables de entorno en la **raíz del proyecto**: `.env` o `.env.development.local` (p. ej. `DATABASE_URL`, `APP_URL`). Ver `README-APP.md` para más detalles de la app.

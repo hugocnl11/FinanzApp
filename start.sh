@@ -31,7 +31,6 @@ echo "✅ PostgreSQL está listo!"
 
 # Generar cliente de Prisma
 echo "🔧 Generando cliente de Prisma..."
-cd nextjs-basic-app-setup-ui
 npm run db:generate
 
 # Ejecutar migraciones
@@ -41,4 +40,4 @@ npm run db:migrate
 echo "✅ ¡Todos los servicios están listos!"
 echo ""
 echo "Para iniciar el servidor de desarrollo, ejecuta:"
-echo "  cd nextjs-basic-app-setup-ui && npm run dev"
+echo "  npm run dev"

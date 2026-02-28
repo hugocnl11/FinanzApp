@@ -61,8 +61,8 @@ const CHART_WIDGETS_KEY = "finanzapp:chartWidgets";
 const CHART_HEIGHT_PX = 200;
 /** Altura fija de cada Card estándar */
 const CARD_HEIGHT_PX = 320;
-/** Altura de card para Actividad por día (calendario más grande) */
-const CARD_HEIGHT_ACTIVIDAD_PX = 420;
+/** Altura de card para Actividad por día (calendario mes completo) */
+const CARD_HEIGHT_ACTIVIDAD_PX = 520;
 /** Altura de card para Pie charts (donut + leyenda) */
 const CARD_HEIGHT_PIE_PX = 380;
 /** Altura del donut en Pie charts */
@@ -1013,7 +1013,7 @@ export default function GraficasPage() {
                 Gastado, ingresos e inversiones en el mes actual
               </p>
             </div>
-            <div className="overflow-y-auto overflow-x-hidden flex-1 min-h-0">
+            <div className="flex-1 min-h-0 flex items-start justify-center">
             <div className="grid grid-cols-7 gap-2 text-center min-w-[200px]">
               {WEEKDAYS.map((wd) => (
                 <div key={wd} className="text-[11px] font-medium text-muted-foreground py-1.5">
@@ -1026,20 +1026,20 @@ export default function GraficasPage() {
               {Array.from({ length: actividadPorDia.daysInMonth }, (_, i) => {
                 const day = i + 1;
                 const entry = actividadPorDia.byDay.get(day)!;
-                const hasActivity = entry.gastado > 0 || entry.ingresado > 0 || entry.invertido > 0;
+                const net = entry.ingresado - entry.gastado;
                 return (
                   <div
                     key={day}
-                    className="aspect-square min-w-[24px] min-h-[24px] rounded-md border border-border/60 flex flex-col items-center justify-center text-[12px] bg-muted/30 hover:bg-muted/50 transition-colors relative group cursor-default"
+                    className="aspect-square min-w-[24px] min-h-[24px] rounded-md border border-border/60 flex flex-col items-center justify-center text-[10px] bg-muted/30 hover:bg-muted/50 transition-colors relative group cursor-default"
                     title={`Día ${day}: Gastado € ${formatNumber(entry.gastado)}, Ingresos € ${formatNumber(entry.ingresado)}, Inversiones € ${formatNumber(entry.invertido)}`}
                   >
                     <span className="font-medium text-foreground leading-tight">{day}</span>
-                    {hasActivity && (
-                      <div className="flex gap-0.5 mt-0.5">
-                        {entry.gastado > 0 && <span className="w-2 h-2 rounded-full bg-red-500" title="Gastado" />}
-                        {entry.ingresado > 0 && <span className="w-2 h-2 rounded-full bg-green-500" title="Ingresos" />}
-                        {entry.invertido > 0 && <span className="w-2 h-2 rounded-full bg-blue-500" title="Inversiones" />}
-                      </div>
+                    {net !== 0 && (
+                      <span
+                        className={`font-semibold leading-tight mt-0.5 ${net > 0 ? "text-green-600" : "text-red-600"}`}
+                      >
+                        {net > 0 ? "+" : ""}{formatNumber(net)}
+                      </span>
                     )}
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1.5 rounded-md bg-popover border border-border shadow-lg text-[11px] opacity-0 group-hover:opacity-100 pointer-events-none z-20 whitespace-nowrap transition-opacity">
                       <strong>Día {day}</strong><br />
@@ -1121,6 +1121,16 @@ export default function GraficasPage() {
                               transition={{ duration: 0.5, delay: i * 0.03 }}
                               style={{ transformOrigin: `bottom` }}
                             />
+                            <text
+                              x={(xScale(d.mes) ?? 0) + subBand * 0 + (subBand - 2) / 2}
+                              y={yScale(d.ingresos) - 4}
+                              textAnchor="middle"
+                              fontSize={9}
+                              fill="currentColor"
+                              className="text-muted-foreground"
+                            >
+                              {formatAxisCurrency(d.ingresos)}
+                            </text>
                             <motion.rect
                               x={(xScale(d.mes) ?? 0) + subBand * 1}
                               y={yScale(d.gastos)}
@@ -1133,23 +1143,49 @@ export default function GraficasPage() {
                               transition={{ duration: 0.5, delay: i * 0.03 + 0.05 }}
                               style={{ transformOrigin: `bottom` }}
                             />
+                            <text
+                              x={(xScale(d.mes) ?? 0) + subBand * 1 + (subBand - 2) / 2}
+                              y={yScale(d.gastos) - 4}
+                              textAnchor="middle"
+                              fontSize={9}
+                              fill="currentColor"
+                              className="text-muted-foreground"
+                            >
+                              {formatAxisCurrency(d.gastos)}
+                            </text>
                           </g>
                         ))}
-                        {comparativaAnualData.lastYear.map((d, i) => (
-                          <motion.rect
-                            key={`ly-${i}`}
-                            x={(xScale(d.mes) ?? 0) + subBand * 2}
-                            y={yScale(d.ingresos - d.gastos)}
-                            width={subBand - 2}
-                            height={Math.abs(innerHeight - yScale(0) - (yScale(d.ingresos - d.gastos) - yScale(0)))}
-                            fill="#8b5cf6"
-                            rx={4}
-                            initial={{ scaleY: 0 }}
-                            animate={{ scaleY: 1 }}
-                            transition={{ duration: 0.5, delay: i * 0.03 + 0.1 }}
-                            style={{ transformOrigin: d.ingresos - d.gastos >= 0 ? "bottom" : "top" }}
-                          />
-                        ))}
+                        {comparativaAnualData.lastYear.map((d, i) => {
+                          const saldo = d.ingresos - d.gastos;
+                          const barTop = yScale(saldo);
+                          const barH = Math.abs(innerHeight - yScale(0) - (barTop - yScale(0)));
+                          return (
+                            <g key={`ly-${i}`}>
+                              <motion.rect
+                                x={(xScale(d.mes) ?? 0) + subBand * 2}
+                                y={barTop}
+                                width={subBand - 2}
+                                height={barH}
+                                fill="#8b5cf6"
+                                rx={4}
+                                initial={{ scaleY: 0 }}
+                                animate={{ scaleY: 1 }}
+                                transition={{ duration: 0.5, delay: i * 0.03 + 0.1 }}
+                                style={{ transformOrigin: saldo >= 0 ? "bottom" : "top" }}
+                              />
+                              <text
+                                x={(xScale(d.mes) ?? 0) + subBand * 2 + (subBand - 2) / 2}
+                                y={saldo >= 0 ? barTop - 4 : barTop + barH + 12}
+                                textAnchor="middle"
+                                fontSize={9}
+                                fill="currentColor"
+                                className="text-muted-foreground"
+                              >
+                                {formatAxisCurrency(Math.abs(saldo))}
+                              </text>
+                            </g>
+                          );
+                        })}
                         {months.map((m, i) => (
                           <text
                             key={i}

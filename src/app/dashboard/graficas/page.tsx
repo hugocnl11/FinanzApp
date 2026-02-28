@@ -18,6 +18,7 @@ import type { AssetSnapshotLatest, AssetSnapshotInMonth } from "@/lib/api/asset-
 import { fetchCategories } from "@/lib/api/categories";
 import type { Category } from "@/lib/dashboard/types";
 import { ImageDown, Settings2, ChevronUp, ChevronDown } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
   SheetContent,
@@ -29,6 +30,7 @@ import {
 import { getSession, isDemoUser, updateSessionUser } from "@/lib/auth";
 import { updateProfile } from "@/lib/api/auth";
 import { loadFromStorage, saveToStorage } from "@/lib/storage";
+import { toast } from "@/lib/toast";
 import type { ChartWidgetsPref, UserPreferences } from "@/lib/api/types";
 
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -369,8 +371,9 @@ export default function GraficasPage() {
       link.download = `graficas-finanzapp-${new Date().toISOString().slice(0, 10)}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
+      toast.success("Gráficas exportadas correctamente.");
     } catch {
-      alert("No se pudo exportar la imagen.");
+      toast.error("No se pudo exportar la imagen.");
     } finally {
       setExporting(false);
     }
@@ -488,6 +491,12 @@ export default function GraficasPage() {
         </div>
       </div>
 
+      {!chartWidgetsLoaded ? (
+        <div className="grid min-w-0 gap-3 md:grid-cols-2" ref={chartsRef}>
+          <Skeleton className="h-[320px] w-full rounded-lg" />
+          <Skeleton className="h-[320px] w-full rounded-lg" />
+        </div>
+      ) : (
       <section
         ref={chartsRef}
         className="grid min-w-0 gap-3 md:grid-cols-2 overflow-x-hidden"
@@ -1393,6 +1402,7 @@ export default function GraficasPage() {
         </Card>
         </div>
       </section>
+      )}
     </div>
   );
 }

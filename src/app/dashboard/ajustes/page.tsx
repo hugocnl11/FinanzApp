@@ -31,12 +31,14 @@ import { isDemoUser, updateSessionUser, clearSession } from "@/lib/auth";
 import { updateProfile, fetch2FAStatus, setup2FA, verify2FASetup, disable2FA } from "@/lib/api/auth";
 import type { UserPreferences } from "@/lib/api/types";
 import { useTheme } from "next-themes";
+import { toast } from "@/lib/toast";
 
 type SessionItem = { id: string; current: boolean; userAgent?: string; createdAt: string };
 
 function TwoFASection() {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [open, setOpen] = useState(false);
+  const [disable2FAOpen, setDisable2FAOpen] = useState(false);
   const [step, setStep] = useState<"idle" | "qr" | "verify">("idle");
   const [setupData, setSetupData] = useState<{ secret: string; qrDataUrl?: string } | null>(null);
   const [code, setCode] = useState("");
@@ -88,11 +90,15 @@ function TwoFASection() {
   };
 
   const handleDisable = async () => {
-    if (!confirm("¿Desactivar la autenticación en dos pasos?")) return;
+    setDisable2FAOpen(true);
+  };
+
+  const handleDisableConfirm = async () => {
     setLoading(true);
     try {
       await disable2FA();
       setEnabled(false);
+      setDisable2FAOpen(false);
     } catch {
       setMessage("No se pudo desactivar.");
     } finally {
@@ -108,6 +114,22 @@ function TwoFASection() {
           {loading ? "Desactivando…" : "Desactivar"}
         </Button>
         {message && <span className="text-xs text-rose-500">{message}</span>}
+        <Dialog open={disable2FAOpen} onOpenChange={setDisable2FAOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Desactivar 2FA</DialogTitle>
+              <DialogDescription>
+                ¿Desactivar la autenticación en dos pasos? Tu cuenta será menos segura.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDisable2FAOpen(false)}>Cancelar</Button>
+              <Button variant="destructive" onClick={handleDisableConfirm} disabled={loading}>
+                {loading ? "Desactivando…" : "Desactivar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -358,7 +380,7 @@ export default function AjustesPage() {
           link.click();
           URL.revokeObjectURL(link.href);
         })
-        .catch(() => alert("No se pudo exportar. Inicia sesión e inténtalo de nuevo."));
+        .catch(() => toast.error("No se pudo exportar. Inicia sesión e inténtalo de nuevo."));
       return;
     }
     const data = {
@@ -376,10 +398,11 @@ export default function AjustesPage() {
     URL.revokeObjectURL(link.href);
   };
 
+  const [importPending, setImportPending] = useState<{ data: unknown; mode?: "replace" | "merge" } | null>(null);
+
   const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const mode = confirm("¿Reemplazar todos los datos actuales? (Cancelar = fusionar con los existentes)") ? "replace" : "merge";
     const reader = new FileReader();
     reader.onload = () => {
       try {
@@ -387,27 +410,33 @@ export default function AjustesPage() {
         const parsed = JSON.parse(raw);
         const data = parsed.data ?? parsed;
         if (!data || typeof data !== "object") {
-          alert("El archivo no tiene el formato esperado.");
+          toast.error("El archivo no tiene el formato esperado.");
           return;
         }
-        fetch("/api/user/data/restore", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data, mode }),
-        })
-          .then((r) => (r.ok ? r.json() : Promise.reject()))
-          .then(() => {
-            alert("Datos restaurados correctamente.");
-            window.dispatchEvent(new Event("finanzapp:data-updated"));
-          })
-          .catch(() => alert("No se pudo restaurar. Revisa el formato del archivo."));
+        setImportPending({ data });
       } catch {
-        alert("El archivo no es un JSON válido.");
+        toast.error("El archivo no es un JSON válido.");
       }
     };
     reader.readAsText(file);
     e.target.value = "";
+  };
+
+  const handleImportConfirm = (mode: "replace" | "merge") => {
+    if (!importPending?.data) return;
+    fetch("/api/user/data/restore", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: importPending.data, mode }),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(() => {
+        toast.success("Datos restaurados correctamente.");
+        setImportPending(null);
+        window.dispatchEvent(new Event("finanzapp:data-updated"));
+      })
+      .catch(() => toast.error("No se pudo restaurar. Revisa el formato del archivo."));
   };
 
   const handleExportMovementsCsv = async () => {
@@ -653,6 +682,25 @@ export default function AjustesPage() {
               )}
               {isDemoUser() && <Button variant="outline" size="sm" disabled><Upload className="h-3 w-3 mr-1" /> Importar</Button>}
             </div>
+            <Dialog open={!!importPending} onOpenChange={(open) => !open && setImportPending(null)}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Importar datos</DialogTitle>
+                  <DialogDescription>
+                    ¿Cómo quieres importar los datos? Reemplazar borrará los datos actuales. Fusionar los combinará con los existentes.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setImportPending(null)}>Cancelar</Button>
+                  <Button variant="outline" onClick={() => importPending && handleImportConfirm("merge")}>
+                    Fusionar
+                  </Button>
+                  <Button variant="destructive" onClick={() => importPending && handleImportConfirm("replace")}>
+                    Reemplazar
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <div className="flex items-center justify-between p-3 border rounded-lg">
               <span className="text-sm font-medium">Eliminar cuenta</span>
               <Button variant="destructive" size="sm">Eliminar</Button>

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import type { Category, Movement, MovementType } from "@/lib/dashboard/types";
 import { X } from "lucide-react";
 
@@ -14,6 +15,8 @@ type MovementFormProps = {
   categories: Category[];
   onSave: (movement: Omit<Movement, "id">) => void;
   onCancel: () => void;
+  /** Si true, renderiza solo el formulario sin Card (para Sheet/móvil) */
+  variant?: "default" | "compact";
 };
 
 const typeToCategoryType = (type: MovementType) => {
@@ -23,7 +26,7 @@ const typeToCategoryType = (type: MovementType) => {
   return "savings";
 };
 
-export function MovementForm({ movement, categories, onSave, onCancel }: MovementFormProps) {
+export function MovementForm({ movement, categories, onSave, onCancel, variant = "default" }: MovementFormProps) {
   const [fecha, setFecha] = useState(movement?.fecha || new Date().toISOString().split("T")[0]);
   const [concepto, setConcepto] = useState(movement?.concepto || "");
   const [tipo, setTipo] = useState<MovementType>(movement?.tipo || "Gasto");
@@ -57,25 +60,8 @@ export function MovementForm({ movement, categories, onSave, onCancel }: Movemen
     });
   };
 
-  return (
-    <Card className="mb-6">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>{movement ? "Editar Movimiento" : "Nuevo Movimiento"}</CardTitle>
-            <CardDescription>
-              {movement ? "Modifica los datos del movimiento" : "Añade un nuevo ingreso, gasto o inversión"}
-            </CardDescription>
-          </div>
-          {movement && (
-            <Button variant="ghost" size="icon" onClick={onCancel}>
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+  const formContent = (
+    <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Input
@@ -88,24 +74,12 @@ export function MovementForm({ movement, categories, onSave, onCancel }: Movemen
               />
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="tipo" className="text-sm font-medium block mb-1">
-                Tipo
-              </label>
-              <select
-                id="tipo"
-                value={tipo}
-                onChange={(e) => setTipo(e.target.value as MovementType)}
-                className="w-full px-4 py-2 text-md bg-transparent border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-gray-900 dark:text-white border-gray-300 dark:border-gray-700"
-                required
-              >
-                {tipos.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <Select
+              label="Tipo"
+              value={tipo}
+              options={tipos.map((t) => ({ label: t, value: t }))}
+              onChange={(value) => setTipo(value as MovementType)}
+            />
 
             <div className="space-y-2">
               <Input
@@ -118,22 +92,12 @@ export function MovementForm({ movement, categories, onSave, onCancel }: Movemen
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="categoria" className="text-sm font-medium block mb-1">
-                Categoría
-              </label>
-              <select
-                id="categoria"
+              <Select
+                label="Categoría"
                 value={categoria}
-                onChange={(e) => setCategoria(e.target.value)}
-                className="w-full px-4 py-2 text-md bg-transparent border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-gray-900 dark:text-white border-gray-300 dark:border-gray-700"
-                required
-              >
-                {categoriasDisponibles.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
+                options={categoriasDisponibles.map((cat) => ({ label: cat, value: cat }))}
+                onChange={setCategoria}
+              />
               {categoriasDisponibles.length === 0 && (
                 <p className="text-xs text-muted-foreground">
                   Crea una categoría antes de registrar movimientos.
@@ -166,6 +130,31 @@ export function MovementForm({ movement, categories, onSave, onCancel }: Movemen
             </Button>
           </div>
         </form>
+  );
+
+  if (variant === "compact") {
+    return formContent;
+  }
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>{movement ? "Editar Movimiento" : "Nuevo Movimiento"}</CardTitle>
+            <CardDescription>
+              {movement ? "Modifica los datos del movimiento" : "Añade un nuevo ingreso, gasto o inversión"}
+            </CardDescription>
+          </div>
+          {movement && (
+            <Button variant="ghost" size="icon" onClick={onCancel}>
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {formContent}
       </CardContent>
     </Card>
   );

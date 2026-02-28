@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { GoalEditorDialog, type EditableGoal, type AssetOption, type BudgetOption } from "@/components/dashboard/GoalEditorDialog";
 import { GoalProgressWithMilestones } from "@/components/dashboard/GoalProgressWithMilestones";
 import { fetchGoals, createGoal, updateGoal, deleteGoal } from "@/lib/api/goals";
@@ -20,6 +22,7 @@ import { fetchAssetSnapshotsForDate } from "@/lib/api/asset-snapshots";
 import { getUserId } from "@/lib/auth";
 import type { Category } from "@/lib/dashboard/types";
 import type { Budget } from "@/lib/dashboard/types";
+import { Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type GoalItem = EditableGoal;
@@ -56,6 +59,7 @@ type GoalsManagerProps = {
 export function GoalsManager(props?: GoalsManagerProps) {
   const { inline = false } = props ?? {};
   const [goals, setGoals] = useState<GoalItem[]>(initialGoals);
+  const [loading, setLoading] = useState(true);
   const [primaryGoalId, setPrimaryGoalId] = useState<string>("");
   const [assetOptions, setAssetOptions] = useState<AssetOption[]>([]);
   const [budgetOptions, setBudgetOptions] = useState<BudgetOption[]>([]);
@@ -65,6 +69,7 @@ export function GoalsManager(props?: GoalsManagerProps) {
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       try {
         if (!getUserId()) {
           setGoals([]);
@@ -107,6 +112,8 @@ export function GoalsManager(props?: GoalsManagerProps) {
         setGoals([]);
         setAssetOptions([]);
         setBudgetOptions([]);
+      } finally {
+        setLoading(false);
       }
     };
     void load();
@@ -235,7 +242,29 @@ export function GoalsManager(props?: GoalsManagerProps) {
             </div>
 
             <div className="space-y-3">
-              {displayGoals.map((goal) => {
+              {displayGoals.length === 0 ? (
+                <EmptyState
+                  title="No hay objetivos"
+                  description="Define metas por activos o por presupuesto y visualiza tu progreso"
+                  icon={<Target className="h-10 w-10 text-muted-foreground" />}
+                  action={
+                    <GoalEditorDialog
+                      goal={draftNewGoal()}
+                      onSave={handleSaveGoal}
+                      title="Crear objetivo"
+                      description="Elige tipo por activos o por presupuesto, define la meta y la fecha."
+                      assetOptions={assetOptions}
+                      budgetOptions={budgetOptions}
+                      mode={inline ? "sheet" : "dialog"}
+                      trigger={
+                        <Button>
+                          Añadir objetivo
+                        </Button>
+                      }
+                    />
+                  }
+                />
+              ) : displayGoals.map((goal) => {
                 const isBudget = goal._isBudget ?? false;
                 const percent = goal._percent ?? 0;
                 return (
@@ -338,6 +367,15 @@ export function GoalsManager(props?: GoalsManagerProps) {
           </div>
         </div>
   );
+
+  if (inline && loading) {
+    return (
+      <div className="min-w-0 space-y-4">
+        <Skeleton className="h-[120px] w-full rounded-2xl" />
+        <Skeleton className="h-[200px] w-full rounded-2xl" />
+      </div>
+    );
+  }
 
   if (inline) {
     return <div className="min-w-0">{content}</div>;

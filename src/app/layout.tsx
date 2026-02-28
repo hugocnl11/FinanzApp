@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
+import { Toaster } from "sonner";
 import { PwaRegister } from "@/components/PwaRegister";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -12,8 +13,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f6f6f7" },
-    { media: "(prefers-color-scheme: dark)", color: "#111112" },
+    { media: "(prefers-color-scheme: light)", color: "hsl(240 5% 97%)" },
+    { media: "(prefers-color-scheme: dark)", color: "hsl(240 4% 7%)" },
   ],
 };
 
@@ -42,6 +43,7 @@ export default function RootLayout({
         <PwaRegister />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         {children}
+        <Toaster richColors position="top-center" closeButton />
         </ThemeProvider>
       </body>
     </html>

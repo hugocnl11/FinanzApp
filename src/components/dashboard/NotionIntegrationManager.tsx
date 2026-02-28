@@ -5,6 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Link2, CheckCircle2, XCircle, RefreshCw, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
 import type { ApiResponse } from "@/lib/api/types";
@@ -26,6 +34,7 @@ export function NotionIntegrationManager() {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     integrationToken: "",
@@ -180,11 +189,11 @@ export function NotionIntegrationManager() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm("¿Estás seguro de que quieres eliminar la integración con Notion?")) {
-      return;
-    }
+  const handleDeleteClick = () => {
+    setDeleteConfirmOpen(true);
+  };
 
+  const handleDeleteConfirm = async () => {
     try {
       setSaving(true);
       setError(null);
@@ -201,6 +210,7 @@ export function NotionIntegrationManager() {
         enabled: true,
       });
       setSuccess("Integración eliminada correctamente");
+      setDeleteConfirmOpen(false);
     } catch (error) {
       console.error("Error deleting integration:", error);
       setError("Error al eliminar la integración");
@@ -367,7 +377,7 @@ export function NotionIntegrationManager() {
             </Button>
             <Button
               variant="destructive"
-              onClick={handleDelete}
+              onClick={handleDeleteClick}
               disabled={saving || syncing}
             >
               <Trash2 className="h-4 w-4" />
@@ -375,6 +385,25 @@ export function NotionIntegrationManager() {
           </>
         )}
       </div>
+
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar integración</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que quieres eliminar la integración con Notion? Tendrás que configurarla de nuevo para sincronizar.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm} disabled={saving}>
+              {saving ? "Eliminando…" : "Eliminar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

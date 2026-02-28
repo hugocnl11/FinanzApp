@@ -47,7 +47,7 @@ export function Sidebar() {
       <div className="flex-1" />
       <Separator className="bg-gray-200 dark:bg-gray-800" />
       <div className="flex items-center justify-between mt-4">
-        <div className="text-xs text-muted-foreground">© 2024 FinanzApp</div>
+        <div className="text-xs text-muted-foreground">© {new Date().getFullYear()} FinanzApp</div>
         <ThemeToggle />
       </div>
     </aside>

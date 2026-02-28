@@ -12,6 +12,8 @@ import {
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Pencil, ChevronDown, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -92,6 +94,7 @@ export function BudgetManager({
   const [budgets, setBudgets] = useState<BudgetItem[]>(initialBudgets);
   const [categoriesData, setCategoriesData] = useState<Category[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
+  const [loading, setLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     category: categories[0] ?? "",
@@ -195,11 +198,13 @@ export function BudgetManager({
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       const uid = getUserId();
       if (!uid) {
         setBudgets([]);
         setCategoriesData([]);
         setMovements([]);
+        setLoading(false);
         return;
       }
       try {
@@ -217,6 +222,8 @@ export function BudgetManager({
         setCategoriesData([]);
         setMovements([]);
         setStatusMessage("No se pudieron cargar los presupuestos.");
+      } finally {
+        setLoading(false);
       }
     };
     void load();
@@ -537,9 +544,11 @@ export function BudgetManager({
                 })}
                 </div>
               ) : (
-                <div className="text-center text-sm text-muted-foreground py-8">
-                  No hay presupuestos. Crea uno con el formulario de la derecha.
-                </div>
+                <EmptyState
+                  title="No hay presupuestos"
+                  description="Crea uno con el formulario de la derecha"
+                  icon={<Pencil className="h-10 w-10 text-muted-foreground" />}
+                />
               )}
             </div>
           </div>
@@ -663,6 +672,15 @@ export function BudgetManager({
           </div>
         </div>
   );
+
+  if (inline && loading) {
+    return (
+      <div className="min-w-0 space-y-4">
+        <Skeleton className="h-[120px] w-full rounded-2xl" />
+        <Skeleton className="h-[200px] w-full rounded-2xl" />
+      </div>
+    );
+  }
 
   if (inline) {
     return <div className="min-w-0">{content}</div>;

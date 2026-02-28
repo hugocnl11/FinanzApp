@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { Movement, MovementType } from "@/lib/dashboard/types";
-import { Edit2, Trash2, Plus, ArrowUpCircle, ArrowDownCircle, TrendingUp, PiggyBank } from "lucide-react";
+import { Edit2, Trash2, Plus, ArrowUpCircle, ArrowDownCircle, TrendingUp, PiggyBank, ChevronLeft, ChevronRight } from "lucide-react";
 import { CATEGORY_ICON_MAP, type CategoryIconKey } from "@/lib/category-icons";
 import { fetchCategories } from "@/lib/api/categories";
 import { getUserId } from "@/lib/auth";
@@ -24,8 +25,22 @@ type MovementsTableProps = {
   onAddNew: () => void;
 };
 
+const PAGE_SIZE = 20;
+const PAGINATION_THRESHOLD = 100;
+
 export function MovementsTable({ movimientos = [], total, onEdit, onDelete, onAddNew }: MovementsTableProps) {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [page, setPage] = useState(1);
+
+  const usePagination = movimientos.length > PAGINATION_THRESHOLD;
+  const totalPages = usePagination ? Math.ceil(movimientos.length / PAGE_SIZE) : 1;
+  const displayMovimientos = usePagination
+    ? movimientos.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+    : movimientos;
+
+  useEffect(() => {
+    setPage(1);
+  }, [movimientos.length]);
 
   useEffect(() => {
     const load = async () => {
@@ -96,15 +111,22 @@ export function MovementsTable({ movimientos = [], total, onEdit, onDelete, onAd
       </div>
 
       <div className="overflow-x-auto">
-        {movimientos.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <p className="text-lg font-medium mb-2">No hay movimientos</p>
-            <p className="text-sm">Añade tu primer movimiento para comenzar</p>
-          </div>
+        {displayMovimientos.length === 0 ? (
+          <EmptyState
+            title="No hay movimientos"
+            description="Añade tu primer movimiento para comenzar a registrar tus finanzas"
+            icon={<Plus className="h-10 w-10 text-muted-foreground" />}
+            action={
+              <Button onClick={onAddNew} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Añadir movimiento
+              </Button>
+            }
+          />
         ) : (
           <>
           <ul className="space-y-3 block md:hidden" role="list">
-            {movimientos.map((m) => {
+            {displayMovimientos.map((m) => {
               const meta = categoryMap.get(m.categoria);
               const Icon = meta ? CATEGORY_ICON_MAP[meta.icon] : null;
               return (
@@ -175,7 +197,7 @@ export function MovementsTable({ movimientos = [], total, onEdit, onDelete, onAd
               </tr>
             </thead>
             <tbody>
-              {movimientos.map((m) => (
+              {displayMovimientos.map((m) => (
                 <tr
                   key={m.id || `${m.fecha}-${m.concepto}`}
                   className="border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors"
@@ -244,9 +266,36 @@ export function MovementsTable({ movimientos = [], total, onEdit, onDelete, onAd
       </div>
 
       {movimientos.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-border/40 text-sm text-muted-foreground">
-          Mostrando {movimientos.length}
-          {typeof total === "number" ? ` de ${total}` : ""} movimientos
+        <div className="mt-4 pt-4 border-t border-border/40 flex flex-wrap items-center justify-between gap-3">
+          <span className="text-sm text-muted-foreground">
+            Mostrando {usePagination ? `${(page - 1) * PAGE_SIZE + 1}-${Math.min(page * PAGE_SIZE, movimientos.length)}` : movimientos.length}
+            {typeof total === "number" ? ` de ${total}` : ""} movimientos
+          </span>
+          {usePagination && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                aria-label="Página anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Página {page} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                aria-label="Página siguiente"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </Card>

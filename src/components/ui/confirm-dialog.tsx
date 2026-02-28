@@ -14,25 +14,33 @@ import {
 import { Button } from "@/components/ui/button";
 
 type ConfirmDialogProps = {
-  trigger: ReactNode;
+  trigger?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   title: string;
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 };
 
 export function ConfirmDialog({
   trigger,
+  open,
+  onOpenChange,
   title,
   description,
   confirmLabel = "Confirmar",
   cancelLabel = "Cancelar",
   onConfirm,
 }: ConfirmDialogProps) {
+  const handleConfirm = async () => {
+    await onConfirm();
+    onOpenChange?.(false);
+  };
   return (
-    <Dialog>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -42,7 +50,7 @@ export function ConfirmDialog({
           <DialogClose asChild>
             <Button variant="outline">{cancelLabel}</Button>
           </DialogClose>
-          <Button onClick={onConfirm}>{confirmLabel}</Button>
+          <Button onClick={handleConfirm}>{confirmLabel}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

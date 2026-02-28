@@ -110,7 +110,7 @@ export function AppSidebar() {
           </div>
         </Link>
         <div className="mt-3 pt-3 border-t border-border/40 group-data-[collapsible=icon]:hidden">
-          <div className="text-xs text-sidebar-foreground/50">© 2024 FinanzApp</div>
+          <div className="text-xs text-sidebar-foreground/50">© {new Date().getFullYear()} FinanzApp</div>
         </div>
       </SidebarFooter>
       <SidebarRail />

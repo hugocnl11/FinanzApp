@@ -5,6 +5,8 @@ import { MovementForm } from "@/components/dashboard/MovementForm";
 import { MovementsTable } from "@/components/dashboard/MovementsTable";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
   SheetContent,
@@ -15,15 +17,26 @@ import {
 import type { Category, Movement } from "@/lib/dashboard/types";
 import { motion } from "framer-motion";
 import { Filter, FileDown } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { fetchMovements, createMovement, updateMovement, deleteMovement } from "@/lib/api/movements";
+import { toast } from "@/lib/toast";
 import { fetchCategories } from "@/lib/api/categories";
 import { getUserId } from "@/lib/auth";
 
 export default function MovimientosPage() {
   const [movimientos, setMovimientos] = useState<Movement[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
   const [editingMovement, setEditingMovement] = useState<Movement | undefined>();
   const [showForm, setShowForm] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [visibleCategoriesCount, setVisibleCategoriesCount] = useState(8);
   const [visibleCategoriesCountMobile, setVisibleCategoriesCountMobile] = useState(5);
   const categoryContainerRef = useRef<HTMLDivElement>(null);
@@ -38,15 +51,25 @@ export default function MovimientosPage() {
     amountMin: "",
     amountMax: "",
   });
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [filters.search]);
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       try {
         if (!getUserId()) {
           setMovimientos([]);
           setCategories([]);
-      return;
-    }
+          setLoading(false);
+          return;
+        }
         const [movementsRes, categoriesRes] = await Promise.all([
           fetchMovements(),
           fetchCategories(),
@@ -56,6 +79,8 @@ export default function MovimientosPage() {
       } catch {
         setMovimientos([]);
         setCategories([]);
+      } finally {
+        setLoading(false);
       }
     };
     void load();
@@ -68,6 +93,7 @@ export default function MovimientosPage() {
         prev.map((m) => (m.id === editingMovement.id ? updated.data : m))
       );
       setEditingMovement(undefined);
+      toast.success("Movimiento actualizado correctamente.");
     } else {
       const created = await createMovement(movementData);
       setMovimientos((prev) =>
@@ -75,6 +101,7 @@ export default function MovimientosPage() {
         new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
         )
       );
+      toast.success("Movimiento creado correctamente.");
     }
     window.dispatchEvent(new Event("finanzapp:data-updated"));
     setShowForm(false);
@@ -85,12 +112,17 @@ export default function MovimientosPage() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm("¿Estás seguro de que quieres eliminar este movimiento?")) {
-      await deleteMovement(id);
-      setMovimientos((prev) => prev.filter((m) => m.id !== id));
-      window.dispatchEvent(new Event("finanzapp:data-updated"));
-    }
+  const handleDeleteClick = (id: string) => {
+    setDeleteConfirmId(id);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirmId) return;
+    await deleteMovement(deleteConfirmId);
+    setMovimientos((prev) => prev.filter((m) => m.id !== deleteConfirmId));
+    setDeleteConfirmId(null);
+    window.dispatchEvent(new Event("finanzapp:data-updated"));
+    toast.success("Movimiento eliminado.");
   };
 
   const handleAddNew = () => {
@@ -215,9 +247,9 @@ export default function MovimientosPage() {
 
   const filteredMovements = movimientos.filter((movement) => {
     const searchMatch =
-      !filters.search ||
-      movement.concepto.toLowerCase().includes(filters.search.toLowerCase()) ||
-      movement.categoria.toLowerCase().includes(filters.search.toLowerCase());
+      !debouncedSearch ||
+      movement.concepto.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      movement.categoria.toLowerCase().includes(debouncedSearch.toLowerCase());
     const typeMatch = filters.type === "Todos" || movement.tipo === filters.type;
     const categoryMatch =
       filters.category === "Todas" || movement.categoria === filters.category;
@@ -565,7 +597,7 @@ export default function MovimientosPage() {
       </div>
 
       {/* Desktop: filtros inline */}
-      <div className="hidden md:block rounded-2xl border border-border/60 bg-[#f6f6f7] dark:bg-[#111112] p-6 shadow-sm">
+      <div className="hidden md:block rounded-2xl border border-border/60 bg-muted/30 p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-border/40">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Filtros avanzados</h2>
@@ -606,21 +638,71 @@ export default function MovimientosPage() {
       </div>
 
       {showForm && (
-        <MovementForm
-          movement={editingMovement}
-          categories={categories}
-          onSave={handleSave}
-          onCancel={handleCancel}
+        <>
+          {/* Móvil: formulario en Sheet */}
+          <div className="md:hidden">
+            <Sheet open={showForm} onOpenChange={(open) => !open && handleCancel()}>
+              <SheetContent side="bottom" className="h-[90vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+                <SheetHeader>
+                  <SheetTitle>{editingMovement ? "Editar Movimiento" : "Nuevo Movimiento"}</SheetTitle>
+                </SheetHeader>
+                <div className="mt-6">
+                  <MovementForm
+                    movement={editingMovement}
+                    categories={categories}
+                    onSave={handleSave}
+                    onCancel={handleCancel}
+                    variant="compact"
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+          {/* Desktop: formulario inline Card */}
+          <div className="hidden md:block">
+            <MovementForm
+              movement={editingMovement}
+              categories={categories}
+              onSave={handleSave}
+              onCancel={handleCancel}
+            />
+          </div>
+        </>
+      )}
+
+      {loading ? (
+        <Card className="p-6 min-w-0 overflow-hidden">
+          <Skeleton className="h-8 w-48 mb-6" />
+          <Skeleton className="h-64 w-full rounded-lg" />
+        </Card>
+      ) : (
+        <MovementsTable
+          movimientos={filteredMovements}
+          total={movimientos.length}
+          onEdit={handleEdit}
+          onDelete={handleDeleteClick}
+          onAddNew={handleAddNew}
         />
       )}
 
-      <MovementsTable
-        movimientos={filteredMovements}
-        total={movimientos.length}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onAddNew={handleAddNew}
-      />
+      <Dialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar movimiento</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que quieres eliminar este movimiento? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

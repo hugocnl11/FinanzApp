@@ -95,7 +95,7 @@ const lucideIconMap: Record<Exclude<RoadmapItem["icon"], "notion" | "googlesheet
 
 export default function RoadmapPage() {
   return (
-    <div className="min-h-screen bg-[#f6f6f7] dark:bg-[#111112]">
+    <div className="min-h-screen bg-background">
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-3">
           <AppLogo size="md" showText={true} variant="default" />
@@ -136,7 +136,7 @@ export default function RoadmapPage() {
         <div className="relative space-y-10">
           {roadmapSections.map((section, sectionIndex) => (
             <section key={section.title} className="relative">
-              <div className="sticky top-0 z-10 bg-[#f6f6f7] dark:bg-[#111112] py-1 -mx-1">
+              <div className="sticky top-0 z-10 bg-background py-1 -mx-1">
                 <h2 className="text-lg font-semibold text-foreground">
                   {section.title}
                 </h2>

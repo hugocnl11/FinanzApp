@@ -15,7 +15,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           id={inputId}
           ref={ref}
           className={cn(
-            `block px-4 pt-6 pb-2 w-full text-md bg-transparent border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 peer transition-all text-gray-900 dark:text-white border-gray-300 dark:border-gray-700 placeholder-transparent`,
+            `block px-4 pt-6 pb-2 w-full text-md bg-transparent border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring peer transition-all text-foreground border-input placeholder-transparent`,
             error && 'border-red-500 focus:border-red-500 focus:ring-red-500',
             className
           )}
@@ -26,7 +26,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         />
         <label
           htmlFor={inputId}
-          className="absolute left-4 top-2 text-gray-500 dark:text-gray-400 text-sm pointer-events-none transition-all duration-200 peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:text-sm bg-white dark:bg-gray-900 px-1"
+          className="absolute left-4 top-2 text-muted-foreground text-sm pointer-events-none transition-all duration-200 peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:text-sm bg-background px-1"
         >
           {label}
         </label>

@@ -10,6 +10,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { GoalMilestone } from "@/lib/dashboard/types";
@@ -47,6 +56,7 @@ export function GoalEditorDialog({
   description = "Actualiza los detalles de tu objetivo financiero.",
   assetOptions = [],
   budgetOptions = [],
+  mode = "dialog",
 }: {
   goal: EditableGoal;
   trigger: React.ReactNode;
@@ -55,6 +65,8 @@ export function GoalEditorDialog({
   description?: string;
   assetOptions?: AssetOption[];
   budgetOptions?: BudgetOption[];
+  /** "dialog" = modal centrado, "sheet" = drawer lateral */
+  mode?: "dialog" | "sheet";
 }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(goal);
@@ -138,14 +150,8 @@ export function GoalEditorDialog({
       ? (form.linkedCategoryIds?.length ?? 0) > 0 && form.target >= 0
       : Boolean(form.linkedBudgetId));
 
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+  const formContent = (
+    <>
         <div className="grid gap-3 py-2">
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground">Tipo de objetivo</label>
@@ -368,14 +374,46 @@ export function GoalEditorDialog({
             )}
           </div>
         </div>
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={() => setOpen(false)} className="min-h-[44px]">
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={!canSave} className="min-h-[44px]">
-            Guardar
-          </Button>
-        </DialogFooter>
+    </>
+  );
+
+  const footer = (
+    <>
+      <Button variant="outline" onClick={() => setOpen(false)} className="min-h-[44px]">
+        Cancelar
+      </Button>
+      <Button onClick={handleSave} disabled={!canSave} className="min-h-[44px]">
+        Guardar
+      </Button>
+    </>
+  );
+
+  if (mode === "sheet") {
+    return (
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>{trigger}</SheetTrigger>
+        <SheetContent side="right" className="overflow-y-auto max-w-lg sm:max-w-md flex flex-col">
+          <SheetHeader>
+            <SheetTitle>{title}</SheetTitle>
+            <SheetDescription>{description}</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto py-4">{formContent}</div>
+          <SheetFooter className="gap-2 sm:gap-0 mt-4">{footer}</SheetFooter>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        {formContent}
+        <DialogFooter className="gap-2 sm:gap-0">{footer}</DialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -20,6 +20,7 @@ import { fetchAssetSnapshotsForDate } from "@/lib/api/asset-snapshots";
 import { getUserId } from "@/lib/auth";
 import type { Category } from "@/lib/dashboard/types";
 import type { Budget } from "@/lib/dashboard/types";
+import { cn } from "@/lib/utils";
 
 type GoalItem = EditableGoal;
 
@@ -47,7 +48,13 @@ function draftNewGoal(): EditableGoal {
   };
 }
 
-export function GoalsManager() {
+type GoalsManagerProps = {
+  /** Si true, renderiza el contenido directamente en la página sin Dialog */
+  inline?: boolean;
+};
+
+export function GoalsManager(props?: GoalsManagerProps) {
+  const { inline = false } = props ?? {};
   const [goals, setGoals] = useState<GoalItem[]>(initialGoals);
   const [primaryGoalId, setPrimaryGoalId] = useState<string>("");
   const [assetOptions, setAssetOptions] = useState<AssetOption[]>([]);
@@ -212,28 +219,17 @@ export function GoalsManager() {
     window.dispatchEvent(new Event("finanzapp:data-updated"));
   };
 
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full">
-          Gestionar Objetivos
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Objetivos financieros</DialogTitle>
-          <DialogDescription>
-            Define metas por activos o por presupuesto, visualiza el progreso y recibe alertas al cumplir hitos.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-y-auto grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
+  const content = (
+    <div className={cn("grid gap-6 md:grid-cols-[1.2fr_0.8fr]", inline && "w-full")}>
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
+            <div className={cn(
+              "flex items-center gap-3",
+              inline && "rounded-xl border border-border bg-muted/30 px-4 py-3"
+            )}>
+              <span className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground">
                 Total: {progressStats.total}
               </span>
-              <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
+              <span className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground">
                 Completados: {progressStats.completed}
               </span>
             </div>
@@ -243,7 +239,13 @@ export function GoalsManager() {
                 const isBudget = goal._isBudget ?? false;
                 const percent = goal._percent ?? 0;
                 return (
-                  <div key={goal.id} className="rounded-2xl border border-border p-4">
+                  <div
+                    key={goal.id}
+                    className={cn(
+                      "rounded-2xl border border-border p-4 transition-shadow",
+                      inline && "hover:shadow-md"
+                    )}
+                  >
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div>
                         <p className="text-sm font-semibold">{goal.title}</p>
@@ -265,6 +267,7 @@ export function GoalsManager() {
                           onSave={handleEditGoal}
                           assetOptions={assetOptions}
                           budgetOptions={budgetOptions}
+                          mode={inline ? "sheet" : "dialog"}
                           trigger={
                             <Button variant="outline" size="sm">
                               Editar
@@ -308,7 +311,10 @@ export function GoalsManager() {
             </div>
           </div>
 
-          <div className="space-y-4 rounded-2xl border border-border bg-muted/30 p-4">
+          <div className={cn(
+            "space-y-4 rounded-2xl border border-border p-4",
+            inline ? "bg-muted/20 ring-1 ring-border/50" : "bg-muted/30"
+          )}>
             <div>
               <h3 className="text-sm font-semibold">Nuevo objetivo</h3>
               <p className="text-xs text-muted-foreground">
@@ -322,6 +328,7 @@ export function GoalsManager() {
               description="Elige tipo por activos o por presupuesto, define la meta y la fecha."
               assetOptions={assetOptions}
               budgetOptions={budgetOptions}
+              mode={inline ? "sheet" : "dialog"}
               trigger={
                 <Button className="w-full min-h-[44px]">
                   Añadir objetivo
@@ -329,6 +336,29 @@ export function GoalsManager() {
               }
             />
           </div>
+        </div>
+  );
+
+  if (inline) {
+    return <div className="min-w-0">{content}</div>;
+  }
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="w-full">
+          Gestionar Objetivos
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Objetivos financieros</DialogTitle>
+          <DialogDescription>
+            Define metas por activos o por presupuesto, visualiza el progreso y recibe alertas al cumplir hitos.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto">
+          {content}
         </div>
       </DialogContent>
     </Dialog>

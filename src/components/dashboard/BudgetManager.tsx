@@ -78,6 +78,8 @@ type BudgetManagerProps = {
   triggerVariant?: ButtonProps["variant"];
   triggerSize?: ButtonProps["size"];
   triggerClassName?: string;
+  /** Si true, renderiza el contenido directamente en la página sin Dialog */
+  inline?: boolean;
 };
 
 export function BudgetManager({
@@ -85,6 +87,7 @@ export function BudgetManager({
   triggerVariant,
   triggerSize,
   triggerClassName,
+  inline = false,
 }: BudgetManagerProps) {
   const [budgets, setBudgets] = useState<BudgetItem[]>(initialBudgets);
   const [categoriesData, setCategoriesData] = useState<Category[]>([]);
@@ -379,43 +382,27 @@ export function BudgetManager({
     }
   };
 
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button
-          variant={triggerVariant ?? (hasLabel ? "outline" : "ghost")}
-          size={triggerSize ?? (hasLabel ? "sm" : "icon")}
-          className={cn(hasLabel ? "w-full" : "h-8 w-8 p-0", triggerClassName)}
-          aria-label={hasLabel ? undefined : "Gestionar presupuestos"}
-        >
-          {hasLabel ? triggerLabel : <Pencil className="h-4 w-4" />}
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
-        <div className="shrink-0 sticky top-0 z-10 bg-background border-b pr-12 pt-4 pb-3 pl-4">
-          <DialogHeader>
-            <DialogTitle>Presupuestos mensuales</DialogTitle>
-            <DialogDescription>
-              Define límites por categoría y visualiza tu consumo actual. Cada fila indica si es Fijo o Variable.
-            </DialogDescription>
-          </DialogHeader>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4">
-        <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
+  const content = (
+    <div className={cn("grid gap-6 md:grid-cols-[1.2fr_0.8fr]", inline && "w-full")}>
           <div className="space-y-4">
-            <div className="rounded-2xl border border-border p-4">
-              <p className="text-xs text-muted-foreground">Presupuesto total</p>
-              <div className="flex items-center justify-between">
-                <p className="text-2xl font-semibold">€ {Number(totalLimit).toFixed(2)}</p>
+            <div className={cn(
+              "rounded-2xl border border-border p-4",
+              inline && "bg-gradient-to-br from-muted/50 to-muted/20"
+            )}>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Presupuesto total</p>
+              <div className="flex items-center justify-between mt-2">
+                <p className={cn("font-semibold tabular-nums", inline ? "text-3xl" : "text-2xl")}>€ {Number(totalLimit).toFixed(2)}</p>
                 <p className="text-sm text-muted-foreground">Gastado € {Number(totalSpent).toFixed(2)}</p>
               </div>
-              <Progress value={Math.min((totalSpent / (totalLimit || 1)) * 100, 100)} />
+              <Progress value={Math.min((totalSpent / (totalLimit || 1)) * 100, 100)} className="mt-2 h-2" />
             </div>
 
             <div className="space-y-3">
               {displayBudgets.length > 0 ? (
-                <div className="max-h-[18rem] md:max-h-[28rem] overflow-y-auto space-y-3 pr-1">
+                <div className={cn(
+                  "overflow-y-auto space-y-3 pr-1",
+                  !inline && "max-h-[18rem] md:max-h-[28rem]"
+                )}>
                 {displayBudgets.map((budget) => {
                   const limitNum = budget.limit || 0;
                   const percent = limitNum > 0 ? Math.min((budget.spent / limitNum) * 100, 130) : 0;
@@ -557,7 +544,10 @@ export function BudgetManager({
             </div>
           </div>
 
-          <div className="space-y-4 rounded-2xl border border-border bg-muted/30 p-4">
+          <div className={cn(
+            "space-y-4 rounded-2xl border border-border p-4",
+            inline ? "bg-muted/20 ring-1 ring-border/50" : "bg-muted/30"
+          )}>
             <div>
               <h3 className="text-sm font-semibold">Nuevo presupuesto</h3>
               <p className="text-xs text-muted-foreground">
@@ -672,6 +662,35 @@ export function BudgetManager({
             )}
           </div>
         </div>
+  );
+
+  if (inline) {
+    return <div className="min-w-0">{content}</div>;
+  }
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button
+          variant={triggerVariant ?? (hasLabel ? "outline" : "ghost")}
+          size={triggerSize ?? (hasLabel ? "sm" : "icon")}
+          className={cn(hasLabel ? "w-full" : "h-8 w-8 p-0", triggerClassName)}
+          aria-label={hasLabel ? undefined : "Gestionar presupuestos"}
+        >
+          {hasLabel ? triggerLabel : <Pencil className="h-4 w-4" />}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
+        <div className="shrink-0 sticky top-0 z-10 bg-background border-b pr-12 pt-4 pb-3 pl-4">
+          <DialogHeader>
+            <DialogTitle>Presupuestos mensuales</DialogTitle>
+            <DialogDescription>
+              Define límites por categoría y visualiza tu consumo actual. Cada fila indica si es Fijo o Variable.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          {content}
         </div>
       </DialogContent>
     </Dialog>

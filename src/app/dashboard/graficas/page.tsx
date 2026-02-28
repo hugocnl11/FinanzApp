@@ -61,15 +61,26 @@ const WIDGET_LABELS: Record<(typeof WIDGET_IDS)[number], string> = {
 
 const CHART_WIDGETS_KEY = "finanzapp:chartWidgets";
 
-/** Altura fija de todas las gráficas para que sean compactas y del mismo tamaño */
+/** Altura fija de la mayoría de gráficas */
 const CHART_HEIGHT_PX = 200;
-/** Altura fija de cada Card para que todas tengan el mismo tamaño */
+/** Altura fija de cada Card estándar */
 const CARD_HEIGHT_PX = 320;
-/** Márgenes unificados para todos los SVG (visx) */
-const CHART_MARGIN = { top: 16, right: 16, bottom: 32, left: 36 };
-/** Tamaño de fuente para ejes y etiquetas en gráficas */
-const CHART_FONT_SIZE_AXIS = 10;
-const CHART_FONT_SIZE_LABEL = 10;
+/** Altura de card para Actividad por día (calendario más grande) */
+const CARD_HEIGHT_ACTIVIDAD_PX = 400;
+/** Altura de card para Presupuesto vs Gasto (más categorías) */
+const CARD_HEIGHT_PRESUPUESTO_PX = 360;
+/** Márgenes con espacio para eje Y (left mayor para etiquetas) */
+const CHART_MARGIN = { top: 16, right: 16, bottom: 32, left: 52 };
+/** Tamaño de fuente para ejes y etiquetas */
+const CHART_FONT_SIZE_AXIS = 11;
+const CHART_FONT_SIZE_LABEL = 11;
+
+/** Formatea valor para eje Y de moneda (k, M) */
+function formatAxisCurrency(v: number): string {
+  if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(1) + "M";
+  if (Math.abs(v) >= 1e3) return (v / 1e3).toFixed(0) + "k";
+  return String(Math.round(v));
+}
 
 function defaultChartWidgets(): ChartWidgetsPref {
   return { visible: [...WIDGET_IDS], order: [...WIDGET_IDS] };
@@ -448,7 +459,7 @@ export default function GraficasPage() {
 
       <section
         ref={chartsRef}
-        className="grid min-w-0 gap-3 md:grid-cols-2"
+        className="grid min-w-0 gap-3 md:grid-cols-2 overflow-x-hidden"
         style={{ display: "grid" }}
         aria-labelledby="graficas-titulo"
         role="region"
@@ -497,10 +508,20 @@ export default function GraficasPage() {
                   });
 
                   const zeroY = yScale(0);
+                  const yTicks = yScale.ticks(5);
 
                   return (
                     <svg width={width} height={height}>
                       <g transform={`translate(${margin.left},${margin.top})`}>
+                        {/* Eje Y - ticks */}
+                        {yTicks.map((tick) => (
+                          <g key={tick}>
+                            <line x1={0} x2={innerWidth} y1={yScale(tick)} y2={yScale(tick)} stroke="currentColor" strokeDasharray="2 2" className="text-muted-foreground/20" />
+                            <text x={-8} y={yScale(tick)} textAnchor="end" dominantBaseline="middle" fontSize={CHART_FONT_SIZE_AXIS} fill="currentColor" className="text-muted-foreground">
+                              {formatAxisCurrency(tick)}
+                            </text>
+                          </g>
+                        ))}
                         {/* Línea del cero */}
                         <line
                           x1={0}
@@ -621,10 +642,20 @@ export default function GraficasPage() {
                     y: (d) => yScale(d.valor),
                     curve: curveMonotoneX,
                   });
+                  const yTicks = yScale.ticks(5);
 
                   return (
                     <svg width={width} height={height}>
                       <g transform={`translate(${margin.left},${margin.top})`}>
+                        {/* Eje Y - ticks */}
+                        {yTicks.map((tick) => (
+                          <g key={tick}>
+                            <line x1={0} x2={innerWidth} y1={yScale(tick)} y2={yScale(tick)} stroke="currentColor" strokeDasharray="2 2" className="text-muted-foreground/20" />
+                            <text x={-8} y={yScale(tick)} textAnchor="end" dominantBaseline="middle" fontSize={CHART_FONT_SIZE_AXIS} fill="currentColor" className="text-muted-foreground">
+                              {tick}%
+                            </text>
+                          </g>
+                        ))}
                         {/* Línea meta 20% */}
                         <line
                           x1={0}
@@ -716,7 +747,7 @@ export default function GraficasPage() {
             order: visibleOrder.includes("presupuestoVsGasto") ? visibleOrder.indexOf("presupuestoVsGasto") : 999,
           }}
         >
-        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PRESUPUESTO_PX }}>
           <div className="space-y-2">
             <div>
               <h3 className="text-sm font-medium text-muted-foreground">Presupuesto vs Gasto</h3>
@@ -727,10 +758,11 @@ export default function GraficasPage() {
                 Sin datos disponibles
               </div>
             ) : (
-            <div style={{ height: CHART_HEIGHT_PX }}>
-              <ParentSize>
+            <div className="overflow-y-auto flex-1 min-h-0" style={{ maxHeight: 260 }}>
+              <div style={{ height: 64 + presupuestoVsGasto.length * 52, minHeight: 200 }}>
+                <ParentSize>
                 {({ width, height }) => {
-                  const margin = CHART_MARGIN;
+                  const margin = { ...CHART_MARGIN, left: 120 };
                   const innerWidth = width - margin.left - margin.right;
                   const innerHeight = height - margin.top - margin.bottom;
                   const maxValue = Math.max(...presupuestoVsGasto.flatMap((d) => [d.presupuesto, d.gasto]));
@@ -738,7 +770,7 @@ export default function GraficasPage() {
                   const yScale = scaleBand({
                     domain: presupuestoVsGasto.map((d) => d.name),
                     range: [0, innerHeight],
-                    padding: 0.25,
+                    padding: 0.3,
                   });
 
                   const xScale = scaleLinear({
@@ -766,8 +798,8 @@ export default function GraficasPage() {
                       </defs>
                       <g transform={`translate(${margin.left},${margin.top})`}>
                         {presupuestoVsGasto.map((d, i) => {
-                          const barHeight = Math.max(8, yScale.bandwidth() / 3);
-                          const gap = 6;
+                          const barHeight = Math.max(20, yScale.bandwidth() / 2.5);
+                          const gap = 8;
                           const yBase = (yScale(d.name) || 0) + (yScale.bandwidth() - (barHeight * 2 + gap)) / 2;
                           const yBudget = yBase;
                           const ySpent = yBase + barHeight + gap;
@@ -842,10 +874,10 @@ export default function GraficasPage() {
                               >
                                 €{formatNumber(d.gasto)}
                               </text>
-                              {/* Etiqueta categoría */}
-                              <foreignObject x={-96} y={labelY - 12} width={88} height={24} style={{ pointerEvents: "none" }}>
-                                <div className="flex h-6 items-center justify-center rounded-md bg-muted/60 px-2 text-[11px] font-medium text-foreground/90 truncate">
-                                {d.name}
+                              {/* Etiqueta categoría dentro del margen izquierdo */}
+                              <foreignObject x={-116} y={labelY - 12} width={110} height={24} style={{ pointerEvents: "none", overflow: "visible" }}>
+                                <div xmlns="http://www.w3.org/1999/xhtml" className="flex h-6 items-center justify-end rounded-md bg-muted/60 px-2 text-[11px] font-medium text-foreground/90 truncate pr-1">
+                                  {d.name}
                                 </div>
                               </foreignObject>
                             </g>
@@ -856,6 +888,7 @@ export default function GraficasPage() {
                   );
                 }}
               </ParentSize>
+              </div>
             </div>
             )}
             <div className="flex gap-4 justify-center text-xs">
@@ -918,10 +951,20 @@ export default function GraficasPage() {
                     y: (d) => yScale(d.valor),
                     curve: curveMonotoneX,
                   });
+                  const yTicks = yScale.ticks(5);
 
                   return (
                     <svg width={width} height={height}>
                       <g transform={`translate(${margin.left},${margin.top})`}>
+                        {/* Eje Y - ticks */}
+                        {yTicks.map((tick) => (
+                          <g key={tick}>
+                            <line x1={0} x2={innerWidth} y1={yScale(tick)} y2={yScale(tick)} stroke="currentColor" strokeDasharray="2 2" className="text-muted-foreground/20" />
+                            <text x={-8} y={yScale(tick)} textAnchor="end" dominantBaseline="middle" fontSize={CHART_FONT_SIZE_AXIS} fill="currentColor" className="text-muted-foreground">
+                              {formatAxisCurrency(tick)}
+                            </text>
+                          </g>
+                        ))}
                         {/* Área bajo la línea */}
                         <motion.path
                           d={linePath?.props.d || ""}
@@ -1024,9 +1067,18 @@ export default function GraficasPage() {
                       range: [innerHeight, 0],
                       nice: true,
                     });
+                    const yTicks = yScale.ticks(5);
                     return (
                       <svg width={width} height={height} className="text-foreground">
                         <g transform={`translate(${margin.left},${margin.top})`}>
+                          {yTicks.map((tick) => (
+                            <g key={tick}>
+                              <line x1={0} x2={innerWidth} y1={yScale(tick)} y2={yScale(tick)} stroke="hsl(var(--border))" strokeWidth={1} strokeDasharray="2 2" opacity={0.5} />
+                              <text x={-6} y={yScale(tick)} textAnchor="end" dominantBaseline="middle" fill="currentColor" className="text-muted-foreground" fontSize={CHART_FONT_SIZE_AXIS}>
+                                {tick}%
+                              </text>
+                            </g>
+                          ))}
                           {series.map((s) => (
                             <g key={s.name}>
                               <LinePath
@@ -1035,7 +1087,7 @@ export default function GraficasPage() {
                                 y={(d) => yScale(d.rentabilidad)}
                                 curve={curveMonotoneX}
                                 stroke={s.color}
-                                strokeWidth={2}
+                                strokeWidth={2.5}
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                               />
@@ -1067,20 +1119,15 @@ export default function GraficasPage() {
                             Día del mes
                           </text>
                         </g>
-                        <g transform={`translate(${margin.left},${margin.top})`} className="text-muted-foreground" fontSize={CHART_FONT_SIZE_AXIS}>
-                          <text x={-8} y={innerHeight / 2} textAnchor="end" dominantBaseline="middle" fill="currentColor">
-                            %
-                          </text>
-                        </g>
                       </svg>
                     );
                   }}
                 </ParentSize>
                 {rentabilidadPorDiaPorActivo.series.length > 0 && (
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 max-h-[72px] overflow-y-auto">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 mt-2 max-h-[84px] overflow-y-auto overflow-x-hidden text-xs">
                     {rentabilidadPorDiaPorActivo.series.map((s) => (
-                      <span key={s.name} className="flex items-center gap-1.5 text-xs">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                      <span key={s.name} className="flex items-center gap-1.5 min-w-0">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
                         <span className="truncate">{s.name}</span>
                       </span>
                     ))}
@@ -1101,7 +1148,7 @@ export default function GraficasPage() {
             order: visibleOrder.includes("actividadPorDia") ? visibleOrder.indexOf("actividadPorDia") : 999,
           }}
         >
-        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_ACTIVIDAD_PX }}>
           <div className="space-y-2">
             <div>
               <h3 className="text-sm font-medium text-muted-foreground">Actividad por día</h3>
@@ -1109,15 +1156,15 @@ export default function GraficasPage() {
                 Gastado, ingresos e inversiones en el mes actual
               </p>
             </div>
-            <div className="overflow-y-auto" style={{ height: CHART_HEIGHT_PX }}>
-            <div className="grid grid-cols-7 gap-1 text-center">
+            <div className="overflow-y-auto overflow-x-hidden flex-1 min-h-0">
+            <div className="grid grid-cols-7 gap-2 text-center min-w-[200px]">
               {WEEKDAYS.map((wd) => (
-                <div key={wd} className="text-[10px] font-medium text-muted-foreground py-1">
+                <div key={wd} className="text-[11px] font-medium text-muted-foreground py-1.5">
                   {wd}
                 </div>
               ))}
               {Array.from({ length: (actividadPorDia.firstDay.getDay() + 6) % 7 }, (_, i) => (
-                <div key={`empty-${i}`} className="aspect-square" />
+                <div key={`empty-${i}`} className="aspect-square min-w-[24px] min-h-[24px]" />
               ))}
               {Array.from({ length: actividadPorDia.daysInMonth }, (_, i) => {
                 const day = i + 1;
@@ -1126,19 +1173,22 @@ export default function GraficasPage() {
                 return (
                   <div
                     key={day}
-                    className="aspect-square rounded-md border border-border/60 flex flex-col items-center justify-center text-[11px] bg-muted/30 hover:bg-muted/50 transition-colors relative group"
+                    className="aspect-square min-w-[24px] min-h-[24px] rounded-md border border-border/60 flex flex-col items-center justify-center text-[12px] bg-muted/30 hover:bg-muted/50 transition-colors relative group cursor-default"
                     title={`Día ${day}: Gastado € ${formatNumber(entry.gastado)}, Ingresos € ${formatNumber(entry.ingresado)}, Inversiones € ${formatNumber(entry.invertido)}`}
                   >
-                    <span className="font-medium text-foreground">{day}</span>
+                    <span className="font-medium text-foreground leading-tight">{day}</span>
                     {hasActivity && (
                       <div className="flex gap-0.5 mt-0.5">
-                        {entry.gastado > 0 && <span className="w-1.5 h-1.5 rounded-full bg-red-500" title="Gastado" />}
-                        {entry.ingresado > 0 && <span className="w-1.5 h-1.5 rounded-full bg-green-500" title="Ingresos" />}
-                        {entry.invertido > 0 && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" title="Inversiones" />}
+                        {entry.gastado > 0 && <span className="w-2 h-2 rounded-full bg-red-500" title="Gastado" />}
+                        {entry.ingresado > 0 && <span className="w-2 h-2 rounded-full bg-green-500" title="Ingresos" />}
+                        {entry.invertido > 0 && <span className="w-2 h-2 rounded-full bg-blue-500" title="Inversiones" />}
                       </div>
                     )}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded bg-popover border border-border shadow-md text-[10px] opacity-0 group-hover:opacity-100 pointer-events-none z-10 whitespace-nowrap transition-opacity">
-                      Gastado: € {formatNumber(entry.gastado)} | Ingresos: € {formatNumber(entry.ingresado)} | Inversiones: € {formatNumber(entry.invertido)}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1.5 rounded-md bg-popover border border-border shadow-lg text-[11px] opacity-0 group-hover:opacity-100 pointer-events-none z-20 whitespace-nowrap transition-opacity">
+                      <strong>Día {day}</strong><br />
+                      Gastado: € {formatNumber(entry.gastado)}<br />
+                      Ingresos: € {formatNumber(entry.ingresado)}<br />
+                      Inversiones: € {formatNumber(entry.invertido)}
                     </div>
                   </div>
                 );
@@ -1179,7 +1229,7 @@ export default function GraficasPage() {
                   const xScale = scaleBand({
                     domain: months,
                     range: [0, innerWidth],
-                    padding: 0.2,
+                    padding: 0.25,
                   });
                   const yScale = scaleLinear({
                     domain: [0, maxVal],
@@ -1187,9 +1237,19 @@ export default function GraficasPage() {
                     nice: true,
                   });
                   const subBand = xScale.bandwidth() / 3;
+                  const yTicks = yScale.ticks(5);
                   return (
                     <svg width={width} height={height}>
                       <g transform={`translate(${margin.left},${margin.top})`}>
+                        {/* Eje Y */}
+                        {yTicks.map((tick) => (
+                          <g key={tick}>
+                            <line x1={0} x2={innerWidth} y1={yScale(tick)} y2={yScale(tick)} stroke="currentColor" strokeDasharray="2 2" className="text-muted-foreground/20" />
+                            <text x={-8} y={yScale(tick)} textAnchor="end" dominantBaseline="middle" fontSize={CHART_FONT_SIZE_AXIS} fill="currentColor" className="text-muted-foreground">
+                              {formatAxisCurrency(tick)}
+                            </text>
+                          </g>
+                        ))}
                         {comparativaAnualData.thisYear.map((d, i) => (
                           <g key={`ty-${i}`}>
                             <motion.rect
@@ -1252,10 +1312,10 @@ export default function GraficasPage() {
                 }}
               </ParentSize>
             </div>
-            <div className="flex gap-4 justify-center text-xs">
+            <div className="flex flex-wrap gap-3 justify-center text-xs">
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-500" /> Ingresos {new Date().getFullYear()}</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-500" /> Gastos {new Date().getFullYear()}</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-violet-500" /> Saldo {new Date().getFullYear() - 1}</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-violet-500" /> Saldo (ingresos − gastos) {new Date().getFullYear() - 1}</span>
             </div>
           </div>
         </Card>
@@ -1289,12 +1349,22 @@ export default function GraficasPage() {
                   const xScale = scaleBand({
                     domain: proyeccionesData.map((d) => d.mes),
                     range: [0, innerWidth],
-                    padding: 0.3,
+                    padding: 0.35,
                   });
                   const yScale = scaleLinear({ domain: [0, maxVal], range: [innerHeight, 0], nice: true });
+                  const yTicks = yScale.ticks(5);
                   return (
                     <svg width={width} height={height}>
                       <g transform={`translate(${margin.left},${margin.top})`}>
+                        {/* Eje Y */}
+                        {yTicks.map((tick) => (
+                          <g key={tick}>
+                            <line x1={0} x2={innerWidth} y1={yScale(tick)} y2={yScale(tick)} stroke="currentColor" strokeDasharray="2 2" className="text-muted-foreground/20" />
+                            <text x={-8} y={yScale(tick)} textAnchor="end" dominantBaseline="middle" fontSize={CHART_FONT_SIZE_AXIS} fill="currentColor" className="text-muted-foreground">
+                              {formatAxisCurrency(tick)}
+                            </text>
+                          </g>
+                        ))}
                         {proyeccionesData.map((d, i) => (
                           <g key={i}>
                             <motion.rect
@@ -1375,9 +1445,9 @@ export default function GraficasPage() {
                     nameKey="name"
                     cx="50%"
                     cy="50%"
-                        innerRadius={56}
-                        outerRadius={90}
-                        paddingAngle={3}
+                        innerRadius="60%"
+                        outerRadius="88%"
+                        paddingAngle={2}
                         cornerRadius={8}
                         stroke="hsl(var(--card))"
                         strokeWidth={2}
@@ -1394,19 +1464,20 @@ export default function GraficasPage() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-                <div className="grid grid-cols-2 gap-2 text-xs max-h-[72px] overflow-y-auto">
-                  {ingresosPorCategoria.map((entry, index) => {
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1.5 text-xs max-h-[88px] overflow-y-auto overflow-x-hidden">
+                  {[...ingresosPorCategoria].sort((a, b) => b.value - a.value).map((entry) => {
+                    const index = ingresosPorCategoria.indexOf(entry);
                     const pct = totalIngresos ? (entry.value / totalIngresos) * 100 : 0;
                     return (
                       <div
                         key={entry.name}
-                        className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-muted/20 px-2 py-1"
+                        className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-muted/20 px-2 py-1 min-w-0"
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
                           <span className="truncate text-[11px]">{entry.name}</span>
                         </div>
-                        <span className="tabular-nums text-muted-foreground text-[11px]">{pct.toFixed(0)}%</span>
+                        <span className="tabular-nums text-muted-foreground text-[11px] shrink-0">{pct.toFixed(0)}%</span>
                       </div>
                     );
                   })}
@@ -1451,9 +1522,9 @@ export default function GraficasPage() {
                     nameKey="name"
                     cx="50%"
                     cy="50%"
-                        innerRadius={56}
-                        outerRadius={90}
-                        paddingAngle={3}
+                        innerRadius="60%"
+                        outerRadius="88%"
+                        paddingAngle={2}
                         cornerRadius={8}
                         stroke="hsl(var(--card))"
                         strokeWidth={2}
@@ -1470,19 +1541,20 @@ export default function GraficasPage() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-                <div className="grid grid-cols-2 gap-2 text-xs max-h-[72px] overflow-y-auto">
-                  {gastosPorCategoria.map((entry, index) => {
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1.5 text-xs max-h-[88px] overflow-y-auto overflow-x-hidden">
+                  {[...gastosPorCategoria].sort((a, b) => b.value - a.value).map((entry) => {
+                    const index = gastosPorCategoria.indexOf(entry);
                     const pct = totalGastos ? (entry.value / totalGastos) * 100 : 0;
                     return (
                       <div
                         key={entry.name}
-                        className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-muted/20 px-2 py-1"
+                        className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-muted/20 px-2 py-1 min-w-0"
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
                           <span className="truncate text-[11px]">{entry.name}</span>
                         </div>
-                        <span className="tabular-nums text-muted-foreground text-[11px]">{pct.toFixed(0)}%</span>
+                        <span className="tabular-nums text-muted-foreground text-[11px] shrink-0">{pct.toFixed(0)}%</span>
                       </div>
                     );
                   })}

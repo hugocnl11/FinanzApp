@@ -105,17 +105,22 @@ export const GoalCard = memo(function GoalCard() {
   const [assetOptions, setAssetOptions] = useState<AssetOption[]>([]);
 
   useEffect(() => {
+    const fromContext = data.goal ?? null;
+    if (fromContext) {
+      setCurrentGoal({ ...fromContext });
+      return;
+    }
     const primaryId =
       typeof window !== "undefined"
         ? window.localStorage.getItem("finanzapp:primary-goal")
         : null;
     const selected =
-      data.goals.find((goal) => goal.isPrimary) ??
-      data.goals.find((goal) => goal.id === primaryId) ??
-      data.goals[0] ??
+      data.goals?.find((goal) => goal.isPrimary) ??
+      data.goals?.find((goal) => goal.id === primaryId) ??
+      data.goals?.[0] ??
       null;
     setCurrentGoal(selected ? { ...selected } : null);
-  }, [data.goals]);
+  }, [data.goal, data.goals]);
 
   const refetchAssetOptions = useCallback(() => {
     const today = new Date().toISOString().slice(0, 10);

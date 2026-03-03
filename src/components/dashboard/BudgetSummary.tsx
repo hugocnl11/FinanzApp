@@ -12,7 +12,7 @@ import { fetchBudgets, createBudget, updateBudget } from "@/lib/api/budgets";
 import { fetchCategories } from "@/lib/api/categories";
 import { getUserId } from "@/lib/auth";
 import { fetchMovements } from "@/lib/api/movements";
-import type { Movement } from "@/lib/dashboard/types";
+import type { Movement, Category } from "@/lib/dashboard/types";
 import { formatNumber } from "@/lib/format";
 
 type BudgetItem = {
@@ -27,8 +27,15 @@ type BudgetItem = {
 type CategoryItem = {
   id: string;
   name: string;
+  type: Category["type"];
   icon: CategoryIconKey;
   color: string;
+};
+
+const MOVEMENT_TIPO_BY_CATEGORY_TYPE: Record<"expense" | "investment" | "savings", Movement["tipo"]> = {
+  expense: "Gasto",
+  investment: "Inversión",
+  savings: "Ahorro",
 };
 
 const fallbackBudgets: BudgetItem[] = [];
@@ -163,6 +170,16 @@ export function BudgetSummary({
     return new Map(categories.map((cat) => [cat.name, cat]));
   }, [categories]);
 
+  const categoryTypeToMovementTipo = useMemo(() => {
+    const map = new Map<string, Movement["tipo"]>();
+    categories.forEach((cat) => {
+      if (cat.type === "expense" || cat.type === "investment" || cat.type === "savings") {
+        map.set(cat.name, MOVEMENT_TIPO_BY_CATEGORY_TYPE[cat.type]);
+      }
+    });
+    return map;
+  }, [categories]);
+
   const filterByType = (type: BudgetType, source = budgets) => {
     const periodKey = type === "Fijo" ? "fixed" : "variable";
     return source.filter((budget) => budget.period === periodKey);
@@ -175,16 +192,17 @@ export function BudgetSummary({
     const currentYear = now.getFullYear();
     const budgetedCategories = new Set(budgets.map((budget) => budget.category));
 
-    const gastoMap = new Map<string, number>();
+    const spentMap = new Map<string, number>();
     movements.forEach((movement) => {
-      if (movement.tipo !== "Gasto") return;
+      const expectedTipo = categoryTypeToMovementTipo.get(movement.categoria);
+      if (expectedTipo == null || movement.tipo !== expectedTipo) return;
       const date = new Date(movement.fecha);
       if (date.getMonth() !== currentMonth || date.getFullYear() !== currentYear) return;
-      const current = gastoMap.get(movement.categoria) ?? 0;
-      gastoMap.set(movement.categoria, current + Math.abs(movement.cantidad));
+      const current = spentMap.get(movement.categoria) ?? 0;
+      spentMap.set(movement.categoria, current + Math.abs(movement.cantidad));
     });
 
-    return Array.from(gastoMap.entries())
+    return Array.from(spentMap.entries())
       .filter(([category]) => !budgetedCategories.has(category))
       .map(([category, spent]) => ({
         id: `implicit-${category}`,
@@ -194,7 +212,7 @@ export function BudgetSummary({
         period: "variable",
         isImplicit: true,
       }));
-  }, [movements, budgets]);
+  }, [movements, budgets, categoryTypeToMovementTipo]);
 
   const spentByCategory = useMemo(() => {
     const now = new Date();
@@ -202,14 +220,15 @@ export function BudgetSummary({
     const currentYear = now.getFullYear();
     const map = new Map<string, number>();
     movements.forEach((movement) => {
-      if (movement.tipo !== "Gasto") return;
+      const expectedTipo = categoryTypeToMovementTipo.get(movement.categoria);
+      if (expectedTipo == null || movement.tipo !== expectedTipo) return;
       const date = new Date(movement.fecha);
       if (date.getMonth() !== currentMonth || date.getFullYear() !== currentYear) return;
       const current = map.get(movement.categoria) ?? 0;
       map.set(movement.categoria, current + Math.abs(movement.cantidad));
     });
     return map;
-  }, [movements]);
+  }, [movements, categoryTypeToMovementTipo]);
 
   const budgetsWithSpent = useMemo(() => {
     return budgets.map((budget) => ({

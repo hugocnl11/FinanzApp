@@ -10,6 +10,9 @@ export default function PresupuestosPage() {
         <p className="text-sm text-muted-foreground mt-1">
           Define límites por categoría y controla tus gastos
         </p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Incluye gastos, inversiones y ahorros según el tipo de cada categoría. Usa la flecha para ver el desglose de movimientos.
+        </p>
       </div>
 
       <BudgetManager inline />

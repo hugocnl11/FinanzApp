@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Pencil, ChevronDown, Trash2 } from "lucide-react";
+import { Pencil, ChevronDown, ChevronRight, Trash2, ArrowDownCircle, TrendingUp, PiggyBank } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getUserId } from "@/lib/auth";
@@ -22,7 +22,7 @@ import { fetchBudgets, createBudget, updateBudget, deleteBudget } from "@/lib/ap
 import { fetchCategories } from "@/lib/api/categories";
 import { fetchMovements } from "@/lib/api/movements";
 import type { Category } from "@/lib/dashboard/types";
-import type { Movement } from "@/lib/dashboard/types";
+import type { Movement, MovementType } from "@/lib/dashboard/types";
 import { CATEGORY_ICON_MAP, type CategoryIconKey } from "@/lib/category-icons";
 
 // Mapeo de iconos y colores por defecto para cada categoría
@@ -106,6 +106,7 @@ export function BudgetManager({
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
   const [editingLimit, setEditingLimit] = useState("");
   const [editingPeriod, setEditingPeriod] = useState<BudgetPeriod | null>(null);
+  const [expandedBudgetId, setExpandedBudgetId] = useState<string | null>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const hasLabel = Boolean(triggerLabel);
   // Presupuestos: gasto, inversión o ahorro (categorías con límite mensual)
@@ -195,6 +196,58 @@ export function BudgetManager({
     () => displayBudgets.reduce((acc, item) => acc + item.spent, 0),
     [displayBudgets]
   );
+
+  // Movimientos del mes actual por presupuesto (para el desglose desplegable)
+  const movementsByBudgetId = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const categoryTypes = new Map(
+      categoriesData
+        .filter((c) => c.type === "expense" || c.type === "investment" || c.type === "savings")
+        .map((c) => [c.name, c.type as "expense" | "investment" | "savings"])
+    );
+    const map = new Map<string, Movement[]>();
+    displayBudgets.forEach((budget) => {
+      const categoryType = categoryTypes.get(budget.category);
+      if (!categoryType) {
+        map.set(budget.id, []);
+        return;
+      }
+      const expectedTipo = movementTypeByCategoryType.get(categoryType);
+      if (!expectedTipo) {
+        map.set(budget.id, []);
+        return;
+      }
+      const list = movements
+        .filter(
+          (m) =>
+            m.categoria === budget.category &&
+            m.tipo === expectedTipo &&
+            new Date(m.fecha).getMonth() === currentMonth &&
+            new Date(m.fecha).getFullYear() === currentYear
+        )
+        .sort((a, b) => b.fecha.localeCompare(a.fecha));
+      map.set(budget.id, list);
+    });
+    return map;
+  }, [displayBudgets, movements, categoriesData, movementTypeByCategoryType]);
+
+  const getTipoIcon = (tipo: MovementType) => {
+    switch (tipo) {
+      case "Gasto":
+        return <ArrowDownCircle className="h-4 w-4 text-red-500 shrink-0" />;
+      case "Inversión":
+        return <TrendingUp className="h-4 w-4 text-blue-500 shrink-0" />;
+      case "Ahorro":
+        return <PiggyBank className="h-4 w-4 text-emerald-500 shrink-0" />;
+      default:
+        return null;
+    }
+  };
+
+  const formatMovementDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
 
   useEffect(() => {
     const load = async () => {
@@ -421,6 +474,8 @@ export function BudgetManager({
                   const Icon = meta ? CATEGORY_ICON_MAP[meta.icon] : null;
                   const categoryColor = meta?.color || "#64748b";
                   const isEditing = editingBudgetId === budget.id;
+                  const isExpanded = expandedBudgetId === budget.id;
+                  const budgetMovements = movementsByBudgetId.get(budget.id) ?? [];
                   return (
                     <div 
                       key={budget.id} 
@@ -435,6 +490,19 @@ export function BudgetManager({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 shrink-0"
+                            onClick={() => setExpandedBudgetId((id) => (id === budget.id ? null : budget.id))}
+                            aria-label={isExpanded ? "Cerrar desglose" : "Ver desglose de movimientos"}
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </Button>
                           {Icon && (
                             <span
                               className="flex h-7 w-7 items-center justify-center rounded-md shrink-0"
@@ -536,6 +604,37 @@ export function BudgetManager({
                             <p className="mt-2 text-xs font-medium text-rose-500">
                               Has superado el límite en € {(budget.spent - (budget.limit || 0)).toFixed(2)}
                             </p>
+                          )}
+                          {isExpanded && (
+                            <div className="mt-3 pt-3 border-t border-border/60">
+                              <p className="text-xs font-medium text-muted-foreground mb-2">Desglose del mes</p>
+                              {budgetMovements.length === 0 ? (
+                                <p className="text-xs text-muted-foreground">No hay movimientos este mes en esta categoría.</p>
+                              ) : (
+                                <ul className="space-y-1.5 max-h-48 overflow-y-auto">
+                                  {budgetMovements.map((m) => (
+                                    <li
+                                      key={m.id ?? `${m.fecha}-${m.concepto}-${m.cantidad}`}
+                                      className="flex items-center gap-2 text-sm py-1 px-2 rounded-md bg-background/60"
+                                    >
+                                      {getTipoIcon(m.tipo)}
+                                      <span className="min-w-0 truncate flex-1" title={m.concepto}>
+                                        {m.concepto}
+                                      </span>
+                                      <span className="text-muted-foreground shrink-0">{formatMovementDate(m.fecha)}</span>
+                                      <span className="font-medium tabular-nums shrink-0">
+                                        € {Math.abs(m.cantidad).toFixed(2)}
+                                      </span>
+                                      {m.metodoPago && (
+                                        <span className="text-xs text-muted-foreground shrink-0 truncate max-w-16" title={m.metodoPago}>
+                                          {m.metodoPago}
+                                        </span>
+                                      )}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
                           )}
                         </>
                       )}

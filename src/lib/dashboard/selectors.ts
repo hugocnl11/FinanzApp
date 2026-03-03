@@ -1,5 +1,11 @@
 import type { MoneyByMonth, MoneyByDay } from "./types";
-import type { Budget, CategoryAmount, Goal, Movement } from "./types";
+import type { Budget, Category, CategoryAmount, Goal, Movement } from "./types";
+
+const MOVEMENT_TIPO_BY_CATEGORY_TYPE: Record<"expense" | "investment" | "savings", Movement["tipo"]> = {
+  expense: "Gasto",
+  investment: "Inversión",
+  savings: "Ahorro",
+};
 
 export function sum(values: number[]) {
   return values.reduce((acc, v) => acc + v, 0);
@@ -80,10 +86,35 @@ export function progresoObjetivo(goal: Goal) {
   return Math.min((goal.saved / goal.target) * 100, 100);
 }
 
-export function presupuestoUsadoPorCategoria(movimientos: Movement[], budgets: Budget[]) {
+/**
+ * Gastado/invertido/ahorrado por presupuesto.
+ * Si se pasa `categories`, se usa el tipo de cada categoría para sumar Gasto, Inversión o Ahorro según corresponda.
+ * Si no se pasa `categories`, solo se cuentan movimientos tipo "Gasto" (comportamiento legacy).
+ */
+export function presupuestoUsadoPorCategoria(
+  movimientos: Movement[],
+  budgets: Budget[],
+  categories?: Category[]
+) {
+  const categoryTypeByName = new Map<string, "expense" | "investment" | "savings">();
+  if (categories) {
+    categories.forEach((c) => {
+      if (c.type === "expense" || c.type === "investment" || c.type === "savings") {
+        categoryTypeByName.set(c.name, c.type);
+      }
+    });
+  }
+
   return budgets.map((budget) => {
+    const expectedTipo = categoryTypeByName.get(budget.category);
     const spent = movimientos
-      .filter((movement) => movement.tipo === "Gasto" && movement.categoria === budget.category)
+      .filter((movement) => {
+        if (movement.categoria !== budget.category) return false;
+        if (expectedTipo != null) {
+          return movement.tipo === MOVEMENT_TIPO_BY_CATEGORY_TYPE[expectedTipo];
+        }
+        return movement.tipo === "Gasto";
+      })
       .reduce((acc, movement) => acc + Math.abs(movement.cantidad), 0);
     return {
       categoryId: budget.category,

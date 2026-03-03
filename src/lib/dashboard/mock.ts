@@ -1,9 +1,9 @@
 import type { DashboardData } from "./types";
 
-// Generar movimientos de los últimos 12 meses (Febrero 2025 - Enero 2026)
+// Generar movimientos de los últimos 14 meses (Febrero 2025 - Marzo 2026)
 const generateMovements = () => {
   const movements = [];
-  const now = new Date(2026, 0, 25); // 25 de enero 2026
+  const now = new Date(2026, 2, 3); // 3 de marzo 2026
   const months = [
     { name: "Febrero", year: 2025, month: 1 },
     { name: "Marzo", year: 2025, month: 2 },
@@ -17,6 +17,8 @@ const generateMovements = () => {
     { name: "Noviembre", year: 2025, month: 10 },
     { name: "Diciembre", year: 2025, month: 11 },
     { name: "Enero", year: 2026, month: 0 },
+    { name: "Febrero", year: 2026, month: 1 },
+    { name: "Marzo", year: 2026, month: 2 },
   ];
 
   let movId = 1;
@@ -35,6 +37,8 @@ const generateMovements = () => {
     { baseIncome: 2400, extraIncome: 0, baseExpenses: 1800, extraExpenses: 0, specialExpenses: [] }, // Noviembre - Normal
     { baseIncome: 2400, extraIncome: 800, baseExpenses: 1800, extraExpenses: 1200, specialExpenses: [{ concepto: "Regalos Navidad", categoria: "Regalos", cantidad: -600 }, { concepto: "Cena Navidad", categoria: "Restaurantes", cantidad: -200 }, { concepto: "Ropa invierno", categoria: "Ropa", cantidad: -400 }] }, // Diciembre - Déficit a pesar de aguinaldo
     { baseIncome: 2400, extraIncome: 0, baseExpenses: 1800, extraExpenses: 0, specialExpenses: [] }, // Enero - Normal
+    { baseIncome: 2400, extraIncome: 0, baseExpenses: 1800, extraExpenses: 0, specialExpenses: [] }, // Febrero 2026 - Normal
+    { baseIncome: 2400, extraIncome: 300, baseExpenses: 1800, extraExpenses: 0, specialExpenses: [] }, // Marzo 2026 - Ingreso extra
   ];
 
   months.forEach((m, monthIndex) => {
@@ -143,7 +147,7 @@ const generateMovements = () => {
     }
 
     // Inversiones ocasionales (solo algunos meses)
-    if (monthIndex === 1 || monthIndex === 4 || monthIndex === 8) {
+    if (monthIndex === 1 || monthIndex === 4 || monthIndex === 8 || monthIndex === 13) {
       movements.push({
         id: `mov-${movId++}`,
         fecha: `${m.year}-${String(m.month + 1).padStart(2, "0")}-${String(20 + Math.floor(Math.random() * 5)).padStart(2, "0")}`,
@@ -157,7 +161,7 @@ const generateMovements = () => {
     // Ahorro mensual (solo si hay superávit)
     const totalIncome = config.baseIncome + config.extraIncome;
     const totalExpenses = config.baseExpenses + config.extraExpenses;
-    if (totalIncome > totalExpenses && monthIndex !== 2 && monthIndex !== 3 && monthIndex !== 5 && monthIndex !== 7 && monthIndex !== 9 && monthIndex !== 10) {
+    if (totalIncome > totalExpenses && monthIndex !== 2 && monthIndex !== 3 && monthIndex !== 5 && monthIndex !== 7 && monthIndex !== 9 && monthIndex !== 10 && monthIndex !== 11) {
       movements.push({
         id: `mov-${movId++}`,
         fecha: `${m.year}-${String(m.month + 1).padStart(2, "0")}-${String(25 + Math.floor(Math.random() * 3)).padStart(2, "0")}`,
@@ -186,6 +190,8 @@ export const DASHBOARD_MOCK: DashboardData = {
     { mes: "Noviembre", valor: 2600 },
     { mes: "Diciembre", valor: 2400 },
     { mes: "Enero", valor: 2450 },
+    { mes: "Febrero", valor: 2400 },
+    { mes: "Marzo", valor: 2700 },
   ],
   gastosMensuales: [
     { mes: "Febrero", valor: 1850 },
@@ -200,6 +206,8 @@ export const DASHBOARD_MOCK: DashboardData = {
     { mes: "Noviembre", valor: 1850 },
     { mes: "Diciembre", valor: 2100 },
     { mes: "Enero", valor: 1890 },
+    { mes: "Febrero", valor: 1850 },
+    { mes: "Marzo", valor: 1820 },
   ],
   activosPorMes: [],
   goal: {
@@ -239,6 +247,8 @@ export const DASHBOARD_MOCK: DashboardData = {
     { id: "bud-var-2", category: "Transporte", limit: 150, spent: 140, period: "variable" },
     { id: "bud-var-3", category: "Restaurantes", limit: 200, spent: 180, period: "variable" },
     { id: "bud-var-4", category: "Otros", limit: 100, spent: 85, period: "variable" },
+    { id: "bud-var-5", category: "Tecnología", limit: 120, spent: 95, period: "variable" },
+    { id: "bud-var-6", category: "Ropa", limit: 80, spent: 60, period: "variable" },
   ],
   categories: [],
   goals: [

@@ -20,7 +20,7 @@ const features = [
   },
   {
     title: "Movimientos y presupuestos",
-    description: "Registro y listado de ingresos, gastos, inversiones y ahorros. Presupuestos por categoría (fijo/variable) y objetivos con seguimiento.",
+    description: "Registro de ingresos, gastos, inversiones y ahorros. Presupuestos fijos y variables por categoría con alertas y seguimiento, y objetivos con hitos.",
   },
   {
     title: "Gráficas avanzadas",
@@ -68,6 +68,9 @@ const demoInversiones = [
   { dia: "25", valor: 250 },
   { dia: "30", valor: 0 },
 ];
+
+// Presupuestos de ejemplo para la card del hero (límite total y número de categorías)
+const demoPresupuestos = { limiteTotal: 2010, categorias: 9 };
 
 const formatNumber = (num: number) => {
   return new Intl.NumberFormat("es-ES", {
@@ -124,7 +127,7 @@ export default function Home() {
               Gestiona tu dinero con claridad: movimientos, patrimonio y objetivos en un solo lugar
             </h1>
             <p className="text-sm text-muted-foreground leading-snug md:text-base">
-              Dashboard, movimientos, gráficas avanzadas, presupuestos por categoría, objetivos de ahorro e inversión, y activos con seguimiento. Integración con Notion para sincronizar datos. Todo en un solo lugar para una gestión financiera clara y real.
+              Presupuestos por categoría (fijos y variables), dashboard, movimientos, gráficas avanzadas, objetivos de ahorro e inversión y activos con seguimiento. Integración con Notion para sincronizar datos. Todo en un solo lugar para una gestión financiera clara y real.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
@@ -189,6 +192,12 @@ export default function Home() {
                     <div className="h-full w-[66%] rounded-full bg-red-500" />
                   </div>
                 </Card>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs">
+                <span className="text-muted-foreground">Presupuestos del mes</span>
+                <span className="font-semibold text-foreground">
+                  {formatNumber(demoPresupuestos.limiteTotal)} € · {demoPresupuestos.categorias} categorías
+                </span>
               </div>
               <Card className="rounded-xl p-3">
                 <p className="text-xs text-muted-foreground mb-1.5">Gastos vs Ingresos del mes</p>
@@ -377,7 +386,7 @@ export default function Home() {
         <section className="mt-8 rounded-2xl bg-muted/50 p-6 text-center">
           <h2 className="text-xl font-bold md:text-2xl">Empieza hoy a tomar el control</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Crea tu cuenta en minutos y descubre cómo mejorar tus finanzas.
+            Crea tu cuenta en minutos y descubre cómo mejorar tus finanzas. Configura presupuestos por categoría y revisa tu avance desde el primer día.
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-3">
             <Link

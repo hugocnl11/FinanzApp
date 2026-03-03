@@ -1,7 +1,6 @@
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
-import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { SessionGuard } from "@/components/auth/SessionGuard";
 import { UserPreferencesSync } from "@/components/UserPreferencesSync";
 import { SkipToContent } from "@/components/SkipToContent";
@@ -30,7 +29,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               role="main"
               aria-label="Contenido principal"
             >
-              <Breadcrumbs />
               {children}
             </main>
           </SidebarInset>

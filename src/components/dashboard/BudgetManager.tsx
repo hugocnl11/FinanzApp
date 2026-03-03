@@ -500,7 +500,10 @@ export function BudgetManager({
     return (
       <div
         key={budget.id}
-        className="rounded-2xl p-4 shadow-sm transition-all hover:shadow-md"
+        className={cn(
+          "rounded-2xl shadow-sm transition-all hover:shadow-md",
+          inline ? "p-3" : "p-4"
+        )}
         style={{
           borderTop: `1px solid ${categoryColor}30`,
           borderRight: `1px solid ${categoryColor}30`,
@@ -511,28 +514,33 @@ export function BudgetManager({
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 shrink-0"
-              onClick={() => setExpandedBudgetId((id) => (id === budget.id ? null : budget.id))}
-              aria-label={isExpanded ? "Cerrar desglose" : "Ver desglose de movimientos"}
-            >
-              {isExpanded ? (
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              )}
-            </Button>
+            {inline && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 shrink-0"
+                onClick={() => setExpandedBudgetId((id) => (id === budget.id ? null : budget.id))}
+                aria-label={isExpanded ? "Cerrar desglose" : "Ver desglose de movimientos"}
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            )}
             {Icon && (
               <span
-                className="flex h-7 w-7 items-center justify-center rounded-md shrink-0"
+                className={cn(
+                  "flex items-center justify-center rounded-md shrink-0",
+                  inline ? "h-6 w-6" : "h-7 w-7"
+                )}
                 style={{
                   backgroundColor: meta ? `${meta.color}25` : "hsl(var(--muted))",
                   color: meta?.color,
                 }}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className={inline ? "h-3.5 w-3.5" : "h-4 w-4"} />
               </span>
             )}
             <div className="min-w-0">
@@ -619,16 +627,16 @@ export function BudgetManager({
           <>
             <Progress
               value={isOver ? 100 : percent}
-              className={`mt-2 ${isOver ? "[&>div]:bg-rose-500" : ""}`}
+              className={cn("mt-2", inline && "h-1.5", isOver && "[&>div]:bg-rose-500")}
             />
             {isOver && (
-              <p className="mt-2 text-xs font-medium text-rose-500">
+              <p className={cn("text-xs font-medium text-rose-500", inline ? "mt-1.5" : "mt-2")}>
                 {limitNum > 0
                   ? `Has superado el límite en € ${(budget.spent - (budget.limit || 0)).toFixed(2)}`
                   : `Has gastado € ${Number(budget.spent).toFixed(2)} sin presupuesto definido`}
               </p>
             )}
-            {isExpanded && (
+            {inline && isExpanded && (
               <div className="mt-3 pt-3 border-t border-border/60">
                 <p className="text-xs font-medium text-muted-foreground mb-2">Desglose de {selectedMonthLabel}</p>
                 {budgetMovements.length === 0 ? (
@@ -773,48 +781,53 @@ export function BudgetManager({
   );
 
   const content = (
-    <div className={cn("space-y-6", inline && "w-full")}>
+    <div className={cn(
+      "space-y-6",
+      inline && "w-full rounded-2xl border border-border bg-card p-6 ring-1 ring-border/50"
+    )}>
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-muted-foreground">Mes</span>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 w-8 p-0"
-              disabled={!canGoPrev}
-              onClick={() => {
-                setSelectedMonth((prev) => {
-                  const d = new Date(prev.year, prev.month, 1);
-                  d.setMonth(d.getMonth() - 1);
-                  return { year: d.getFullYear(), month: d.getMonth() };
-                });
-              }}
-              aria-label="Mes anterior"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="min-w-[8rem] text-center text-sm font-semibold tabular-nums">
-              {selectedMonthLabel}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 w-8 p-0"
-              disabled={!canGoNext}
-              onClick={() => {
-                setSelectedMonth((prev) => {
-                  const d = new Date(prev.year, prev.month, 1);
-                  d.setMonth(d.getMonth() + 1);
-                  return { year: d.getFullYear(), month: d.getMonth() };
-                });
-              }}
-              aria-label="Mes siguiente"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+        {inline && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">Mes</span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+                disabled={!canGoPrev}
+                onClick={() => {
+                  setSelectedMonth((prev) => {
+                    const d = new Date(prev.year, prev.month, 1);
+                    d.setMonth(d.getMonth() - 1);
+                    return { year: d.getFullYear(), month: d.getMonth() };
+                  });
+                }}
+                aria-label="Mes anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="min-w-[8rem] text-center text-sm font-semibold tabular-nums">
+                {selectedMonthLabel}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+                disabled={!canGoNext}
+                onClick={() => {
+                  setSelectedMonth((prev) => {
+                    const d = new Date(prev.year, prev.month, 1);
+                    d.setMonth(d.getMonth() + 1);
+                    return { year: d.getFullYear(), month: d.getMonth() };
+                  });
+                }}
+                aria-label="Mes siguiente"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
         <Button onClick={() => setOpenNewBudgetDialog(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Nuevo presupuesto
@@ -822,12 +835,14 @@ export function BudgetManager({
       </div>
 
       <div className={cn(
-        "rounded-2xl border border-border p-4 max-w-md mx-auto",
-        inline && "bg-gradient-to-br from-muted/50 to-muted/20"
+        "rounded-2xl border border-border p-4",
+        inline
+          ? "w-full max-w-2xl mx-auto bg-gradient-to-br from-muted/50 to-muted/20"
+          : "max-w-md mx-auto"
       )}>
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Presupuesto total</p>
         <div className="flex items-center justify-between mt-2">
-          <p className={cn("font-semibold tabular-nums", inline ? "text-3xl" : "text-2xl")}>€ {Number(totalLimit).toFixed(2)}</p>
+          <p className={cn("font-semibold tabular-nums", inline ? "text-4xl" : "text-2xl")}>€ {Number(totalLimit).toFixed(2)}</p>
           <p className="text-sm text-muted-foreground">Gastado € {Number(totalSpent).toFixed(2)}</p>
         </div>
         <Progress value={Math.min((totalSpent / (totalLimit || 1)) * 100, 100)} className="mt-2 h-2" />
@@ -843,26 +858,28 @@ export function BudgetManager({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-3">
+          <div className={cn("space-y-3", inline && "space-y-2")}>
             <h3 className="text-sm font-semibold text-foreground">Presupuestos fijos</h3>
             {fixedBudgets.length === 0 ? (
               <p className="text-sm text-muted-foreground">No hay presupuestos fijos.</p>
             ) : (
               <div className={cn(
-                "overflow-y-auto space-y-3 pr-1",
+                "overflow-y-auto pr-1",
+                inline ? "space-y-2" : "space-y-3",
                 !inline && "max-h-[18rem] md:max-h-[28rem]"
               )}>
                 {fixedBudgets.map(renderBudgetCard)}
               </div>
             )}
           </div>
-          <div className="space-y-3">
+          <div className={cn("space-y-3", inline && "space-y-2")}>
             <h3 className="text-sm font-semibold text-foreground">Presupuestos variables</h3>
             {variableBudgets.length === 0 ? (
               <p className="text-sm text-muted-foreground">No hay presupuestos variables.</p>
             ) : (
               <div className={cn(
-                "overflow-y-auto space-y-3 pr-1",
+                "overflow-y-auto pr-1",
+                inline ? "space-y-2" : "space-y-3",
                 !inline && "max-h-[18rem] md:max-h-[28rem]"
               )}>
                 {variableBudgets.map(renderBudgetCard)}

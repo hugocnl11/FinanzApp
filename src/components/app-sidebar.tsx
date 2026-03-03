@@ -23,11 +23,11 @@ import { getSession, isDemoUser } from "@/lib/auth";
 const allItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Movimientos", url: "/dashboard/movimientos", icon: List },
-  { title: "Gráficas", url: "/dashboard/graficas", icon: BarChart2 },
   { title: "Presupuestos", url: "/dashboard/presupuestos", icon: Wallet },
   { title: "Objetivos", url: "/dashboard/objetivos", icon: Target },
-  { title: "Ajustes", url: "/dashboard/ajustes", icon: Settings },
+  { title: "Gráficas", url: "/dashboard/graficas", icon: BarChart2 },
   { title: "Perfil", url: "/dashboard/perfil", icon: User },
+  { title: "Ajustes", url: "/dashboard/ajustes", icon: Settings },
 ];
 
 export function AppSidebar() {

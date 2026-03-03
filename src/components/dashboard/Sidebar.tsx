@@ -8,9 +8,9 @@ import { usePathname } from "next/navigation";
 const menu = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Movimientos", href: "/dashboard/movimientos" },
-  { label: "Gráficas", href: "/dashboard/graficas" },
   { label: "Presupuestos", href: "/dashboard/presupuestos" },
   { label: "Objetivos", href: "/dashboard/objetivos" },
+  { label: "Gráficas", href: "/dashboard/graficas" },
   { label: "Ajustes", href: "/dashboard/ajustes" },
 ];
 

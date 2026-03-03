@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Pencil, Plus, ChevronDown, ChevronRight, ChevronLeft, Trash2, ArrowDownCircle, TrendingUp, PiggyBank } from "lucide-react";
+import { Pencil, Plus, ChevronDown, ChevronRight, ChevronLeft, Trash2, ArrowDownCircle, TrendingUp, PiggyBank, LayoutList } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getUserId } from "@/lib/auth";
@@ -126,9 +126,9 @@ export function BudgetManager({
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
   const [editingLimit, setEditingLimit] = useState("");
   const [editingPeriod, setEditingPeriod] = useState<BudgetPeriod | null>(null);
-  const [expandedBudgetId, setExpandedBudgetId] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number }>(getInitialSelectedMonth);
   const [openNewBudgetDialog, setOpenNewBudgetDialog] = useState(false);
+  const [expandedBudgetIds, setExpandedBudgetIds] = useState<Set<string>>(new Set());
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const hasLabel = Boolean(triggerLabel);
   // Presupuestos: gasto, inversión o ahorro (categorías con límite mensual)
@@ -495,7 +495,7 @@ export function BudgetManager({
     const Icon = meta ? CATEGORY_ICON_MAP[meta.icon] : null;
     const categoryColor = meta?.color || "#64748b";
     const isEditing = editingBudgetId === budget.id;
-    const isExpanded = expandedBudgetId === budget.id;
+    const isExpanded = expandedBudgetIds.has(budget.id);
     const budgetMovements = movementsByBudgetId.get(budget.id) ?? [];
     return (
       <div
@@ -519,7 +519,14 @@ export function BudgetManager({
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0 shrink-0"
-                onClick={() => setExpandedBudgetId((id) => (id === budget.id ? null : budget.id))}
+                onClick={() => {
+                  setExpandedBudgetIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(budget.id)) next.delete(budget.id);
+                    else next.add(budget.id);
+                    return next;
+                  });
+                }}
                 aria-label={isExpanded ? "Cerrar desglose" : "Ver desglose de movimientos"}
               >
                 {isExpanded ? (
@@ -848,6 +855,26 @@ export function BudgetManager({
               <ChevronRight className="h-4 w-4" />
             </motion.button>
           </motion.div>
+          {displayBudgets.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                const allIds = displayBudgets.map((b) => b.id);
+                const allExpanded = allIds.length > 0 && allIds.every((id) => expandedBudgetIds.has(id));
+                setExpandedBudgetIds(allExpanded ? new Set() : new Set(allIds));
+              }}
+              aria-label={
+                displayBudgets.every((b) => expandedBudgetIds.has(b.id))
+                  ? "Cerrar desglose de movimientos"
+                  : "Desplegar movimientos de todos los presupuestos"
+              }
+            >
+              <LayoutList className="h-4 w-4 mr-2" />
+              {displayBudgets.length > 0 && displayBudgets.every((b) => expandedBudgetIds.has(b.id))
+                ? "Cerrar todos"
+                : "Ver movimientos de todos"}
+            </Button>
+          )}
           <Button onClick={() => setOpenNewBudgetDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Nuevo presupuesto

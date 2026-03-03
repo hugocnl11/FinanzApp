@@ -834,19 +834,15 @@ export function BudgetManager({
         </Button>
       </div>
 
-      <div className={cn(
-        "rounded-2xl border border-border p-4",
-        inline
-          ? "w-full max-w-2xl mx-auto bg-gradient-to-br from-muted/50 to-muted/20"
-          : "max-w-md mx-auto"
-      )}>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Presupuesto total</p>
-        <div className="flex items-center justify-between mt-2">
-          <p className={cn("font-semibold tabular-nums", inline ? "text-4xl" : "text-2xl")}>€ {Number(totalLimit).toFixed(2)}</p>
-          <p className="text-sm text-muted-foreground">Gastado € {Number(totalSpent).toFixed(2)}</p>
+      {inline && (
+        <div className="w-full rounded-2xl border border-border bg-muted/10 p-4">
+          <div className="flex items-center justify-between mt-0">
+            <p className="text-4xl font-semibold tabular-nums">€ {Number(totalSpent).toFixed(2)}</p>
+            <p className="text-sm text-muted-foreground">/ € {Number(totalLimit).toFixed(2)}</p>
+          </div>
+          <Progress value={Math.min((totalSpent / (totalLimit || 1)) * 100, 100)} className="mt-2 h-2" />
         </div>
-        <Progress value={Math.min((totalSpent / (totalLimit || 1)) * 100, 100)} className="mt-2 h-2" />
-      </div>
+      )}
 
       {displayBudgets.length === 0 ? (
         <div className="max-w-md mx-auto">

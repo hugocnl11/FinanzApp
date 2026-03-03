@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Pencil, ChevronDown, ChevronRight, ChevronLeft, Trash2, ArrowDownCircle, TrendingUp, PiggyBank } from "lucide-react";
+import { Pencil, Plus, ChevronDown, ChevronRight, ChevronLeft, Trash2, ArrowDownCircle, TrendingUp, PiggyBank } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getUserId } from "@/lib/auth";
@@ -128,6 +128,7 @@ export function BudgetManager({
   const [editingPeriod, setEditingPeriod] = useState<BudgetPeriod | null>(null);
   const [expandedBudgetId, setExpandedBudgetId] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number }>(getInitialSelectedMonth);
+  const [openNewBudgetDialog, setOpenNewBudgetDialog] = useState(false);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const hasLabel = Boolean(triggerLabel);
   // Presupuestos: gasto, inversión o ahorro (categorías con límite mensual)
@@ -211,6 +212,15 @@ export function BudgetManager({
   const displayBudgets = useMemo(
     () => [...budgetsWithSpent, ...implicitBudgets],
     [budgetsWithSpent, implicitBudgets]
+  );
+
+  const fixedBudgets = useMemo(
+    () => displayBudgets.filter((b) => normalizePeriod(b.period) === "fixed"),
+    [displayBudgets]
+  );
+  const variableBudgets = useMemo(
+    () => displayBudgets.filter((b) => normalizePeriod(b.period) === "variable"),
+    [displayBudgets]
   );
 
   const totalLimit = useMemo(
@@ -345,7 +355,7 @@ export function BudgetManager({
     }
     try {
       const period = formData.period;
-      const existing = budgets.find(
+      const existing = budgetsSource.find(
         (item) => item.category === formData.category && (item.period ?? "").toLowerCase() === period
       );
       if (existing) {
@@ -364,6 +374,7 @@ export function BudgetManager({
       }
       setFormData((prev) => ({ ...prev, limit: "" }));
       setStatusMessage("Presupuesto guardado correctamente.");
+      setOpenNewBudgetDialog(false);
       window.dispatchEvent(new Event("finanzapp:data-updated"));
     } catch (error) {
       console.error(error);
@@ -473,374 +484,408 @@ export function BudgetManager({
   const canGoNext = selectedMonth.year < currentYear || (selectedMonth.year === currentYear && selectedMonth.month < currentMonthIdx);
   const selectedMonthLabel = `${MONTH_NAMES[selectedMonth.month]} ${selectedMonth.year}`;
 
-  const content = (
-    <div className={cn("grid gap-6 md:grid-cols-[1.2fr_0.8fr]", inline && "w-full")}>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-sm font-medium text-muted-foreground">Mes</span>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  disabled={!canGoPrev}
-                  onClick={() => {
-                    setSelectedMonth((prev) => {
-                      const d = new Date(prev.year, prev.month, 1);
-                      d.setMonth(d.getMonth() - 1);
-                      return { year: d.getFullYear(), month: d.getMonth() };
-                    });
-                  }}
-                  aria-label="Mes anterior"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="min-w-[8rem] text-center text-sm font-semibold tabular-nums">
-                  {selectedMonthLabel}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  disabled={!canGoNext}
-                  onClick={() => {
-                    setSelectedMonth((prev) => {
-                      const d = new Date(prev.year, prev.month, 1);
-                      d.setMonth(d.getMonth() + 1);
-                      return { year: d.getFullYear(), month: d.getMonth() };
-                    });
-                  }}
-                  aria-label="Mes siguiente"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            <div className={cn(
-              "rounded-2xl border border-border p-4",
-              inline && "bg-gradient-to-br from-muted/50 to-muted/20"
-            )}>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Presupuesto total</p>
-              <div className="flex items-center justify-between mt-2">
-                <p className={cn("font-semibold tabular-nums", inline ? "text-3xl" : "text-2xl")}>€ {Number(totalLimit).toFixed(2)}</p>
-                <p className="text-sm text-muted-foreground">Gastado € {Number(totalSpent).toFixed(2)}</p>
-              </div>
-              <Progress value={Math.min((totalSpent / (totalLimit || 1)) * 100, 100)} className="mt-2 h-2" />
-            </div>
-
-            <div className="space-y-3">
-              {displayBudgets.length > 0 ? (
-                <div className={cn(
-                  "overflow-y-auto space-y-3 pr-1",
-                  !inline && "max-h-[18rem] md:max-h-[28rem]"
-                )}>
-                {displayBudgets.map((budget) => {
-                  const limitNum = budget.limit || 0;
-                  const percent = limitNum > 0 ? Math.min((budget.spent / limitNum) * 100, 130) : 0;
-                  const isOver = limitNum > 0 && budget.spent > limitNum;
-                  const categoryMeta = categoryMap.get(budget.category);
-                  const meta = categoryMeta 
-                    ? { icon: categoryMeta.icon as CategoryIconKey, color: categoryMeta.color }
-                    : FALLBACK_CATEGORY_META[budget.category];
-                  const Icon = meta ? CATEGORY_ICON_MAP[meta.icon] : null;
-                  const categoryColor = meta?.color || "#64748b";
-                  const isEditing = editingBudgetId === budget.id;
-                  const isExpanded = expandedBudgetId === budget.id;
-                  const budgetMovements = movementsByBudgetId.get(budget.id) ?? [];
-                  return (
-                    <div 
-                      key={budget.id} 
-                      className="rounded-2xl p-4 shadow-sm transition-all hover:shadow-md"
-                      style={{ 
-                        borderTop: `1px solid ${categoryColor}30`,
-                        borderRight: `1px solid ${categoryColor}30`,
-                        borderBottom: `1px solid ${categoryColor}30`,
-                        borderLeft: `1px solid ${categoryColor}30`,
-                        backgroundColor: `${categoryColor}08`
-                      }}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 shrink-0"
-                            onClick={() => setExpandedBudgetId((id) => (id === budget.id ? null : budget.id))}
-                            aria-label={isExpanded ? "Cerrar desglose" : "Ver desglose de movimientos"}
-                          >
-                            {isExpanded ? (
-                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                            )}
-                          </Button>
-                          {Icon && (
-                            <span
-                              className="flex h-7 w-7 items-center justify-center rounded-md shrink-0"
-                              style={{ 
-                                backgroundColor: meta ? `${meta.color}25` : "hsl(var(--muted))", 
-                                color: meta?.color 
-                              }}
-                            >
-                              <Icon className="h-4 w-4" />
-                            </span>
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold truncate">{budget.category}</p>
-                            {isEditing ? (
-                              <div className="mt-2 flex flex-col gap-3">
-                                <div className="flex flex-col gap-1">
-                                  <label className="text-xs font-medium text-muted-foreground">Límite (€)</label>
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      step={1}
-                                      value={editingLimit}
-                                      onChange={(e) => setEditingLimit(e.target.value)}
-                                      className="h-9 w-28 rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                                      placeholder="0"
-                                    />
-                                    <Button variant="default" size="sm" className="h-9 text-xs" onClick={handleSaveEdit}>
-                                      Guardar
-                                    </Button>
-                                    <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={handleCancelEdit}>
-                                      Cancelar
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">
-                                € {Number(budget.spent).toFixed(2)} de € {Number(budget.limit || 0).toFixed(2)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <div className="flex flex-wrap gap-0.5 rounded-lg bg-muted p-0.5">
-                            {PERIOD_OPTIONS.map(({ value: p, label }) => {
-                              const rowPeriod = normalizePeriod(budget.period);
-                              const isSelected = rowPeriod === p;
-                              return (
-                                <button
-                                  key={p}
-                                  type="button"
-                                  onClick={() => handlePeriodChange(budget, p)}
-                                  className={cn(
-                                    "px-2 py-1 text-xs font-medium rounded-md transition",
-                                    isSelected
-                                      ? "bg-background shadow-sm text-foreground"
-                                      : "text-muted-foreground hover:text-foreground"
-                                  )}
-                                >
-                                  {label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {!isEditing && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={() => handleStartEdit(budget)}
-                                aria-label="Editar límite"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              {!budget.id.startsWith("new-") && !budget.id.startsWith("implicit-") && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                  onClick={() => handleRemove(budget.id)}
-                                  aria-label="Quitar presupuesto"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      {!isEditing && (
-                        <>
-                          <Progress
-                            value={percent}
-                            className={`mt-2 ${isOver ? "[&>div]:bg-rose-500" : ""}`}
-                          />
-                          {isOver && (
-                            <p className="mt-2 text-xs font-medium text-rose-500">
-                              Has superado el límite en € {(budget.spent - (budget.limit || 0)).toFixed(2)}
-                            </p>
-                          )}
-                          {isExpanded && (
-                            <div className="mt-3 pt-3 border-t border-border/60">
-                              <p className="text-xs font-medium text-muted-foreground mb-2">Desglose de {selectedMonthLabel}</p>
-                              {budgetMovements.length === 0 ? (
-                                <p className="text-xs text-muted-foreground">No hay movimientos en {selectedMonthLabel} en esta categoría.</p>
-                              ) : (
-                                <ul className="space-y-1.5 max-h-48 overflow-y-auto">
-                                  {budgetMovements.map((m) => (
-                                    <li
-                                      key={m.id ?? `${m.fecha}-${m.concepto}-${m.cantidad}`}
-                                      className="flex items-center gap-2 text-sm py-1 px-2 rounded-md bg-background/60"
-                                    >
-                                      {getTipoIcon(m.tipo)}
-                                      <span className="min-w-0 truncate flex-1" title={m.concepto}>
-                                        {m.concepto}
-                                      </span>
-                                      <span className="text-muted-foreground shrink-0">{formatMovementDate(m.fecha)}</span>
-                                      <span className="font-medium tabular-nums shrink-0">
-                                        € {Math.abs(m.cantidad).toFixed(2)}
-                                      </span>
-                                      {m.metodoPago && (
-                                        <span className="text-xs text-muted-foreground shrink-0 truncate max-w-16" title={m.metodoPago}>
-                                          {m.metodoPago}
-                                        </span>
-                                      )}
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
+  const renderBudgetCard = (budget: (typeof displayBudgets)[0]) => {
+    const limitNum = budget.limit || 0;
+    const percent = limitNum > 0 ? Math.min((budget.spent / limitNum) * 100, 130) : 0;
+    const isOver = (limitNum > 0 && budget.spent > limitNum) || (limitNum === 0 && budget.spent > 0);
+    const categoryMeta = categoryMap.get(budget.category);
+    const meta = categoryMeta
+      ? { icon: categoryMeta.icon as CategoryIconKey, color: categoryMeta.color }
+      : FALLBACK_CATEGORY_META[budget.category];
+    const Icon = meta ? CATEGORY_ICON_MAP[meta.icon] : null;
+    const categoryColor = meta?.color || "#64748b";
+    const isEditing = editingBudgetId === budget.id;
+    const isExpanded = expandedBudgetId === budget.id;
+    const budgetMovements = movementsByBudgetId.get(budget.id) ?? [];
+    return (
+      <div
+        key={budget.id}
+        className="rounded-2xl p-4 shadow-sm transition-all hover:shadow-md"
+        style={{
+          borderTop: `1px solid ${categoryColor}30`,
+          borderRight: `1px solid ${categoryColor}30`,
+          borderBottom: `1px solid ${categoryColor}30`,
+          borderLeft: `1px solid ${categoryColor}30`,
+          backgroundColor: `${categoryColor}08`,
+        }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 shrink-0"
+              onClick={() => setExpandedBudgetId((id) => (id === budget.id ? null : budget.id))}
+              aria-label={isExpanded ? "Cerrar desglose" : "Ver desglose de movimientos"}
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              )}
+            </Button>
+            {Icon && (
+              <span
+                className="flex h-7 w-7 items-center justify-center rounded-md shrink-0"
+                style={{
+                  backgroundColor: meta ? `${meta.color}25` : "hsl(var(--muted))",
+                  color: meta?.color,
+                }}
+              >
+                <Icon className="h-4 w-4" />
+              </span>
+            )}
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate">{budget.category}</p>
+              {isEditing ? (
+                <div className="mt-2 flex flex-col gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">Límite (€)</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={editingLimit}
+                        onChange={(e) => setEditingLimit(e.target.value)}
+                        className="h-9 w-28 rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        placeholder="0"
+                      />
+                      <Button variant="default" size="sm" className="h-9 text-xs" onClick={handleSaveEdit}>
+                        Guardar
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={handleCancelEdit}>
+                        Cancelar
+                      </Button>
                     </div>
-                  );
-                })}
+                  </div>
                 </div>
               ) : (
-                <EmptyState
-                  title="No hay presupuestos"
-                  description="Crea uno con el formulario de la derecha"
-                  icon={<Pencil className="h-10 w-10 text-muted-foreground" />}
-                />
+                <p className="text-xs text-muted-foreground">
+                  € {Number(budget.spent).toFixed(2)} de € {Number(budget.limit || 0).toFixed(2)}
+                </p>
               )}
             </div>
           </div>
-
-          <div className={cn(
-            "space-y-4 rounded-2xl border border-border p-4",
-            inline ? "bg-muted/20 ring-1 ring-border/50" : "bg-muted/30"
-          )}>
-            <div>
-              <h3 className="text-sm font-semibold">Nuevo presupuesto</h3>
-              <p className="text-xs text-muted-foreground">
-                Selecciona una categoría (gasto, inversión o ahorro) y su límite mensual.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">Categoría</label>
-              <div className="relative" ref={categoryDropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm flex items-center justify-between hover:bg-muted/50 transition-colors"
-                >
-                  {selectedCategory ? (
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="flex h-5 w-5 items-center justify-center rounded-md shrink-0"
-                        style={{ 
-                          backgroundColor: `${selectedCategory.color}25`, 
-                          color: selectedCategory.color 
-                        }}
-                      >
-                        {(() => {
-                          const Icon = CATEGORY_ICON_MAP[selectedCategory.icon as CategoryIconKey];
-                          return Icon ? <Icon className="h-3 w-3" /> : <span className="text-xs">€</span>;
-                        })()}
-                      </span>
-                      <span className="text-left truncate">{selectedCategory.name}</span>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">Selecciona una categoría</span>
-                  )}
-                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isCategoryDropdownOpen && "rotate-180")} />
-                </button>
-                {isCategoryDropdownOpen && budgetableCategories.length > 0 && (
-                  <div className="absolute z-50 w-full mt-1 rounded-lg border border-border bg-background shadow-lg max-h-60 overflow-auto">
-                    {budgetableCategories.map((category) => {
-                      const Icon = CATEGORY_ICON_MAP[category.icon as CategoryIconKey];
-                      const isSelected = formData.category === category.name;
-                      return (
-                        <button
-                          key={category.id}
-                          type="button"
-                          onClick={() => {
-                            setFormData((prev) => ({ ...prev, category: category.name }));
-                            setIsCategoryDropdownOpen(false);
-                          }}
-                          className={cn(
-                            "w-full px-3 py-2 text-sm flex items-center gap-2 hover:bg-muted transition-colors",
-                            isSelected && "bg-muted"
-                          )}
-                        >
-                          <span
-                            className="flex h-5 w-5 items-center justify-center rounded-md shrink-0"
-                            style={{ 
-                              backgroundColor: `${category.color}25`, 
-                              color: category.color 
-                            }}
-                          >
-                            {Icon ? <Icon className="h-3 w-3" /> : <span className="text-xs">€</span>}
-                          </span>
-                          <span className="text-left">{category.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                {budgetableCategories.length === 0 && (
-                  <div className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground text-center">
-                    Sin categorías de gasto, inversión o ahorro. Crea categorías en Ajustes.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">Periodo</label>
-              <div className="flex flex-wrap gap-1 rounded-lg bg-muted p-1 w-fit">
-                {PERIOD_OPTIONS.map(({ value: p, label }) => (
+          <div className="flex items-center gap-1 shrink-0">
+            <div className="flex flex-wrap gap-0.5 rounded-lg bg-muted p-0.5">
+              {PERIOD_OPTIONS.map(({ value: p, label }) => {
+                const rowPeriod = normalizePeriod(budget.period);
+                const isSelected = rowPeriod === p;
+                return (
                   <button
                     key={p}
                     type="button"
-                    onClick={() => setFormData((prev) => ({ ...prev, period: p }))}
+                    onClick={() => handlePeriodChange(budget, p)}
                     className={cn(
                       "px-2 py-1 text-xs font-medium rounded-md transition",
-                      formData.period === p
+                      isSelected
                         ? "bg-background shadow-sm text-foreground"
                         : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     {label}
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
-
-            <Input
-              label="Límite (€)"
-              type="number"
-              value={formData.limit}
-              onChange={(event) =>
-                setFormData((prev) => ({ ...prev, limit: event.target.value }))
-              }
-              placeholder="300"
-            />
-
-            <Button onClick={handleAddBudget}>Guardar presupuesto</Button>
-            {statusMessage && (
-              <p className="text-xs text-muted-foreground">{statusMessage}</p>
+            {!isEditing && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => handleStartEdit(budget)}
+                  aria-label="Editar límite"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                {!budget.id.startsWith("new-") && !budget.id.startsWith("implicit-") && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                    onClick={() => handleRemove(budget.id)}
+                    aria-label="Quitar presupuesto"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
+        {!isEditing && (
+          <>
+            <Progress
+              value={isOver ? 100 : percent}
+              className={`mt-2 ${isOver ? "[&>div]:bg-rose-500" : ""}`}
+            />
+            {isOver && (
+              <p className="mt-2 text-xs font-medium text-rose-500">
+                {limitNum > 0
+                  ? `Has superado el límite en € ${(budget.spent - (budget.limit || 0)).toFixed(2)}`
+                  : `Has gastado € ${Number(budget.spent).toFixed(2)} sin presupuesto definido`}
+              </p>
+            )}
+            {isExpanded && (
+              <div className="mt-3 pt-3 border-t border-border/60">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Desglose de {selectedMonthLabel}</p>
+                {budgetMovements.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No hay movimientos en {selectedMonthLabel} en esta categoría.</p>
+                ) : (
+                  <ul className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {budgetMovements.map((m) => (
+                      <li
+                        key={m.id ?? `${m.fecha}-${m.concepto}-${m.cantidad}`}
+                        className="flex items-center gap-2 text-sm py-1 px-2 rounded-md bg-background/60"
+                      >
+                        {getTipoIcon(m.tipo)}
+                        <span className="min-w-0 truncate flex-1" title={m.concepto}>
+                          {m.concepto}
+                        </span>
+                        <span className="text-muted-foreground shrink-0">{formatMovementDate(m.fecha)}</span>
+                        <span className="font-medium tabular-nums shrink-0">
+                          € {Math.abs(m.cantidad).toFixed(2)}
+                        </span>
+                        {m.metodoPago && (
+                          <span className="text-xs text-muted-foreground shrink-0 truncate max-w-16" title={m.metodoPago}>
+                            {m.metodoPago}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const newBudgetFormContent = (
+    <>
+      <div className="space-y-2">
+        <label className="text-xs font-medium text-muted-foreground">Categoría</label>
+        <div className="relative" ref={categoryDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm flex items-center justify-between hover:bg-muted/50 transition-colors"
+          >
+            {selectedCategory ? (
+              <div className="flex items-center gap-2">
+                <span
+                  className="flex h-5 w-5 items-center justify-center rounded-md shrink-0"
+                  style={{
+                    backgroundColor: `${selectedCategory.color}25`,
+                    color: selectedCategory.color,
+                  }}
+                >
+                  {(() => {
+                    const Icon = CATEGORY_ICON_MAP[selectedCategory.icon as CategoryIconKey];
+                    return Icon ? <Icon className="h-3 w-3" /> : <span className="text-xs">€</span>;
+                  })()}
+                </span>
+                <span className="text-left truncate">{selectedCategory.name}</span>
+              </div>
+            ) : (
+              <span className="text-muted-foreground">Selecciona una categoría</span>
+            )}
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isCategoryDropdownOpen && "rotate-180")} />
+          </button>
+          {isCategoryDropdownOpen && budgetableCategories.length > 0 && (
+            <div className="absolute z-50 w-full mt-1 rounded-lg border border-border bg-background shadow-lg max-h-60 overflow-auto">
+              {budgetableCategories.map((category) => {
+                const Icon = CATEGORY_ICON_MAP[category.icon as CategoryIconKey];
+                const isSelected = formData.category === category.name;
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => {
+                      setFormData((prev) => ({ ...prev, category: category.name }));
+                      setIsCategoryDropdownOpen(false);
+                    }}
+                    className={cn(
+                      "w-full px-3 py-2 text-sm flex items-center gap-2 hover:bg-muted transition-colors",
+                      isSelected && "bg-muted"
+                    )}
+                  >
+                    <span
+                      className="flex h-5 w-5 items-center justify-center rounded-md shrink-0"
+                      style={{
+                        backgroundColor: `${category.color}25`,
+                        color: category.color,
+                      }}
+                    >
+                      {Icon ? <Icon className="h-3 w-3" /> : <span className="text-xs">€</span>}
+                    </span>
+                    <span className="text-left">{category.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {budgetableCategories.length === 0 && (
+            <div className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground text-center">
+              Sin categorías de gasto, inversión o ahorro. Crea categorías en Ajustes.
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label className="text-xs font-medium text-muted-foreground">Periodo</label>
+        <div className="flex flex-wrap gap-1 rounded-lg bg-muted p-1 w-fit">
+          {PERIOD_OPTIONS.map(({ value: p, label }) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setFormData((prev) => ({ ...prev, period: p }))}
+              className={cn(
+                "px-2 py-1 text-xs font-medium rounded-md transition",
+                formData.period === p
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <Input
+        label="Límite (€)"
+        type="number"
+        value={formData.limit}
+        onChange={(event) =>
+          setFormData((prev) => ({ ...prev, limit: event.target.value }))
+        }
+        placeholder="300"
+      />
+      <Button onClick={handleAddBudget}>Guardar presupuesto</Button>
+      {statusMessage && (
+        <p className="text-xs text-muted-foreground">{statusMessage}</p>
+      )}
+    </>
+  );
+
+  const content = (
+    <div className={cn("space-y-6", inline && "w-full")}>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground">Mes</span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              disabled={!canGoPrev}
+              onClick={() => {
+                setSelectedMonth((prev) => {
+                  const d = new Date(prev.year, prev.month, 1);
+                  d.setMonth(d.getMonth() - 1);
+                  return { year: d.getFullYear(), month: d.getMonth() };
+                });
+              }}
+              aria-label="Mes anterior"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="min-w-[8rem] text-center text-sm font-semibold tabular-nums">
+              {selectedMonthLabel}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              disabled={!canGoNext}
+              onClick={() => {
+                setSelectedMonth((prev) => {
+                  const d = new Date(prev.year, prev.month, 1);
+                  d.setMonth(d.getMonth() + 1);
+                  return { year: d.getFullYear(), month: d.getMonth() };
+                });
+              }}
+              aria-label="Mes siguiente"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <Button onClick={() => setOpenNewBudgetDialog(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Nuevo presupuesto
+        </Button>
+      </div>
+
+      <div className={cn(
+        "rounded-2xl border border-border p-4 max-w-md mx-auto",
+        inline && "bg-gradient-to-br from-muted/50 to-muted/20"
+      )}>
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Presupuesto total</p>
+        <div className="flex items-center justify-between mt-2">
+          <p className={cn("font-semibold tabular-nums", inline ? "text-3xl" : "text-2xl")}>€ {Number(totalLimit).toFixed(2)}</p>
+          <p className="text-sm text-muted-foreground">Gastado € {Number(totalSpent).toFixed(2)}</p>
+        </div>
+        <Progress value={Math.min((totalSpent / (totalLimit || 1)) * 100, 100)} className="mt-2 h-2" />
+      </div>
+
+      {displayBudgets.length === 0 ? (
+        <div className="max-w-md mx-auto">
+          <EmptyState
+            title="No hay presupuestos"
+            description="Crea uno con el botón Nuevo presupuesto"
+            icon={<Pencil className="h-10 w-10 text-muted-foreground" />}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-foreground">Presupuestos fijos</h3>
+            {fixedBudgets.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No hay presupuestos fijos.</p>
+            ) : (
+              <div className={cn(
+                "overflow-y-auto space-y-3 pr-1",
+                !inline && "max-h-[18rem] md:max-h-[28rem]"
+              )}>
+                {fixedBudgets.map(renderBudgetCard)}
+              </div>
+            )}
+          </div>
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-foreground">Presupuestos variables</h3>
+            {variableBudgets.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No hay presupuestos variables.</p>
+            ) : (
+              <div className={cn(
+                "overflow-y-auto space-y-3 pr-1",
+                !inline && "max-h-[18rem] md:max-h-[28rem]"
+              )}>
+                {variableBudgets.map(renderBudgetCard)}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <Dialog open={openNewBudgetDialog} onOpenChange={setOpenNewBudgetDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nuevo presupuesto</DialogTitle>
+            <DialogDescription>
+              Selecciona una categoría (gasto, inversión o ahorro) y su límite mensual.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {newBudgetFormContent}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 
   if (inline && loadingSource) {

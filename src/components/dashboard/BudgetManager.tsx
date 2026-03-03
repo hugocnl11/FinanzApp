@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Pencil, ChevronDown, ChevronRight, Trash2, ArrowDownCircle, TrendingUp, PiggyBank } from "lucide-react";
+import { Pencil, ChevronDown, ChevronRight, ChevronLeft, Trash2, ArrowDownCircle, TrendingUp, PiggyBank } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getUserId } from "@/lib/auth";
@@ -76,6 +76,18 @@ const initialBudgets: BudgetItem[] = [];
 
 const categories: string[] = [];
 
+const MONTH_NAMES: string[] = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+
+function getInitialSelectedMonth(): { year: number; month: number } {
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() };
+}
+
+const MAX_MONTHS_BACK = 24;
+
 type BudgetManagerProps = {
   triggerLabel?: string;
   triggerVariant?: ButtonProps["variant"];
@@ -115,6 +127,7 @@ export function BudgetManager({
   const [editingLimit, setEditingLimit] = useState("");
   const [editingPeriod, setEditingPeriod] = useState<BudgetPeriod | null>(null);
   const [expandedBudgetId, setExpandedBudgetId] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number }>(getInitialSelectedMonth);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const hasLabel = Boolean(triggerLabel);
   // Presupuestos: gasto, inversión o ahorro (categorías con límite mensual)
@@ -138,11 +151,9 @@ export function BudgetManager({
     []
   );
 
-  // Gastado/invertido/ahorrado por categoría en el mes actual (según tipo de categoría)
+  // Gastado/invertido/ahorrado por categoría en el mes seleccionado (según tipo de categoría)
   const spentByCategoryThisMonth = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    const { year: selectedYear, month: selectedMonthIdx } = selectedMonth;
     const map = new Map<string, number>();
     const categoryTypes = new Map(
       categoriesDataSource
@@ -155,19 +166,19 @@ export function BudgetManager({
       const expectedTipo = movementTypeByCategoryType.get(categoryType);
       if (movement.tipo !== expectedTipo) return;
       const date = new Date(movement.fecha);
-      if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+      if (date.getMonth() === selectedMonthIdx && date.getFullYear() === selectedYear) {
         const amount = Math.abs(movement.cantidad);
         map.set(movement.categoria, (map.get(movement.categoria) ?? 0) + amount);
       }
     });
     return map;
-  }, [movementsSource, categoriesDataSource, movementTypeByCategoryType]);
+  }, [movementsSource, categoriesDataSource, movementTypeByCategoryType, selectedMonth]);
 
   const budgetsWithSpent = useMemo(
     () =>
       budgetsSource.map((b) => ({
         ...b,
-        spent: spentByCategoryThisMonth.get(b.category) ?? b.spent,
+        spent: spentByCategoryThisMonth.get(b.category) ?? 0,
       })),
     [budgetsSource, spentByCategoryThisMonth]
   );
@@ -205,11 +216,9 @@ export function BudgetManager({
     [displayBudgets]
   );
 
-  // Movimientos del mes actual por presupuesto (para el desglose desplegable)
+  // Movimientos del mes seleccionado por presupuesto (para el desglose desplegable)
   const movementsByBudgetId = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    const { year: selectedYear, month: selectedMonthIdx } = selectedMonth;
     const categoryTypes = new Map(
       categoriesDataSource
         .filter((c) => c.type === "expense" || c.type === "investment" || c.type === "savings")
@@ -232,14 +241,14 @@ export function BudgetManager({
           (m) =>
             m.categoria === budget.category &&
             m.tipo === expectedTipo &&
-            new Date(m.fecha).getMonth() === currentMonth &&
-            new Date(m.fecha).getFullYear() === currentYear
+            new Date(m.fecha).getMonth() === selectedMonthIdx &&
+            new Date(m.fecha).getFullYear() === selectedYear
         )
         .sort((a, b) => b.fecha.localeCompare(a.fecha));
       map.set(budget.id, list);
     });
     return map;
-  }, [displayBudgets, movementsSource, categoriesDataSource, movementTypeByCategoryType]);
+  }, [displayBudgets, movementsSource, categoriesDataSource, movementTypeByCategoryType, selectedMonth]);
 
   const getTipoIcon = (tipo: MovementType) => {
     switch (tipo) {
@@ -451,9 +460,59 @@ export function BudgetManager({
     }
   };
 
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonthIdx = now.getMonth();
+  const oldestDate = new Date(currentYear, currentMonthIdx - MAX_MONTHS_BACK, 1);
+  const canGoPrev = inline && (selectedMonth.year > oldestDate.getFullYear() || (selectedMonth.year === oldestDate.getFullYear() && selectedMonth.month > oldestDate.getMonth()));
+  const canGoNext = inline && (selectedMonth.year < currentYear || (selectedMonth.year === currentYear && selectedMonth.month < currentMonthIdx));
+  const selectedMonthLabel = `${MONTH_NAMES[selectedMonth.month]} ${selectedMonth.year}`;
+
   const content = (
     <div className={cn("grid gap-6 md:grid-cols-[1.2fr_0.8fr]", inline && "w-full")}>
           <div className="space-y-4">
+            {inline && (
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-sm font-medium text-muted-foreground">Mes</span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    disabled={!canGoPrev}
+                    onClick={() => {
+                      setSelectedMonth((prev) => {
+                        const d = new Date(prev.year, prev.month, 1);
+                        d.setMonth(d.getMonth() - 1);
+                        return { year: d.getFullYear(), month: d.getMonth() };
+                      });
+                    }}
+                    aria-label="Mes anterior"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="min-w-[8rem] text-center text-sm font-semibold tabular-nums">
+                    {selectedMonthLabel}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    disabled={!canGoNext}
+                    onClick={() => {
+                      setSelectedMonth((prev) => {
+                        const d = new Date(prev.year, prev.month, 1);
+                        d.setMonth(d.getMonth() + 1);
+                        return { year: d.getFullYear(), month: d.getMonth() };
+                      });
+                    }}
+                    aria-label="Mes siguiente"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
             <div className={cn(
               "rounded-2xl border border-border p-4",
               inline && "bg-gradient-to-br from-muted/50 to-muted/20"
@@ -616,9 +675,9 @@ export function BudgetManager({
                           )}
                           {isExpanded && (
                             <div className="mt-3 pt-3 border-t border-border/60">
-                              <p className="text-xs font-medium text-muted-foreground mb-2">Desglose del mes</p>
+                              <p className="text-xs font-medium text-muted-foreground mb-2">Desglose de {selectedMonthLabel}</p>
                               {budgetMovements.length === 0 ? (
-                                <p className="text-xs text-muted-foreground">No hay movimientos este mes en esta categoría.</p>
+                                <p className="text-xs text-muted-foreground">No hay movimientos en {selectedMonthLabel} en esta categoría.</p>
                               ) : (
                                 <ul className="space-y-1.5 max-h-48 overflow-y-auto">
                                   {budgetMovements.map((m) => (

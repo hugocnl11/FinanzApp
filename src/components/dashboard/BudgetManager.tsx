@@ -835,7 +835,7 @@ export function BudgetManager({
       </div>
 
       {inline && (
-        <div className="w-full rounded-2xl border border-border bg-card shadow p-4">
+        <div className="w-full rounded-2xl border border-border bg-white dark:bg-[#18181b] shadow p-4">
           <div className="flex items-center justify-between mt-0">
             <p className="text-4xl font-semibold tabular-nums">€ {Number(totalSpent).toFixed(2)}</p>
             <p className="text-sm text-muted-foreground">/ € {Number(totalLimit).toFixed(2)}</p>

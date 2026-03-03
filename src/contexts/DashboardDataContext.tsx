@@ -155,7 +155,7 @@ export async function loadDashboardDataCore(opts: {
       setError(null);
     }
     const today = new Date().toISOString().slice(0, 10);
-    const [movementsRes, budgetsRes, goalsRes, categoriesRes, assetSnapshotsRes, snapshotsTodayRes, snapshotsLatestRes] = await Promise.all([
+    const [movementsSettled, budgetsSettled, goalsSettled, categoriesRes, assetSnapshotsRes, snapshotsTodayRes, snapshotsLatestRes] = await Promise.allSettled([
       fetchMovements(),
       fetchBudgets(),
       fetchGoals(),
@@ -167,9 +167,15 @@ export async function loadDashboardDataCore(opts: {
 
     if (!isMounted()) return;
 
-    const movements = movementsRes.data;
-    const goals = goalsRes.data;
-    const activosPorMes = (assetSnapshotsRes.data ?? []).map((d) => ({
+    const movements = movementsSettled.status === "fulfilled" ? (movementsSettled.value.data ?? []) : [];
+    const budgets = budgetsSettled.status === "fulfilled" ? (budgetsSettled.value.data ?? []) : [];
+    const goals = goalsSettled.status === "fulfilled" ? (goalsSettled.value.data ?? []) : [];
+    const assetSnapshotsData = assetSnapshotsRes.status === "fulfilled" ? (assetSnapshotsRes.value.data ?? []) : [];
+    const categoriesData = categoriesRes.status === "fulfilled" ? (categoriesRes.value.data ?? []) : [];
+    const snapshotsTodayData = snapshotsTodayRes.status === "fulfilled" ? (snapshotsTodayRes.value.data ?? []) : [];
+    const snapshotsLatestData = snapshotsLatestRes.status === "fulfilled" ? (snapshotsLatestRes.value.data ?? []) : [];
+
+    const activosPorMes = assetSnapshotsData.map((d: { mes: string; valor: number }) => ({
       mes: d.mes as DashboardData["activosPorMes"][0]["mes"],
       valor: d.valor,
     }));
@@ -189,8 +195,8 @@ export async function loadDashboardDataCore(opts: {
     // Distribución de activos: usar todas las categorías de activos (inversión + ahorro) y priorizar
     // snapshot de hoy; si no hay snapshot, usar el valor del último movimiento. Así la gráfica de
     // tipo queso siempre refleja Acciones y el resto al actualizar en el diálogo.
-    const snapshotsToday = snapshotsTodayRes.data ?? [];
-    const categories = (categoriesRes.data ?? []) as {
+    const snapshotsToday = snapshotsTodayData;
+    const categories = categoriesData as {
       id: string;
       name: string;
       type: string;
@@ -215,9 +221,9 @@ export async function loadDashboardDataCore(opts: {
     };
 
     const snapshotsTodayMap = new Map(
-      (snapshotsTodayRes.data ?? []).map((s) => [s.categoryId, { value: s.value, date: s.date }])
+      snapshotsTodayData.map((s: { categoryId: string; value: number; date?: string }) => [s.categoryId, { value: s.value, date: s.date }])
     );
-    const snapshotsLatest = snapshotsLatestRes.data ?? [];
+    const snapshotsLatest = snapshotsLatestData;
     const snapshotLatestByCategoryId = new Map(
       snapshotsLatest.map((s) => [s.categoryId, { value: s.value, date: s.date }])
     );
@@ -270,8 +276,8 @@ export async function loadDashboardDataCore(opts: {
         activosPorMes,
         goal: selectedGoal as Goal | null,
         goals,
-        budgets: budgetsRes.data,
-        categories: (categoriesRes.data ?? []) as DashboardData["categories"],
+        budgets,
+        categories: categoriesData as DashboardData["categories"],
         notifications: [],
         recurringMovements: [],
         gastosPorCategoria,

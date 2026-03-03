@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -151,9 +151,18 @@ export function BudgetManager({
     []
   );
 
+  const isMovementInSelectedMonth = useCallback(
+    (fecha: string) => {
+      const parts = fecha.split("-").map(Number);
+      const y = parts[0];
+      const m = parts[1];
+      return y === selectedMonth.year && m === selectedMonth.month + 1;
+    },
+    [selectedMonth.year, selectedMonth.month]
+  );
+
   // Gastado/invertido/ahorrado por categoría en el mes seleccionado (según tipo de categoría)
   const spentByCategoryThisMonth = useMemo(() => {
-    const { year: selectedYear, month: selectedMonthIdx } = selectedMonth;
     const map = new Map<string, number>();
     const categoryTypes = new Map(
       categoriesDataSource
@@ -165,14 +174,12 @@ export function BudgetManager({
       if (!categoryType) return;
       const expectedTipo = movementTypeByCategoryType.get(categoryType);
       if (movement.tipo !== expectedTipo) return;
-      const date = new Date(movement.fecha);
-      if (date.getMonth() === selectedMonthIdx && date.getFullYear() === selectedYear) {
-        const amount = Math.abs(movement.cantidad);
-        map.set(movement.categoria, (map.get(movement.categoria) ?? 0) + amount);
-      }
+      if (!isMovementInSelectedMonth(movement.fecha)) return;
+      const amount = Math.abs(movement.cantidad);
+      map.set(movement.categoria, (map.get(movement.categoria) ?? 0) + amount);
     });
     return map;
-  }, [movementsSource, categoriesDataSource, movementTypeByCategoryType, selectedMonth]);
+  }, [movementsSource, categoriesDataSource, movementTypeByCategoryType, isMovementInSelectedMonth]);
 
   const budgetsWithSpent = useMemo(
     () =>
@@ -218,7 +225,6 @@ export function BudgetManager({
 
   // Movimientos del mes seleccionado por presupuesto (para el desglose desplegable)
   const movementsByBudgetId = useMemo(() => {
-    const { year: selectedYear, month: selectedMonthIdx } = selectedMonth;
     const categoryTypes = new Map(
       categoriesDataSource
         .filter((c) => c.type === "expense" || c.type === "investment" || c.type === "savings")
@@ -241,14 +247,13 @@ export function BudgetManager({
           (m) =>
             m.categoria === budget.category &&
             m.tipo === expectedTipo &&
-            new Date(m.fecha).getMonth() === selectedMonthIdx &&
-            new Date(m.fecha).getFullYear() === selectedYear
+            isMovementInSelectedMonth(m.fecha)
         )
         .sort((a, b) => b.fecha.localeCompare(a.fecha));
       map.set(budget.id, list);
     });
     return map;
-  }, [displayBudgets, movementsSource, categoriesDataSource, movementTypeByCategoryType, selectedMonth]);
+  }, [displayBudgets, movementsSource, categoriesDataSource, movementTypeByCategoryType, isMovementInSelectedMonth]);
 
   const getTipoIcon = (tipo: MovementType) => {
     switch (tipo) {
@@ -464,55 +469,53 @@ export function BudgetManager({
   const currentYear = now.getFullYear();
   const currentMonthIdx = now.getMonth();
   const oldestDate = new Date(currentYear, currentMonthIdx - MAX_MONTHS_BACK, 1);
-  const canGoPrev = inline && (selectedMonth.year > oldestDate.getFullYear() || (selectedMonth.year === oldestDate.getFullYear() && selectedMonth.month > oldestDate.getMonth()));
-  const canGoNext = inline && (selectedMonth.year < currentYear || (selectedMonth.year === currentYear && selectedMonth.month < currentMonthIdx));
+  const canGoPrev = selectedMonth.year > oldestDate.getFullYear() || (selectedMonth.year === oldestDate.getFullYear() && selectedMonth.month > oldestDate.getMonth());
+  const canGoNext = selectedMonth.year < currentYear || (selectedMonth.year === currentYear && selectedMonth.month < currentMonthIdx);
   const selectedMonthLabel = `${MONTH_NAMES[selectedMonth.month]} ${selectedMonth.year}`;
 
   const content = (
     <div className={cn("grid gap-6 md:grid-cols-[1.2fr_0.8fr]", inline && "w-full")}>
           <div className="space-y-4">
-            {inline && (
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <span className="text-sm font-medium text-muted-foreground">Mes</span>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    disabled={!canGoPrev}
-                    onClick={() => {
-                      setSelectedMonth((prev) => {
-                        const d = new Date(prev.year, prev.month, 1);
-                        d.setMonth(d.getMonth() - 1);
-                        return { year: d.getFullYear(), month: d.getMonth() };
-                      });
-                    }}
-                    aria-label="Mes anterior"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="min-w-[8rem] text-center text-sm font-semibold tabular-nums">
-                    {selectedMonthLabel}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    disabled={!canGoNext}
-                    onClick={() => {
-                      setSelectedMonth((prev) => {
-                        const d = new Date(prev.year, prev.month, 1);
-                        d.setMonth(d.getMonth() + 1);
-                        return { year: d.getFullYear(), month: d.getMonth() };
-                      });
-                    }}
-                    aria-label="Mes siguiente"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-sm font-medium text-muted-foreground">Mes</span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={!canGoPrev}
+                  onClick={() => {
+                    setSelectedMonth((prev) => {
+                      const d = new Date(prev.year, prev.month, 1);
+                      d.setMonth(d.getMonth() - 1);
+                      return { year: d.getFullYear(), month: d.getMonth() };
+                    });
+                  }}
+                  aria-label="Mes anterior"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="min-w-[8rem] text-center text-sm font-semibold tabular-nums">
+                  {selectedMonthLabel}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={!canGoNext}
+                  onClick={() => {
+                    setSelectedMonth((prev) => {
+                      const d = new Date(prev.year, prev.month, 1);
+                      d.setMonth(d.getMonth() + 1);
+                      return { year: d.getFullYear(), month: d.getMonth() };
+                    });
+                  }}
+                  aria-label="Mes siguiente"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-            )}
+            </div>
             <div className={cn(
               "rounded-2xl border border-border p-4",
               inline && "bg-gradient-to-br from-muted/50 to-muted/20"

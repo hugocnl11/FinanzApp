@@ -16,6 +16,7 @@ type GoalPayload = {
   linkedCategoryIds?: string[] | null;
   linkedBudgetId?: string | null;
   isPrimary?: boolean;
+  color?: string | null;
 };
 
 const toGoalType = (value: string): GoalType | null => {
@@ -32,7 +33,7 @@ const fromGoalType = (value: GoalType) => {
   return "aumentar-ingreso";
 };
 
-function goalToJson(goal: { id: string; title: string; target: unknown; saved: unknown; type: GoalType; dueDate: Date; description: string | null; milestones: unknown; linkedCategoryIds: unknown; linkedBudgetId: string | null; isPrimary: boolean }) {
+function goalToJson(goal: { id: string; title: string; target: unknown; saved: unknown; type: GoalType; dueDate: Date; description: string | null; milestones: unknown; linkedCategoryIds: unknown; linkedBudgetId: string | null; isPrimary: boolean; color: string | null }) {
   return {
     id: goal.id,
     title: goal.title,
@@ -45,6 +46,7 @@ function goalToJson(goal: { id: string; title: string; target: unknown; saved: u
     linkedCategoryIds: Array.isArray(goal.linkedCategoryIds) ? goal.linkedCategoryIds : undefined,
     linkedBudgetId: goal.linkedBudgetId ?? undefined,
     isPrimary: goal.isPrimary,
+    color: goal.color ?? undefined,
   };
 }
 
@@ -76,6 +78,7 @@ export async function PUT(request: Request, context: { params: { id: string } })
   if (hasBudget) data.linkedCategoryIds = null;
   else if (payload.linkedCategoryIds !== undefined) data.linkedCategoryIds = Array.isArray(payload.linkedCategoryIds) ? payload.linkedCategoryIds : null;
   if (typeof payload.isPrimary === "boolean") data.isPrimary = payload.isPrimary;
+  if (payload.color !== undefined) data.color = payload.color?.trim() || null;
 
   if (payload.isPrimary === true) {
     await prisma.goal.updateMany({ where: { userId, id: { not: context.params.id } }, data: { isPrimary: false } });

@@ -231,7 +231,7 @@ export function GoalsManager(props?: GoalsManagerProps) {
           <div className="space-y-4">
             <div className={cn(
               "flex items-center gap-3",
-              inline && "rounded-xl border border-border bg-muted/30 px-4 py-3"
+              inline && "rounded-xl border border-border bg-white dark:bg-[#18181b] px-4 py-3 shadow"
             )}>
               <span className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground">
                 Total: {progressStats.total}
@@ -271,9 +271,21 @@ export function GoalsManager(props?: GoalsManagerProps) {
                   <div
                     key={goal.id}
                     className={cn(
-                      "rounded-2xl border border-border p-4 transition-shadow",
-                      inline && "hover:shadow-md"
+                      "rounded-2xl border p-4 transition-shadow",
+                      !goal.color && "border-border",
+                      inline && "bg-white dark:bg-[#18181b] shadow hover:shadow-md"
                     )}
+                    style={
+                      inline && goal.color
+                        ? {
+                            borderTop: `1px solid ${goal.color}40`,
+                            borderRight: `1px solid ${goal.color}40`,
+                            borderBottom: `1px solid ${goal.color}40`,
+                            borderLeft: `4px solid ${goal.color}`,
+                            backgroundColor: `${goal.color}08`,
+                          }
+                        : undefined
+                    }
                   >
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div>
@@ -342,7 +354,7 @@ export function GoalsManager(props?: GoalsManagerProps) {
 
           <div className={cn(
             "space-y-4 rounded-2xl border border-border p-4",
-            inline ? "bg-muted/20 ring-1 ring-border/50" : "bg-muted/30"
+            inline ? "bg-white dark:bg-[#18181b] shadow" : "bg-muted/30"
           )}>
             <div>
               <h3 className="text-sm font-semibold">Nuevo objetivo</h3>

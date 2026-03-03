@@ -136,6 +136,7 @@ model Goal {
   linkedCategoryIds  Json?    // [categoryId] — activos (investment/savings)
   linkedBudgetId     String?  // presupuesto: meta = gastar menos
   isPrimary          Boolean  @default(false)
+  color              String?  // hex ej. #6366f1 — color del objetivo
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

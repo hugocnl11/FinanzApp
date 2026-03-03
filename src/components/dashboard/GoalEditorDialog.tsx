@@ -37,7 +37,14 @@ export type EditableGoal = {
   linkedCategoryIds?: string[];
   linkedBudgetId?: string;
   isPrimary?: boolean;
+  color?: string;
 };
+
+const GOAL_COLORS = [
+  "#6366f1", "#22c55e", "#0ea5e9", "#f59e0b", "#ec4899",
+  "#ef4444", "#06b6d4", "#f97316", "#38bdf8", "#64748b",
+  "#8b5cf6", "#84cc16", "#e11d48",
+];
 
 export type AssetOption = { id: string; name: string; value: number; type?: "investment" | "savings" };
 export type BudgetOption = { id: string; category: string; limit: number; spent: number };
@@ -256,6 +263,27 @@ export function GoalEditorDialog({
             onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
             className="min-h-[44px]"
           />
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">Color del objetivo</label>
+            <div className="flex flex-wrap gap-2">
+              {GOAL_COLORS.map((hex) => (
+                <button
+                  key={hex}
+                  type="button"
+                  onClick={() => setForm((prev) => ({ ...prev, color: hex }))}
+                  className={cn(
+                    "h-8 w-8 rounded-full border-2 transition-all",
+                    form.color === hex
+                      ? "border-foreground scale-110 ring-2 ring-offset-2 ring-offset-background ring-primary"
+                      : "border-transparent hover:scale-105"
+                  )}
+                  style={{ backgroundColor: hex }}
+                  aria-label={`Color ${hex}`}
+                />
+              ))}
+            </div>
+          </div>
 
           {goalKind === "asset" && (
             <Input

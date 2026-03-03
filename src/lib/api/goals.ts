@@ -22,6 +22,7 @@ export function fetchGoals() {
         linkedCategoryIds: (g as Goal).linkedCategoryIds,
         linkedBudgetId: (g as Goal).linkedBudgetId,
         isPrimary: (g as Goal).isPrimary ?? false,
+        color: (g as Goal).color,
       })),
     } as ApiResponse<Goal[]>);
   }

@@ -261,6 +261,7 @@ export const DASHBOARD_MOCK: DashboardData = {
       dueDate: "2026-06-30",
       description: "Para sobrevivir 8 meses sin ingresos",
       isPrimary: true,
+      color: "#22c55e",
     },
     {
       id: "goal-2",
@@ -271,6 +272,7 @@ export const DASHBOARD_MOCK: DashboardData = {
       dueDate: "2026-08-01",
       description: "Ahorro para vacaciones de verano",
       isPrimary: false,
+      color: "#0ea5e9",
     },
     {
       id: "goal-3",
@@ -281,6 +283,7 @@ export const DASHBOARD_MOCK: DashboardData = {
       dueDate: "2026-05-15",
       description: "Renovar equipo de trabajo",
       isPrimary: false,
+      color: "#f59e0b",
     },
   ],
   notifications: [

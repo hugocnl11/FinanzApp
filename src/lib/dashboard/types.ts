@@ -41,6 +41,7 @@ export type Goal = {
   linkedCategoryIds?: string[];
   linkedBudgetId?: string;
   isPrimary?: boolean;
+  color?: string; // hex, ej. #6366f1
 };
 
 export type Budget = {

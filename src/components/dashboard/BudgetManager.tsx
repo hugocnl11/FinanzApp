@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Pencil, Plus, ChevronDown, ChevronRight, ChevronLeft, Trash2, ArrowDownCircle, TrendingUp, PiggyBank } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getUserId } from "@/lib/auth";
 import { useDashboardDataContext } from "@/contexts/DashboardDataContext";
@@ -781,68 +781,105 @@ export function BudgetManager({
   );
 
   const content = (
-    <div className={cn(
-      "space-y-6",
-      inline && "w-full rounded-2xl border border-border bg-white dark:bg-[#18181b] p-6 ring-1 ring-border/50 shadow"
-    )}>
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        {inline && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">Mes</span>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0"
-                disabled={!canGoPrev}
-                onClick={() => {
-                  setSelectedMonth((prev) => {
-                    const d = new Date(prev.year, prev.month, 1);
-                    d.setMonth(d.getMonth() - 1);
-                    return { year: d.getFullYear(), month: d.getMonth() };
-                  });
-                }}
-                aria-label="Mes anterior"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="min-w-[8rem] text-center text-sm font-semibold tabular-nums">
-                {selectedMonthLabel}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0"
-                disabled={!canGoNext}
-                onClick={() => {
-                  setSelectedMonth((prev) => {
-                    const d = new Date(prev.year, prev.month, 1);
-                    d.setMonth(d.getMonth() + 1);
-                    return { year: d.getFullYear(), month: d.getMonth() };
-                  });
-                }}
-                aria-label="Mes siguiente"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-        <Button onClick={() => setOpenNewBudgetDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo presupuesto
-        </Button>
-      </div>
-
+    <div className={cn("space-y-6", inline && "w-full")}>
       {inline && (
-        <div className="w-full rounded-2xl border border-border bg-card shadow p-4">
-          <div className="flex items-center justify-between mt-0">
-            <p className="text-4xl font-semibold tabular-nums">€ {Number(totalSpent).toFixed(2)}</p>
-            <p className="text-sm text-muted-foreground">/ € {Number(totalLimit).toFixed(2)}</p>
-          </div>
-          <Progress value={Math.min((totalSpent / (totalLimit || 1)) * 100, 100)} className="mt-2 h-2" />
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <motion.div
+            className="inline-flex items-center gap-0 rounded-full border border-border bg-muted/50 dark:bg-muted/20 px-1 py-1 shadow-sm"
+            initial={false}
+            animate={{ boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)" }}
+          >
+            <motion.button
+              type="button"
+              disabled={!canGoPrev}
+              onClick={() => {
+                setSelectedMonth((prev) => {
+                  const d = new Date(prev.year, prev.month, 1);
+                  d.setMonth(d.getMonth() - 1);
+                  return { year: d.getFullYear(), month: d.getMonth() };
+                });
+              }}
+              className={cn(
+                "flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors",
+                canGoPrev
+                  ? "hover:bg-muted hover:text-foreground active:scale-95"
+                  : "cursor-not-allowed opacity-40"
+              )}
+              aria-label="Mes anterior"
+              whileTap={canGoPrev ? { scale: 0.92 } : {}}
+              whileHover={canGoPrev ? { scale: 1.05 } : {}}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </motion.button>
+            <div className="relative min-w-[9rem] overflow-hidden px-3 py-1.5 text-center">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={selectedMonthLabel}
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="inline-block text-sm font-semibold tabular-nums text-foreground"
+                >
+                  {selectedMonthLabel}
+                </motion.span>
+              </AnimatePresence>
+            </div>
+            <motion.button
+              type="button"
+              disabled={!canGoNext}
+              onClick={() => {
+                setSelectedMonth((prev) => {
+                  const d = new Date(prev.year, prev.month, 1);
+                  d.setMonth(d.getMonth() + 1);
+                  return { year: d.getFullYear(), month: d.getMonth() };
+                });
+              }}
+              className={cn(
+                "flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors",
+                canGoNext
+                  ? "hover:bg-muted hover:text-foreground active:scale-95"
+                  : "cursor-not-allowed opacity-40"
+              )}
+              aria-label="Mes siguiente"
+              whileTap={canGoNext ? { scale: 0.92 } : {}}
+              whileHover={canGoNext ? { scale: 1.05 } : {}}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </motion.button>
+          </motion.div>
+          <Button onClick={() => setOpenNewBudgetDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo presupuesto
+          </Button>
         </div>
       )}
+
+      <div className={cn(
+        inline && "w-full rounded-2xl border border-border bg-white dark:bg-[#18181b] p-6 ring-1 ring-border/50 shadow space-y-6"
+      )}>
+        {!inline && (
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <Button onClick={() => setOpenNewBudgetDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nuevo presupuesto
+            </Button>
+          </div>
+        )}
+
+        {inline && (
+          <div className="w-full space-y-2">
+            <div>
+              <p className="text-xs text-muted-foreground">Presupuestos del mes</p>
+              <h3 className="text-sm font-semibold">Estado general</h3>
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="text-4xl font-semibold tabular-nums">€ {Number(totalSpent).toFixed(2)}</p>
+              <p className="text-sm text-muted-foreground">/ € {Number(totalLimit).toFixed(2)}</p>
+            </div>
+            <Progress value={Math.min((totalSpent / (totalLimit || 1)) * 100, 100)} className="h-2" />
+          </div>
+        )}
 
       {displayBudgets.length === 0 ? (
         <div className="max-w-md mx-auto">
@@ -884,6 +921,8 @@ export function BudgetManager({
           </div>
         </div>
       )}
+
+      </div>
 
       <Dialog open={openNewBudgetDialog} onOpenChange={setOpenNewBudgetDialog}>
         <DialogContent className="max-w-md">

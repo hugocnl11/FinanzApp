@@ -608,7 +608,7 @@ export default function MovimientosPage() {
       </div>
 
       {/* Desktop: filtros inline */}
-      <div className="hidden md:block rounded-2xl border border-border bg-card p-6 shadow">
+      <div className="hidden md:block rounded-2xl border border-border bg-white dark:bg-[#18181b] p-6 shadow">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-border/40">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Filtros avanzados</h2>

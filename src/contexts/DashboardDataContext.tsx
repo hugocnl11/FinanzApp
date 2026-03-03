@@ -27,6 +27,7 @@ const emptyData: DashboardData = {
   goal: null,
   goals: [],
   budgets: [],
+  categories: [],
   notifications: [],
   recurringMovements: [],
   gastosPorCategoria: [],
@@ -123,6 +124,7 @@ export async function loadDashboardDataCore(opts: {
           goal: selectedGoal,
           goals: mockGoals,
           budgets: DASHBOARD_MOCK.budgets,
+          categories: [],
           notifications: DASHBOARD_MOCK.notifications,
           recurringMovements: DASHBOARD_MOCK.recurringMovements.map((rm) => ({
             ...mockMovements.find((m) => m.id === rm.id)!,
@@ -269,6 +271,7 @@ export async function loadDashboardDataCore(opts: {
         goal: selectedGoal as Goal | null,
         goals,
         budgets: budgetsRes.data,
+        categories: (categoriesRes.data ?? []) as DashboardData["categories"],
         notifications: [],
         recurringMovements: [],
         gastosPorCategoria,

@@ -25,15 +25,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useDashboardDataContext } from "@/contexts/DashboardDataContext";
 import { fetchMovements, createMovement, updateMovement, deleteMovement } from "@/lib/api/movements";
 import { toast } from "@/lib/toast";
 import { fetchCategories } from "@/lib/api/categories";
 import { getUserId } from "@/lib/auth";
 
 export default function MovimientosPage() {
+  const dashboardContext = useDashboardDataContext();
   const [movimientos, setMovimientos] = useState<Movement[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const useContextData = Boolean(dashboardContext);
+  const movimientosSource = useContextData ? dashboardContext!.data.movimientos : movimientos;
+  const categoriesSource = useContextData ? (dashboardContext!.data.categories ?? []) : categories;
+  const loadingSource = useContextData ? dashboardContext!.loading : loading;
   const [editingMovement, setEditingMovement] = useState<Movement | undefined>();
   const [showForm, setShowForm] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -61,6 +68,7 @@ export default function MovimientosPage() {
   }, [filters.search]);
 
   useEffect(() => {
+    if (dashboardContext) return;
     const load = async () => {
       setLoading(true);
       try {
@@ -84,7 +92,10 @@ export default function MovimientosPage() {
       }
     };
     void load();
-  }, []);
+    const handler = () => load();
+    window.addEventListener("finanzapp:data-updated", handler);
+    return () => window.removeEventListener("finanzapp:data-updated", handler);
+  }, [dashboardContext]);
 
   const handleSave = async (movementData: Omit<Movement, "id">) => {
     if (editingMovement) {
@@ -136,7 +147,7 @@ export default function MovimientosPage() {
   };
 
   const categoryOptions = Array.from(
-    new Set(movimientos.map((m) => m.categoria))
+    new Set(movimientosSource.map((m) => m.categoria))
   ).sort();
 
   // Calcular cuántas categorías caben en una fila
@@ -245,7 +256,7 @@ export default function MovimientosPage() {
     return () => resizeObserver.disconnect();
   }, [calculateVisibleCategoriesMobile]);
 
-  const filteredMovements = movimientos.filter((movement) => {
+  const filteredMovements = movimientosSource.filter((movement) => {
     const searchMatch =
       !debouncedSearch ||
       movement.concepto.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
@@ -649,7 +660,7 @@ export default function MovimientosPage() {
                 <div className="mt-6">
                   <MovementForm
                     movement={editingMovement}
-                    categories={categories}
+                    categories={categoriesSource}
                     onSave={handleSave}
                     onCancel={handleCancel}
                     variant="compact"
@@ -662,7 +673,7 @@ export default function MovimientosPage() {
           <div className="hidden md:block">
             <MovementForm
               movement={editingMovement}
-              categories={categories}
+              categories={categoriesSource}
               onSave={handleSave}
               onCancel={handleCancel}
             />
@@ -670,7 +681,7 @@ export default function MovimientosPage() {
         </>
       )}
 
-      {loading ? (
+      {loadingSource ? (
         <Card className="p-6 min-w-0 overflow-hidden">
           <Skeleton className="h-8 w-48 mb-6" />
           <Skeleton className="h-64 w-full rounded-lg" />
@@ -678,7 +689,7 @@ export default function MovimientosPage() {
       ) : (
         <MovementsTable
           movimientos={filteredMovements}
-          total={movimientos.length}
+          total={movimientosSource.length}
           onEdit={handleEdit}
           onDelete={handleDeleteClick}
           onAddNew={handleAddNew}

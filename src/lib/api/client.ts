@@ -13,6 +13,7 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
   const userId = typeof window !== "undefined" ? getUserId() : null;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...rest,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(userId ? { "x-user-id": userId } : {}),

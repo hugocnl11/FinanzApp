@@ -240,6 +240,7 @@ export const DASHBOARD_MOCK: DashboardData = {
     { id: "bud-var-3", category: "Restaurantes", limit: 200, spent: 180, period: "variable" },
     { id: "bud-var-4", category: "Otros", limit: 100, spent: 85, period: "variable" },
   ],
+  categories: [],
   goals: [
     {
       id: "goal-1",

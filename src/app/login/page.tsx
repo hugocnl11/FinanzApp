@@ -55,7 +55,19 @@ export default function LoginPage() {
         setStatusMessage(null);
         return;
       }
-      saveSession(response.data as { token: string; user: unknown });
+      const sessionPayload = response.data as { token?: string; user?: { id?: string; name?: string; email?: string } };
+      saveSession(sessionPayload);
+      if (!sessionPayload?.user?.id && typeof window !== "undefined") {
+        try {
+          const meRes = await fetch("/api/auth/me", { credentials: "include" });
+          if (meRes.ok) {
+            const meJson = (await meRes.json()) as { data?: { token?: string; user?: { id: string; name: string; email: string } } };
+            if (meJson?.data?.user?.id) saveSession(meJson.data);
+          }
+        } catch {
+          /* seguir con lo guardado */
+        }
+      }
       router.push("/dashboard");
     } catch (error) {
       console.error(error);
@@ -78,7 +90,19 @@ export default function LoginPage() {
     setStatusMessage(null);
     try {
       const response = await verify2FALogin(tempToken, code2FA.trim());
-      saveSession(response.data as { token: string; user: unknown });
+      const sessionPayload = response.data as { token?: string; user?: { id?: string } };
+      saveSession(sessionPayload);
+      if (!sessionPayload?.user?.id && typeof window !== "undefined") {
+        try {
+          const meRes = await fetch("/api/auth/me", { credentials: "include" });
+          if (meRes.ok) {
+            const meJson = (await meRes.json()) as { data?: { user?: { id: string; name: string; email: string } } };
+            if (meJson?.data?.user?.id) saveSession(meJson.data);
+          }
+        } catch {
+          /* seguir con lo guardado */
+        }
+      }
       router.push("/dashboard");
     } catch {
       setStatusMessage("Código incorrecto o expirado. Vuelve a iniciar sesión.");

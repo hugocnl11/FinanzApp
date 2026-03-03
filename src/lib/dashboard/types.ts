@@ -94,6 +94,7 @@ export type DashboardData = {
   goal: Goal | null;
   goals: Goal[];
   budgets: Budget[];
+  categories: Category[];
   notifications: Notification[];
   recurringMovements: RecurringMovement[];
   gastosPorCategoria: CategoryAmount[];

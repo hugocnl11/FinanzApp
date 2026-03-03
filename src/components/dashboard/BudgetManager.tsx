@@ -18,6 +18,7 @@ import { Pencil, ChevronDown, ChevronRight, Trash2, ArrowDownCircle, TrendingUp,
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getUserId } from "@/lib/auth";
+import { useDashboardDataContext } from "@/contexts/DashboardDataContext";
 import { fetchBudgets, createBudget, updateBudget, deleteBudget } from "@/lib/api/budgets";
 import { fetchCategories } from "@/lib/api/categories";
 import { fetchMovements } from "@/lib/api/movements";
@@ -91,11 +92,18 @@ export function BudgetManager({
   triggerClassName,
   inline = false,
 }: BudgetManagerProps) {
+  const dashboardContext = useDashboardDataContext();
   const [budgets, setBudgets] = useState<BudgetItem[]>(initialBudgets);
   const [categoriesData, setCategoriesData] = useState<Category[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  const useContextData = Boolean(dashboardContext);
+  const budgetsSource = useContextData ? (dashboardContext!.data.budgets as BudgetItem[]) : budgets;
+  const categoriesDataSource = useContextData ? (dashboardContext!.data.categories ?? []) : categoriesData;
+  const movementsSource = useContextData ? dashboardContext!.data.movimientos : movements;
+  const loadingSource = useContextData ? dashboardContext!.loading : loading;
   const [formData, setFormData] = useState({
     category: categories[0] ?? "",
     limit: "",
@@ -110,14 +118,14 @@ export function BudgetManager({
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const hasLabel = Boolean(triggerLabel);
   // Presupuestos: gasto, inversión o ahorro (categorías con límite mensual)
-  const budgetableCategories = categoriesData.filter((category) =>
+  const budgetableCategories = categoriesDataSource.filter((category) =>
     category.type === "expense" || category.type === "investment" || category.type === "savings"
   );
 
   // Mapa de categorías para búsqueda rápida
   const categoryMap = useMemo(() => {
-    return new Map(categoriesData.map((cat) => [cat.name, cat]));
-  }, [categoriesData]);
+    return new Map(categoriesDataSource.map((cat) => [cat.name, cat]));
+  }, [categoriesDataSource]);
 
   // Tipo de movimiento que corresponde a cada tipo de categoría (para calcular "gastado" del presupuesto)
   const movementTypeByCategoryType = useMemo(
@@ -137,11 +145,11 @@ export function BudgetManager({
     const currentYear = now.getFullYear();
     const map = new Map<string, number>();
     const categoryTypes = new Map(
-      categoriesData
+      categoriesDataSource
         .filter((c) => c.type === "expense" || c.type === "investment" || c.type === "savings")
         .map((c) => [c.name, c.type as "expense" | "investment" | "savings"])
     );
-    movements.forEach((movement) => {
+    movementsSource.forEach((movement) => {
       const categoryType = categoryTypes.get(movement.categoria);
       if (!categoryType) return;
       const expectedTipo = movementTypeByCategoryType.get(categoryType);
@@ -153,24 +161,24 @@ export function BudgetManager({
       }
     });
     return map;
-  }, [movements, categoriesData, movementTypeByCategoryType]);
+  }, [movementsSource, categoriesDataSource, movementTypeByCategoryType]);
 
   const budgetsWithSpent = useMemo(
     () =>
-      budgets.map((b) => ({
+      budgetsSource.map((b) => ({
         ...b,
         spent: spentByCategoryThisMonth.get(b.category) ?? b.spent,
       })),
-    [budgets, spentByCategoryThisMonth]
+    [budgetsSource, spentByCategoryThisMonth]
   );
 
   // Categorías con gasto este mes que no tienen ningún presupuesto (ni fijo ni variable)
   const categoriesWithAnyBudget = useMemo(
-    () => new Set(budgets.map((b) => b.category)),
-    [budgets]
+    () => new Set(budgetsSource.map((b) => b.category)),
+    [budgetsSource]
   );
   const implicitBudgets = useMemo(() => {
-    if (movements.length === 0) return [];
+    if (movementsSource.length === 0) return [];
     return Array.from(spentByCategoryThisMonth.entries())
       .filter(([category]) => !categoriesWithAnyBudget.has(category))
       .map(([category, spent]) => ({
@@ -180,7 +188,7 @@ export function BudgetManager({
         spent,
         period: (implicitPeriodOverrides[category] ?? "variable") as BudgetPeriod,
       }));
-  }, [movements.length, spentByCategoryThisMonth, categoriesWithAnyBudget, implicitPeriodOverrides]);
+  }, [movementsSource.length, spentByCategoryThisMonth, categoriesWithAnyBudget, implicitPeriodOverrides]);
 
   const displayBudgets = useMemo(
     () => [...budgetsWithSpent, ...implicitBudgets],
@@ -203,7 +211,7 @@ export function BudgetManager({
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     const categoryTypes = new Map(
-      categoriesData
+      categoriesDataSource
         .filter((c) => c.type === "expense" || c.type === "investment" || c.type === "savings")
         .map((c) => [c.name, c.type as "expense" | "investment" | "savings"])
     );
@@ -219,7 +227,7 @@ export function BudgetManager({
         map.set(budget.id, []);
         return;
       }
-      const list = movements
+      const list = movementsSource
         .filter(
           (m) =>
             m.categoria === budget.category &&
@@ -231,7 +239,7 @@ export function BudgetManager({
       map.set(budget.id, list);
     });
     return map;
-  }, [displayBudgets, movements, categoriesData, movementTypeByCategoryType]);
+  }, [displayBudgets, movementsSource, categoriesDataSource, movementTypeByCategoryType]);
 
   const getTipoIcon = (tipo: MovementType) => {
     switch (tipo) {
@@ -250,6 +258,7 @@ export function BudgetManager({
     new Date(dateString).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
 
   useEffect(() => {
+    if (dashboardContext) return;
     const load = async () => {
       setLoading(true);
       const uid = getUserId();
@@ -283,7 +292,7 @@ export function BudgetManager({
     const onUpdate = () => load();
     window.addEventListener("finanzapp:data-updated", onUpdate);
     return () => window.removeEventListener("finanzapp:data-updated", onUpdate);
-  }, []);
+  }, [dashboardContext]);
 
   const selectedCategory = budgetableCategories.find((cat) => cat.name === formData.category);
 
@@ -772,7 +781,7 @@ export function BudgetManager({
         </div>
   );
 
-  if (inline && loading) {
+  if (inline && loadingSource) {
     return (
       <div className="min-w-0 space-y-4">
         <Skeleton className="h-[120px] w-full rounded-2xl" />

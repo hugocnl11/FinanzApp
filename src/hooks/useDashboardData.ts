@@ -10,6 +10,7 @@ const emptyData: DashboardData = {
   goal: null,
   goals: [],
   budgets: [],
+  categories: [],
   notifications: [],
   recurringMovements: [],
   gastosPorCategoria: [],

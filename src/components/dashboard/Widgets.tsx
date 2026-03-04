@@ -13,7 +13,7 @@ import { motion } from "framer-motion";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { createGoal, updateGoal } from "@/lib/api/goals";
 import { fetchCategories } from "@/lib/api/categories";
-import { fetchAssetSnapshotsForDate } from "@/lib/api/asset-snapshots";
+import { fetchAssetSnapshotsForDate, fetchAssetSnapshotsLatest } from "@/lib/api/asset-snapshots";
 import type { Category } from "@/lib/dashboard/types";
 import { Pencil } from "lucide-react";
 
@@ -127,18 +127,22 @@ export const GoalCard = memo(function GoalCard() {
     Promise.all([
       fetchCategories().then((r) => r.data ?? []),
       fetchAssetSnapshotsForDate(today).then((r) => r.data ?? []),
+      fetchAssetSnapshotsLatest().then((r) => r.data ?? []),
     ])
-      .then(([cats, snapshots]) => {
+      .then(([cats, snapshotsToday, snapshotsLatest]) => {
         const categories = cats as Category[];
-        const snapshotByCategory = new Map(
-          (snapshots as { categoryId: string; value: number }[]).map((s) => [s.categoryId, s.value])
+        const snapshotByCategoryToday = new Map(
+          (snapshotsToday as { categoryId: string; value: number }[]).map((s) => [s.categoryId, s.value])
+        );
+        const snapshotByCategoryLatest = new Map(
+          (snapshotsLatest as { categoryId: string; value: number }[]).map((s) => [s.categoryId, s.value])
         );
         const options: AssetOption[] = categories
           .filter((c) => (c.type === "investment" || c.type === "savings") && c.active !== false)
           .map((c) => ({
             id: c.id,
             name: c.name,
-            value: snapshotByCategory.get(c.id) ?? 0,
+            value: snapshotByCategoryToday.get(c.id) ?? snapshotByCategoryLatest.get(c.id) ?? 0,
             type: c.type as "investment" | "savings",
           }));
         setAssetOptions(options);

@@ -18,7 +18,7 @@ import { GoalProgressWithMilestones } from "@/components/dashboard/GoalProgressW
 import { fetchGoals, createGoal, updateGoal, deleteGoal } from "@/lib/api/goals";
 import { fetchCategories } from "@/lib/api/categories";
 import { fetchBudgets } from "@/lib/api/budgets";
-import { fetchAssetSnapshotsForDate } from "@/lib/api/asset-snapshots";
+import { fetchAssetSnapshotsForDate, fetchAssetSnapshotsLatest } from "@/lib/api/asset-snapshots";
 import { getUserId } from "@/lib/auth";
 import type { Category } from "@/lib/dashboard/types";
 import type { Budget } from "@/lib/dashboard/types";
@@ -78,11 +78,12 @@ export function GoalsManager(props?: GoalsManagerProps) {
           return;
         }
         const today = new Date().toISOString().slice(0, 10);
-        const [goalsRes, categoriesRes, budgetsRes, snapshotsRes] = await Promise.all([
+        const [goalsRes, categoriesRes, budgetsRes, snapshotsTodayRes, snapshotsLatestRes] = await Promise.all([
           fetchGoals(),
           fetchCategories(),
           fetchBudgets(),
           fetchAssetSnapshotsForDate(today).catch(() => ({ data: [] as { categoryId: string; categoryName: string; value: number }[] })),
+          fetchAssetSnapshotsLatest().catch(() => ({ data: [] as { categoryId: string; categoryName: string; value: number }[] })),
         ]);
         const goalsData = goalsRes.data as GoalItem[];
         setGoals(goalsData);
@@ -94,14 +95,16 @@ export function GoalsManager(props?: GoalsManagerProps) {
         }
 
         const categories = (categoriesRes.data ?? []) as Category[];
-        const snapshots = snapshotsRes.data ?? [];
-        const snapshotByCategory = new Map(snapshots.map((s) => [s.categoryId, s.value]));
+        const snapshotsToday = snapshotsTodayRes.data ?? [];
+        const snapshotsLatest = snapshotsLatestRes.data ?? [];
+        const snapshotByCategoryToday = new Map(snapshotsToday.map((s) => [s.categoryId, s.value]));
+        const snapshotByCategoryLatest = new Map(snapshotsLatest.map((s) => [s.categoryId, s.value]));
         const assets: AssetOption[] = categories
           .filter((c) => (c.type === "investment" || c.type === "savings") && c.active !== false)
           .map((c) => ({
             id: c.id,
             name: c.name,
-            value: snapshotByCategory.get(c.id) ?? 0,
+            value: snapshotByCategoryToday.get(c.id) ?? snapshotByCategoryLatest.get(c.id) ?? 0,
             type: c.type as "investment" | "savings",
           }));
         setAssetOptions(assets);

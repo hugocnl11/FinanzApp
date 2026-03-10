@@ -63,8 +63,8 @@ const CHART_WIDGETS_KEY = "finanzapp:chartWidgets";
 const CHART_HEIGHT_PX = 200;
 /** Altura fija de cada Card estándar */
 const CARD_HEIGHT_PX = 320;
-/** Altura base para card Actividad por día (se ajusta dinámicamente al calendario) */
-const CARD_ACTIVIDAD_HEADER_PX = 60;
+/** Altura fija del card Actividad por día (calendario usa todo el espacio) */
+const CARD_ACTIVIDAD_PX = 340;
 /** Altura de card para Pie charts (donut + leyenda) */
 const CARD_HEIGHT_PIE_PX = 380;
 /** Altura del donut en Pie charts */
@@ -264,13 +264,25 @@ export default function GraficasPage() {
     return map;
   }, [movimientos]);
 
+  // Valor ingresado por categoría de inversión: priorizar investedAmount de la categoría (lo que el usuario pone en "Valor ingresado")
+  const valorIngresadoByCategoryName = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of categoriesList) {
+      if (c.type !== "investment") continue;
+      const fromMovements = invertidoByCategoryName.get(c.name) ?? 0;
+      const valorIngresado = c.investedAmount != null && c.investedAmount > 0 ? Number(c.investedAmount) : fromMovements;
+      map.set(c.name, valorIngresado);
+    }
+    return map;
+  }, [categoriesList, invertidoByCategoryName]);
+
   // Solo categorías de tipo inversión (excluir ahorro)
   const investmentCategoryNames = useMemo(
     () => new Set(categoriesList.filter((c) => c.type === "investment").map((c) => c.name)),
     [categoriesList]
   );
 
-  // Rentabilidad por día del mes: una serie por activo de inversión (día → %)
+  // Rentabilidad por día del mes: una serie por activo de inversión (día → %). Rentabilidad = (valor_actual - valor_ingresado) / valor_ingresado * 100
   const rentabilidadPorDiaPorActivo = useMemo(() => {
     const now = new Date();
     const year = now.getFullYear();
@@ -279,7 +291,7 @@ export default function GraficasPage() {
     const daysInMonth = lastDay.getDate();
 
     const names = Array.from(investmentCategoryNames).filter(
-      (name) => (invertidoByCategoryName.get(name) ?? 0) > 0
+      (name) => (valorIngresadoByCategoryName.get(name) ?? 0) > 0
     );
     if (names.length === 0) return { daysInMonth, series: [] as { name: string; color: string; points: { day: number; rentabilidad: number }[] }[] };
 
@@ -298,14 +310,14 @@ export default function GraficasPage() {
     const series: { name: string; color: string; points: { day: number; rentabilidad: number }[] }[] = [];
     for (let i = 0; i < names.length; i++) {
       const name = names[i];
-      const invertido = invertidoByCategoryName.get(name) ?? 0;
+      const valorIngresado = valorIngresadoByCategoryName.get(name) ?? 0;
       const byDate = snapByCategoryAndDate.get(name);
       const points: { day: number; rentabilidad: number }[] = [];
       for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
         const datesOnOrBefore = Array.from(byDate?.keys() ?? []).filter((d) => d <= dateStr).sort();
         const value = datesOnOrBefore.length > 0 ? byDate!.get(datesOnOrBefore[datesOnOrBefore.length - 1])! : 0;
-        const rentabilidad = invertido > 0 ? ((value - invertido) / invertido) * 100 : 0;
+        const rentabilidad = valorIngresado > 0 ? ((value - valorIngresado) / valorIngresado) * 100 : 0;
         points.push({ day, rentabilidad });
       }
       series.push({
@@ -315,7 +327,7 @@ export default function GraficasPage() {
       });
     }
     return { daysInMonth, series };
-  }, [movimientos, categoriesList, snapshotsInMonth, investmentCategoryNames, invertidoByCategoryName]);
+  }, [movimientos, categoriesList, snapshotsInMonth, investmentCategoryNames, valorIngresadoByCategoryName]);
 
   const comparativaAnualData = useMemo(() => comparativaAnual(movimientos), [movimientos]);
 
@@ -345,15 +357,6 @@ export default function GraficasPage() {
     }
     return { byDay, firstDay, daysInMonth };
   }, [movimientos]);
-
-  const actividadCardHeight = useMemo(() => {
-    const emptyStart = (actividadPorDia.firstDay.getDay() + 6) % 7;
-    const totalCells = emptyStart + actividadPorDia.daysInMonth;
-    const rows = Math.ceil(totalCells / 7);
-    const rowHeight = 36;
-    const gridHeight = 28 + rows * rowHeight;
-    return CARD_ACTIVIDAD_HEADER_PX + gridHeight + 24;
-  }, [actividadPorDia.firstDay, actividadPorDia.daysInMonth]);
 
   const handleExportImage = async () => {
     if (!chartsRef.current || exporting) return;
@@ -514,18 +517,18 @@ export default function GraficasPage() {
             order: visibleOrder.includes("flujoCaja") ? visibleOrder.indexOf("flujoCaja") : 999,
           }}
         >
-        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
-          <div className="space-y-2">
-            <div>
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PIE_PX }}>
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="shrink-0">
               <h3 className="text-sm font-medium text-muted-foreground">Flujo de Caja Mensual</h3>
               <p className="text-xs text-muted-foreground mt-1">Diferencia entre ingresos y gastos</p>
             </div>
             {flujoCaja.length === 0 ? (
-              <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: CHART_HEIGHT_PX }}>
+              <div className="flex-1 min-h-0 flex items-center justify-center text-sm text-muted-foreground">
                 Sin datos disponibles
               </div>
             ) : (
-            <div style={{ height: CHART_HEIGHT_PX }}>
+            <div className="flex-1 min-h-0 mt-2">
               <ParentSize>
                 {({ width, height }) => {
                   const margin = CHART_MARGIN;
@@ -646,18 +649,18 @@ export default function GraficasPage() {
             order: visibleOrder.includes("tasaAhorro") ? visibleOrder.indexOf("tasaAhorro") : 999,
           }}
         >
-        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
-          <div className="space-y-2">
-            <div>
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PIE_PX }}>
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="shrink-0">
               <h3 className="text-sm font-medium text-muted-foreground">Tasa de Ahorro Mensual</h3>
               <p className="text-xs text-muted-foreground mt-1">Porcentaje de ingresos ahorrados</p>
             </div>
             {tasaAhorro.length === 0 ? (
-              <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: CHART_HEIGHT_PX }}>
+              <div className="flex-1 min-h-0 flex items-center justify-center text-sm text-muted-foreground">
                 Sin datos disponibles
               </div>
             ) : (
-            <div style={{ height: CHART_HEIGHT_PX }}>
+            <div className="flex-1 min-h-0 mt-2">
               <ParentSize>
                 {({ width, height }) => {
                   const margin = CHART_MARGIN;
@@ -787,21 +790,21 @@ export default function GraficasPage() {
             order: visibleOrder.includes("saldoAcumulado") ? visibleOrder.indexOf("saldoAcumulado") : 999,
           }}
         >
-        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
-          <div className="space-y-2">
-            <div>
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PIE_PX }}>
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="shrink-0">
               <h3 className="text-sm font-medium text-muted-foreground">Saldo Acumulado</h3>
               <p className="text-xs text-muted-foreground mt-1">Evolución del patrimonio neto</p>
             </div>
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="shrink-0 text-2xl font-bold text-blue-600">
               {formatNumber(saldoAcumulado[saldoAcumulado.length - 1]?.valor ?? 0)} €
             </div>
             {saldoAcumulado.length === 0 ? (
-              <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: CHART_HEIGHT_PX }}>
+              <div className="flex-1 min-h-0 flex items-center justify-center text-sm text-muted-foreground">
                 Sin datos disponibles
               </div>
             ) : (
-            <div style={{ height: CHART_HEIGHT_PX }}>
+            <div className="flex-1 min-h-0 mt-2">
               <ParentSize>
                 {({ width, height }) => {
                   const margin = CHART_MARGIN;
@@ -910,18 +913,19 @@ export default function GraficasPage() {
             order: visibleOrder.includes("rentabilidadPorActivo") ? visibleOrder.indexOf("rentabilidadPorActivo") : 999,
           }}
         >
-        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
-          <div className="space-y-2">
-            <div>
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PIE_PX }}>
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="shrink-0">
               <h3 className="text-sm font-medium text-muted-foreground">Rentabilidad por activo</h3>
               <p className="text-xs text-muted-foreground mt-1">Positiva o negativa respecto al valor ingresado</p>
             </div>
             {rentabilidadPorDiaPorActivo.series.length === 0 ? (
-              <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: CHART_HEIGHT_PX }}>
+              <div className="flex-1 min-h-0 flex items-center justify-center text-sm text-muted-foreground">
                 Sin datos suficientes. Añade activos de inversión y valor actual en Editar activos.
               </div>
             ) : (
-              <div style={{ height: CHART_HEIGHT_PX }}>
+              <>
+              <div className="flex-1 min-h-0 mt-2">
                 <ParentSize>
                   {({ width, height }) => {
                     const margin = CHART_MARGIN;
@@ -998,8 +1002,9 @@ export default function GraficasPage() {
                     );
                   }}
                 </ParentSize>
+              </div>
                 {rentabilidadPorDiaPorActivo.series.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 mt-2 max-h-[84px] overflow-y-auto overflow-x-hidden text-xs">
+                  <div className="shrink-0 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 mt-2 max-h-[84px] overflow-y-auto overflow-x-hidden text-xs">
                     {rentabilidadPorDiaPorActivo.series.map((s) => (
                       <span key={s.name} className="flex items-center gap-1.5 min-w-0">
                         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
@@ -1008,7 +1013,7 @@ export default function GraficasPage() {
                     ))}
                   </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         </Card>
@@ -1023,23 +1028,29 @@ export default function GraficasPage() {
             order: visibleOrder.includes("actividadPorDia") ? visibleOrder.indexOf("actividadPorDia") : 999,
           }}
         >
-        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: actividadCardHeight }}>
-          <div className="space-y-2">
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground">Actividad por día</h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                Gastado, ingresos e inversiones en el mes actual
-              </p>
-            </div>
-            <div className="flex justify-center">
-            <div className="grid grid-cols-7 gap-2 text-center w-fit">
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_ACTIVIDAD_PX }}>
+          <div className="shrink-0">
+            <h3 className="text-sm font-medium text-muted-foreground">Actividad por día</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Gastado, ingresos e inversiones en el mes actual
+            </p>
+          </div>
+          <div className="flex-1 min-h-0 flex flex-col w-full mt-3">
+            <div className="grid grid-cols-7 gap-1 text-center w-full shrink-0 mb-1">
               {WEEKDAYS.map((wd) => (
-                <div key={wd} className="text-[11px] font-medium text-muted-foreground py-1.5">
+                <div key={wd} className="text-[11px] font-medium text-muted-foreground py-0.5">
                   {wd}
                 </div>
               ))}
+            </div>
+            <div
+              className="grid grid-cols-7 flex-1 min-h-0 w-full gap-1"
+              style={{
+                gridTemplateRows: `repeat(${Math.ceil(((actividadPorDia.firstDay.getDay() + 6) % 7 + actividadPorDia.daysInMonth) / 7)}, minmax(0, 1fr))`,
+              }}
+            >
               {Array.from({ length: (actividadPorDia.firstDay.getDay() + 6) % 7 }, (_, i) => (
-                <div key={`empty-${i}`} className="aspect-square min-w-[24px] min-h-[24px]" />
+                <div key={`empty-${i}`} className="min-w-0" />
               ))}
               {Array.from({ length: actividadPorDia.daysInMonth }, (_, i) => {
                 const day = i + 1;
@@ -1048,13 +1059,13 @@ export default function GraficasPage() {
                 return (
                   <div
                     key={day}
-                    className="aspect-square min-w-[24px] min-h-[24px] rounded-md border border-border/60 flex flex-col items-center justify-center text-[10px] bg-muted/30 hover:bg-muted/50 transition-colors relative group cursor-default"
+                    className="min-w-0 rounded-md border border-border/60 flex flex-col items-center justify-center text-[10px] bg-muted/30 hover:bg-muted/50 transition-colors relative group cursor-default overflow-hidden"
                     title={`Día ${day}: Gastado € ${formatNumber(entry.gastado)}, Ingresos € ${formatNumber(entry.ingresado)}, Inversiones € ${formatNumber(entry.invertido)}`}
                   >
                     <span className="font-medium text-foreground leading-tight">{day}</span>
                     {net !== 0 && (
                       <span
-                        className={`font-semibold leading-tight mt-0.5 ${net > 0 ? "text-green-600" : "text-red-600"}`}
+                        className={`font-semibold leading-tight mt-0.5 truncate max-w-full ${net > 0 ? "text-green-600" : "text-red-600"}`}
                       >
                         {net > 0 ? "+" : ""}{formatNumber(net)}
                       </span>
@@ -1069,7 +1080,6 @@ export default function GraficasPage() {
                 );
               })}
             </div>
-            </div>
           </div>
         </Card>
         </div>
@@ -1083,13 +1093,13 @@ export default function GraficasPage() {
             order: visibleOrder.includes("comparativaAnual") ? visibleOrder.indexOf("comparativaAnual") : 999,
           }}
         >
-        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PX }}>
-          <div className="space-y-2">
-            <div>
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PIE_PX }}>
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="shrink-0">
               <h3 className="text-sm font-medium text-muted-foreground">Comparativa anual</h3>
               <p className="text-xs text-muted-foreground mt-1">Ingresos y gastos: año actual vs anterior</p>
             </div>
-            <div style={{ height: CHART_HEIGHT_PX }}>
+            <div className="flex-1 min-h-0 mt-2">
               <ParentSize>
                 {({ width, height }) => {
                   const margin = CHART_MARGIN;
@@ -1223,7 +1233,7 @@ export default function GraficasPage() {
                 }}
               </ParentSize>
             </div>
-            <div className="flex flex-wrap gap-3 justify-center text-xs">
+            <div className="shrink-0 flex flex-wrap gap-3 justify-center text-xs mt-2">
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-500" /> Ingresos {new Date().getFullYear()}</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-500" /> Gastos {new Date().getFullYear()}</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-violet-500" /> Saldo (ingresos − gastos) {new Date().getFullYear() - 1}</span>
@@ -1242,18 +1252,18 @@ export default function GraficasPage() {
           }}
         >
         <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PIE_PX }}>
-          <div className="space-y-2">
-            <div>
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="shrink-0">
               <h3 className="text-sm font-medium text-muted-foreground">Ingresos por Categoría</h3>
               <p className="text-xs text-muted-foreground mt-1">Distribución de fuentes de ingreso</p>
             </div>
             {ingresosPorCategoria.length === 0 ? (
-              <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: PIE_CHART_HEIGHT_PX }}>
+              <div className="flex-1 min-h-0 flex items-center justify-center text-sm text-muted-foreground">
                 Sin datos disponibles
               </div>
             ) : (
               <>
-                <div className="relative min-h-0" style={{ height: PIE_CHART_HEIGHT_PX }}>
+                <div className="flex-1 min-h-0 relative min-h-0 mt-2">
                   <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center">
                     <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Total</span>
                     <span className="text-2xl font-semibold">{formatNumber(totalIngresos)} €</span>
@@ -1293,7 +1303,7 @@ export default function GraficasPage() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2 text-xs max-h-[100px] overflow-y-auto overflow-x-hidden">
+                <div className="shrink-0 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2 text-xs max-h-[100px] overflow-y-auto overflow-x-hidden mt-2">
                   {[...ingresosPorCategoria].sort((a, b) => b.value - a.value).map((entry) => {
                     const index = ingresosPorCategoria.indexOf(entry);
                     const pct = totalIngresos ? (entry.value / totalIngresos) * 100 : 0;
@@ -1327,18 +1337,18 @@ export default function GraficasPage() {
           }}
         >
         <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PIE_PX }}>
-          <div className="space-y-2">
-            <div>
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="shrink-0">
               <h3 className="text-sm font-medium text-muted-foreground">Gastos por Categoría</h3>
               <p className="text-xs text-muted-foreground mt-1">Análisis detallado de gastos</p>
             </div>
             {gastosPorCategoria.length === 0 ? (
-              <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: PIE_CHART_HEIGHT_PX }}>
+              <div className="flex-1 min-h-0 flex items-center justify-center text-sm text-muted-foreground">
                 Sin datos disponibles
               </div>
             ) : (
               <>
-                <div className="relative min-h-0" style={{ height: PIE_CHART_HEIGHT_PX }}>
+                <div className="flex-1 min-h-0 relative min-h-0 mt-2">
                   <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center">
                     <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Total</span>
                     <span className="text-2xl font-semibold">{formatNumber(totalGastos)} €</span>
@@ -1378,7 +1388,7 @@ export default function GraficasPage() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2 text-xs max-h-[100px] overflow-y-auto overflow-x-hidden">
+                <div className="shrink-0 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2 text-xs max-h-[100px] overflow-y-auto overflow-x-hidden mt-2">
                   {[...gastosPorCategoria].sort((a, b) => b.value - a.value).map((entry) => {
                     const index = gastosPorCategoria.indexOf(entry);
                     const pct = totalGastos ? (entry.value / totalGastos) * 100 : 0;

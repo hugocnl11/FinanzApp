@@ -179,7 +179,9 @@ export default function ActivosPage() {
           </Card>
         ) : (
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {assetsWithCategoryId.map((asset) => (
+            {[...assetsWithCategoryId]
+              .sort((a, b) => b.currentValue - a.currentValue)
+              .map((asset) => (
               <AssetCard
                 key={asset.categoryId}
                 name={asset.name}

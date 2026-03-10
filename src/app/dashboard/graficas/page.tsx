@@ -86,11 +86,22 @@ function defaultChartWidgets(): ChartWidgetsPref {
   return { visible: [...WIDGET_IDS], order: [...WIDGET_IDS] };
 }
 
+type RentabilidadPeriod = "month" | "3m" | "6m" | "12m";
+const RENTABILIDAD_PERIODS: { value: RentabilidadPeriod; label: string }[] = [
+  { value: "month", label: "Mes" },
+  { value: "3m", label: "3 meses" },
+  { value: "6m", label: "6 meses" },
+  { value: "12m", label: "Año" },
+];
+const MONTH_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
 export default function GraficasPage() {
   const { data } = useDashboardData();
   const { ingresosMensuales, gastosMensuales, gastosPorCategoria, ingresosPorCategoria, movimientos } = data;
   const [snapshotsToday, setSnapshotsToday] = useState<AssetSnapshotLatest[]>([]);
   const [snapshotsInMonth, setSnapshotsInMonth] = useState<AssetSnapshotInMonth[]>([]);
+  const [snapshotsHistorical, setSnapshotsHistorical] = useState<AssetSnapshotInMonth[]>([]);
+  const [rentabilidadPeriod, setRentabilidadPeriod] = useState<RentabilidadPeriod>("month");
   const [categoriesList, setCategoriesList] = useState<Category[]>([]);
   const [exporting, setExporting] = useState(false);
   const [chartWidgets, setChartWidgets] = useState<ChartWidgetsPref>(defaultChartWidgets);
@@ -210,6 +221,24 @@ export default function GraficasPage() {
       });
   }, []);
 
+  // Histórico rentabilidad: cargar snapshots de los últimos N meses cuando el periodo no es "month"
+  useEffect(() => {
+    if (rentabilidadPeriod === "month") {
+      setSnapshotsHistorical([]);
+      return;
+    }
+    const n = rentabilidadPeriod === "3m" ? 3 : rentabilidadPeriod === "6m" ? 6 : 12;
+    const now = new Date();
+    const monthsToFetch: string[] = [];
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthsToFetch.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+    }
+    Promise.all(monthsToFetch.map((m) => fetchAssetSnapshotsInMonth(m).then((r) => r.data ?? [])))
+      .then((arrays) => setSnapshotsHistorical(arrays.flat() as AssetSnapshotInMonth[]))
+      .catch(() => setSnapshotsHistorical([]));
+  }, [rentabilidadPeriod]);
+
   // 1. Flujo de Caja Mensual (últimos 12 meses)
   const flujoCaja = useMemo(() => {
     const ultimos12Ingresos = filterMonthsByPeriod(ingresosMensuales, 12);
@@ -282,52 +311,90 @@ export default function GraficasPage() {
     [categoriesList]
   );
 
-  // Rentabilidad por día del mes: una serie por activo de inversión (día → %). Rentabilidad = (valor_actual - valor_ingresado) / valor_ingresado * 100
+  // Rentabilidad por activo: vista "Mes" (día a día) o histórico (3m/6m/12m por mes). Rentabilidad = (valor_actual - valor_ingresado) / valor_ingresado * 100
   const rentabilidadPorDiaPorActivo = useMemo(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-
     const names = Array.from(investmentCategoryNames).filter(
       (name) => (valorIngresadoByCategoryName.get(name) ?? 0) > 0
     );
-    if (names.length === 0) return { daysInMonth, series: [] as { name: string; color: string; points: { day: number; rentabilidad: number }[] }[] };
-
-    // Por categoría: último valor conocido por día (snapshots ordenados por fecha)
-    const snapByCategoryAndDate = new Map<string, Map<string, number>>();
-    for (const s of snapshotsInMonth) {
-      if (!investmentCategoryNames.has(s.categoryName)) continue;
-      let byDate = snapByCategoryAndDate.get(s.categoryName);
-      if (!byDate) {
-        byDate = new Map<string, number>();
-        snapByCategoryAndDate.set(s.categoryName, byDate);
-      }
-      byDate.set(s.date, s.value);
+    if (names.length === 0) {
+      return { mode: "day" as const, numPoints: 31, xLabels: undefined, xAxisLabel: "Día del mes", series: [] as { name: string; color: string; points: { x: number; rentabilidad: number }[] }[] };
     }
 
-    const series: { name: string; color: string; points: { day: number; rentabilidad: number }[] }[] = [];
+    if (rentabilidadPeriod === "month") {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const lastDay = new Date(year, month + 1, 0);
+      const daysInMonth = lastDay.getDate();
+
+      const snapByCategoryAndDate = new Map<string, Map<string, number>>();
+      for (const s of snapshotsInMonth) {
+        if (!investmentCategoryNames.has(s.categoryName)) continue;
+        let byDate = snapByCategoryAndDate.get(s.categoryName);
+        if (!byDate) {
+          byDate = new Map<string, number>();
+          snapByCategoryAndDate.set(s.categoryName, byDate);
+        }
+        byDate.set(s.date, s.value);
+      }
+
+      const series: { name: string; color: string; points: { x: number; rentabilidad: number }[] }[] = [];
+      for (let i = 0; i < names.length; i++) {
+        const name = names[i];
+        const valorIngresado = valorIngresadoByCategoryName.get(name) ?? 0;
+        const byDate = snapByCategoryAndDate.get(name);
+        const points: { x: number; rentabilidad: number }[] = [];
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const datesOnOrBefore = Array.from(byDate?.keys() ?? []).filter((d) => d <= dateStr).sort();
+          const value = datesOnOrBefore.length > 0 ? byDate!.get(datesOnOrBefore[datesOnOrBefore.length - 1])! : 0;
+          const rentabilidad = valorIngresado > 0 ? ((value - valorIngresado) / valorIngresado) * 100 : 0;
+          points.push({ x: day, rentabilidad });
+        }
+        series.push({ name, color: COLORS[i % COLORS.length], points });
+      }
+      return { mode: "day" as const, numPoints: daysInMonth, xLabels: undefined, xAxisLabel: "Día del mes", series };
+    }
+
+    // Histórico: agrupar snapshots por mes (YYYY-MM), último valor por categoría por mes
+    const n = rentabilidadPeriod === "3m" ? 3 : rentabilidadPeriod === "6m" ? 6 : 12;
+    const now = new Date();
+    const monthKeys: string[] = [];
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthKeys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+    }
+    const xLabels = monthKeys.map((mk) => {
+      const [, m] = mk.split("-");
+      return MONTH_SHORT[parseInt(m, 10) - 1];
+    });
+
+    const byMonthCategory = new Map<string, Map<string, number>>();
+    for (const monthKey of monthKeys) {
+      const inMonth = snapshotsHistorical.filter((s) => s.date.startsWith(monthKey) && investmentCategoryNames.has(s.categoryName));
+      const latestPerCat = new Map<string, number>();
+      for (const catName of new Set(inMonth.map((x) => x.categoryName))) {
+        const entries = inMonth.filter((x) => x.categoryName === catName).sort((a, b) => a.date.localeCompare(b.date));
+        if (entries.length > 0) latestPerCat.set(catName, entries[entries.length - 1].value);
+      }
+      byMonthCategory.set(monthKey, latestPerCat);
+    }
+    const series: { name: string; color: string; points: { x: number; rentabilidad: number }[] }[] = [];
     for (let i = 0; i < names.length; i++) {
       const name = names[i];
       const valorIngresado = valorIngresadoByCategoryName.get(name) ?? 0;
-      const byDate = snapByCategoryAndDate.get(name);
-      const points: { day: number; rentabilidad: number }[] = [];
-      for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-        const datesOnOrBefore = Array.from(byDate?.keys() ?? []).filter((d) => d <= dateStr).sort();
-        const value = datesOnOrBefore.length > 0 ? byDate!.get(datesOnOrBefore[datesOnOrBefore.length - 1])! : 0;
+      const points: { x: number; rentabilidad: number }[] = [];
+      for (let xi = 0; xi < monthKeys.length; xi++) {
+        const monthKey = monthKeys[xi];
+        const byCat = byMonthCategory.get(monthKey);
+        const value = byCat?.get(name) ?? 0;
         const rentabilidad = valorIngresado > 0 ? ((value - valorIngresado) / valorIngresado) * 100 : 0;
-        points.push({ day, rentabilidad });
+        points.push({ x: xi, rentabilidad });
       }
-      series.push({
-        name,
-        color: COLORS[i % COLORS.length],
-        points,
-      });
+      series.push({ name, color: COLORS[i % COLORS.length], points });
     }
-    return { daysInMonth, series };
-  }, [movimientos, categoriesList, snapshotsInMonth, investmentCategoryNames, valorIngresadoByCategoryName]);
+    return { mode: "month" as const, numPoints: monthKeys.length, xLabels, xAxisLabel: "Mes", series };
+  }, [rentabilidadPeriod, movimientos, categoriesList, snapshotsInMonth, snapshotsHistorical, investmentCategoryNames, valorIngresadoByCategoryName]);
 
   const comparativaAnualData = useMemo(() => comparativaAnual(movimientos), [movimientos]);
 
@@ -915,9 +982,27 @@ export default function GraficasPage() {
         >
         <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PIE_PX }}>
           <div className="flex flex-col flex-1 min-h-0">
-            <div className="shrink-0">
-              <h3 className="text-sm font-medium text-muted-foreground">Rentabilidad por activo</h3>
-              <p className="text-xs text-muted-foreground mt-1">Positiva o negativa respecto al valor ingresado</p>
+            <div className="shrink-0 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">Rentabilidad por activo</h3>
+                <p className="text-xs text-muted-foreground mt-1">Positiva o negativa respecto al valor ingresado</p>
+              </div>
+              <div className="flex rounded-full bg-muted/50 p-0.5 border border-border/60">
+                {RENTABILIDAD_PERIODS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setRentabilidadPeriod(value)}
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                      rentabilidadPeriod === value
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
             {rentabilidadPorDiaPorActivo.series.length === 0 ? (
               <div className="flex-1 min-h-0 flex items-center justify-center text-sm text-muted-foreground">
@@ -931,13 +1016,14 @@ export default function GraficasPage() {
                     const margin = CHART_MARGIN;
                     const innerWidth = width - margin.left - margin.right;
                     const innerHeight = height - margin.top - margin.bottom;
-                    const { daysInMonth, series } = rentabilidadPorDiaPorActivo;
+                    const { mode, numPoints, xLabels, xAxisLabel, series } = rentabilidadPorDiaPorActivo;
                     const allRent = series.flatMap((s) => s.points.map((p) => p.rentabilidad));
-                    const minR = Math.min(...allRent, 0);
-                    const maxR = Math.max(...allRent, 0);
+                    const minR = allRent.length ? Math.min(...allRent, 0) : 0;
+                    const maxR = allRent.length ? Math.max(...allRent, 0) : 0;
                     const padding = Math.max(1, (maxR - minR) * 0.1) || 1;
+                    const xMax = mode === "day" ? numPoints : Math.max(numPoints - 1, 0);
                     const xScale = scaleLinear({
-                      domain: [1, daysInMonth],
+                      domain: [mode === "day" ? 1 : 0, mode === "day" ? numPoints : xMax],
                       range: [0, innerWidth],
                       nice: true,
                     });
@@ -947,6 +1033,9 @@ export default function GraficasPage() {
                       nice: true,
                     });
                     const yTicks = yScale.ticks(5);
+                    const xTicksToShow = xLabels
+                      ? xLabels.map((label, i) => ({ xVal: i, label }))
+                      : [1, Math.ceil(numPoints / 2), numPoints].filter((d) => d <= numPoints).map((d) => ({ xVal: d, label: String(d) }));
                     return (
                       <svg width={width} height={height} className="text-foreground">
                         <g transform={`translate(${margin.left},${margin.top})`}>
@@ -962,7 +1051,7 @@ export default function GraficasPage() {
                             <g key={s.name}>
                               <LinePath
                                 data={s.points}
-                                x={(d) => xScale(d.day)}
+                                x={(d) => xScale(d.x)}
                                 y={(d) => yScale(d.rentabilidad)}
                                 curve={curveMonotoneX}
                                 stroke={s.color}
@@ -982,20 +1071,14 @@ export default function GraficasPage() {
                             className="text-muted-foreground/40"
                           />
                           <g className="text-muted-foreground" fontSize={CHART_FONT_SIZE_AXIS}>
-                            {[1, Math.ceil(daysInMonth / 2), daysInMonth].filter((d) => d <= daysInMonth).map((day) => (
-                              <text
-                                key={day}
-                                x={xScale(day)}
-                                y={innerHeight + 20}
-                                textAnchor="middle"
-                                fill="currentColor"
-                              >
-                                {day}
+                            {xTicksToShow.map(({ xVal, label }) => (
+                              <text key={xVal} x={xScale(xVal)} y={innerHeight + 20} textAnchor="middle" fill="currentColor">
+                                {label}
                               </text>
                             ))}
                           </g>
                           <text x={innerWidth / 2} y={innerHeight + 28} textAnchor="middle" fill="currentColor" className="text-muted-foreground" fontSize={CHART_FONT_SIZE_AXIS}>
-                            Día del mes
+                            {xAxisLabel}
                           </text>
                         </g>
                       </svg>

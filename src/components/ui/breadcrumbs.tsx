@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 const SEGMENT_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   movimientos: "Movimientos",
+  activos: "Activos",
   graficas: "Gráficas",
   presupuestos: "Presupuestos",
   objetivos: "Objetivos",

@@ -20,7 +20,7 @@ export default function ActivosPage() {
   const { evolutionByCategory, loading: evolutionLoading } = useAssetEvolutionByCategory(12);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [demoOverrides, setDemoOverrides] = useState<
-    Map<string, { investedValue: number; currentValue: number }>
+    Map<string, { investedValue?: number; taePercent?: number; currentValue: number }>
   >(new Map());
 
   useEffect(() => {
@@ -61,11 +61,15 @@ export default function ActivosPage() {
       const override = demoOverrides.get(cat.id);
       const investedValue =
         override?.investedValue ?? cat.investedAmount ?? 0;
+      const taePercent =
+        override?.taePercent ?? cat.taePercent ?? 0;
       const currentValue =
         override?.currentValue ?? distributionMap.get(cat.name) ?? 0;
       return {
         name: cat.name,
+        type: cat.type as "investment" | "savings",
         investedValue: Number(investedValue) || 0,
+        taePercent: Number(taePercent) || 0,
         currentValue: Number(currentValue) || 0,
         categoryId: cat.id,
       };
@@ -82,19 +86,27 @@ export default function ActivosPage() {
 
   const handleSaveAsset = async (
     categoryId: string,
-    investedValue: number,
-    currentValue: number
+    primaryValue: number,
+    currentValue: number,
+    assetType: "investment" | "savings"
   ) => {
     if (isDemoUser()) {
-      setDemoOverrides((prev) =>
-        new Map(prev).set(categoryId, { investedValue, currentValue })
-      );
+      setDemoOverrides((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(categoryId) ?? { currentValue: 0 };
+        if (assetType === "savings") {
+          next.set(categoryId, { ...existing, taePercent: primaryValue, currentValue });
+        } else {
+          next.set(categoryId, { ...existing, investedValue: primaryValue, currentValue });
+        }
+        return next;
+      });
       window.dispatchEvent(new Event("finanzapp:data-updated"));
       return;
     }
     const today = new Date().toISOString().slice(0, 10);
     await Promise.all([
-      updateCategory(categoryId, { investedAmount: investedValue }),
+      updateCategory(categoryId, assetType === "savings" ? { taePercent: primaryValue } : { investedAmount: primaryValue }),
       createAssetSnapshot({ categoryId, value: currentValue, date: today }),
     ]);
     window.dispatchEvent(new Event("finanzapp:data-updated"));
@@ -185,7 +197,9 @@ export default function ActivosPage() {
               <AssetCard
                 key={asset.categoryId}
                 name={asset.name}
+                assetType={asset.type}
                 investedValue={asset.investedValue}
+                taePercent={asset.taePercent}
                 currentValue={asset.currentValue}
                 categoryId={asset.categoryId}
                 categoryMeta={categoryMeta[asset.name]}

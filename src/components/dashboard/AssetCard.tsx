@@ -13,18 +13,27 @@ export type AssetCardMeta = { color: string; icon: CategoryIconKey };
 
 type AssetCardProps = {
   name: string;
+  assetType: "investment" | "savings";
   investedValue: number;
+  taePercent: number;
   currentValue: number;
   categoryId: string;
   categoryMeta?: AssetCardMeta;
   evolution?: AssetEvolutionPoint[];
-  onSave: (categoryId: string, investedValue: number, currentValue: number) => Promise<void>;
+  onSave: (
+    categoryId: string,
+    primaryValue: number,
+    currentValue: number,
+    assetType: "investment" | "savings"
+  ) => Promise<void>;
   canEdit?: boolean;
 };
 
 export function AssetCard({
   name,
+  assetType,
   investedValue,
+  taePercent,
   currentValue,
   categoryId,
   categoryMeta,
@@ -33,13 +42,15 @@ export function AssetCard({
   canEdit = true,
 }: AssetCardProps) {
   const [localInvested, setLocalInvested] = useState(investedValue.toString());
+  const [localTae, setLocalTae] = useState(taePercent.toString());
   const [localCurrent, setLocalCurrent] = useState(currentValue.toString());
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setLocalInvested(investedValue.toString());
+    setLocalTae(taePercent.toString());
     setLocalCurrent(currentValue.toString());
-  }, [investedValue, currentValue]);
+  }, [investedValue, taePercent, currentValue]);
 
   const color = categoryMeta?.color ?? "#6366f1";
   const IconComponent = categoryMeta?.icon ? CATEGORY_ICON_MAP[categoryMeta.icon] : null;
@@ -47,12 +58,16 @@ export function AssetCard({
   const chartData = evolution.map((p) => ({ mes: p.mes.slice(0, 3), valor: p.valor }));
 
   const handleSave = async () => {
-    const invested = Math.max(0, Number(localInvested.replace(",", ".")) || 0);
+    const primary = Number(
+      (assetType === "savings" ? localTae : localInvested).replace(",", ".")
+    ) || 0;
+    const primaryValue = assetType === "savings" ? primary : Math.max(0, primary);
     const current = Math.max(0, Number(localCurrent.replace(",", ".")) || 0);
     setSaving(true);
     try {
-      await onSave(categoryId, invested, current);
-      setLocalInvested(invested.toString());
+      await onSave(categoryId, primaryValue, current, assetType);
+      if (assetType === "savings") setLocalTae(primaryValue.toString());
+      else setLocalInvested(primaryValue.toString());
       setLocalCurrent(current.toString());
     } finally {
       setSaving(false);
@@ -68,7 +83,17 @@ export function AssetCard({
         >
           {IconComponent ? <IconComponent className="h-4 w-4" /> : <span className="text-xs">•</span>}
         </span>
-        <h3 className="font-semibold truncate">{name}</h3>
+        <h3 className="font-semibold truncate min-w-0 flex-1">{name}</h3>
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
+            assetType === "savings"
+              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+              : "bg-violet-500/15 text-violet-700 dark:text-violet-400"
+          )}
+        >
+          {assetType === "savings" ? "Ahorro" : "Inversión"}
+        </span>
       </div>
 
       {chartData.length > 0 && (
@@ -102,17 +127,25 @@ export function AssetCard({
 
       <div className="flex flex-wrap items-end gap-2 mt-auto">
         <div className="flex-1 min-w-0 flex flex-col gap-1">
-          <label htmlFor={`valor-ingresado-${categoryId}`} className="text-xs text-muted-foreground font-medium">
-            Valor ingresado (€)
+          <label
+            htmlFor={assetType === "savings" ? `tae-${categoryId}` : `valor-ingresado-${categoryId}`}
+            className="text-xs text-muted-foreground font-medium"
+          >
+            {assetType === "savings" ? "% TAE" : "Valor ingresado (€)"}
           </label>
           <input
-            id={`valor-ingresado-${categoryId}`}
+            id={assetType === "savings" ? `tae-${categoryId}` : `valor-ingresado-${categoryId}`}
             type="number"
-            min={0}
-            step="0.01"
-            value={localInvested}
-            onChange={(e) => setLocalInvested(e.target.value)}
+            min={assetType === "savings" ? undefined : 0}
+            step={assetType === "savings" ? "0.01" : "0.01"}
+            value={assetType === "savings" ? localTae : localInvested}
+            onChange={(e) =>
+              assetType === "savings"
+                ? setLocalTae(e.target.value)
+                : setLocalInvested(e.target.value)
+            }
             disabled={!canEdit}
+            placeholder={assetType === "savings" ? "Ej. 2,5" : undefined}
             className={cn(
               "h-9 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm",
               "text-foreground placeholder:text-muted-foreground",

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { fetchAssetSnapshotsInMonth } from "@/lib/api/asset-snapshots";
 import type { AssetSnapshotInMonth } from "@/lib/api/asset-snapshots";
 import type { MonthLabel } from "@/lib/dashboard/types";
+import { isDemoUser } from "@/lib/auth";
 
 const MONTH_LABELS: MonthLabel[] = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -26,6 +27,11 @@ export function useAssetEvolutionByCategory(months = 12) {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    if (typeof window !== "undefined" && isDemoUser()) {
+      setEvolutionByCategory(new Map());
+      setLoading(false);
+      return;
+    }
     const now = new Date();
     const monthKeys: string[] = [];
     for (let i = months - 1; i >= 0; i -= 1) {

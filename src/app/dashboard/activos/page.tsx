@@ -9,7 +9,8 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/format";
 import { createAssetSnapshot } from "@/lib/api/asset-snapshots";
-import { getUserId } from "@/lib/auth";
+import { updateCategory } from "@/lib/api/categories";
+import { getUserId, isDemoUser } from "@/lib/auth";
 import type { CategoryIconKey } from "@/lib/category-icons";
 
 type CategoryItem = { name: string; icon: CategoryIconKey; color: string };
@@ -18,6 +19,9 @@ export default function ActivosPage() {
   const { data, loading: dataLoading } = useDashboardData();
   const { evolutionByCategory, loading: evolutionLoading } = useAssetEvolutionByCategory(12);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [demoOverrides, setDemoOverrides] = useState<
+    Map<string, { investedValue: number; currentValue: number }>
+  >(new Map());
 
   useEffect(() => {
     const load = async () => {
@@ -53,23 +57,46 @@ export default function ActivosPage() {
     const distributionMap = new Map(
       data.distribucionActivos.map((item) => [item.name, item.value] as const)
     );
-    return assetCats.map((cat) => ({
-      name: cat.name,
-      value: distributionMap.get(cat.name) ?? 0,
-      categoryId: cat.id,
-    }));
-  }, [data.distribucionActivos, data.categories]);
+    return assetCats.map((cat) => {
+      const override = demoOverrides.get(cat.id);
+      const investedValue =
+        override?.investedValue ?? cat.investedAmount ?? 0;
+      const currentValue =
+        override?.currentValue ?? distributionMap.get(cat.name) ?? 0;
+      return {
+        name: cat.name,
+        investedValue: Number(investedValue) || 0,
+        currentValue: Number(currentValue) || 0,
+        categoryId: cat.id,
+      };
+    });
+  }, [data.distribucionActivos, data.categories, demoOverrides]);
 
   const totalActivos = useMemo(
-    () => data.distribucionActivos.reduce((sum, a) => sum + a.value, 0),
-    [data.distribucionActivos]
+    () =>
+      assetsWithCategoryId.reduce((sum, a) => sum + a.currentValue, 0),
+    [assetsWithCategoryId]
   );
 
   const canEdit = Boolean(getUserId());
 
-  const handleSaveValue = async (categoryId: string, value: number) => {
+  const handleSaveAsset = async (
+    categoryId: string,
+    investedValue: number,
+    currentValue: number
+  ) => {
+    if (isDemoUser()) {
+      setDemoOverrides((prev) =>
+        new Map(prev).set(categoryId, { investedValue, currentValue })
+      );
+      window.dispatchEvent(new Event("finanzapp:data-updated"));
+      return;
+    }
     const today = new Date().toISOString().slice(0, 10);
-    await createAssetSnapshot({ categoryId, value, date: today });
+    await Promise.all([
+      updateCategory(categoryId, { investedAmount: investedValue }),
+      createAssetSnapshot({ categoryId, value: currentValue, date: today }),
+    ]);
     window.dispatchEvent(new Event("finanzapp:data-updated"));
   };
 
@@ -96,7 +123,7 @@ export default function ActivosPage() {
             Distribución de tu patrimonio por activo. Actualiza el valor actual cuando quieras.
           </p>
         </div>
-        {canEdit && (
+        {canEdit && !isDemoUser() && (
           <div className="flex items-center gap-2">
             <AssetsDistributionManager />
             <span className="text-xs text-muted-foreground hidden sm:inline">
@@ -113,9 +140,10 @@ export default function ActivosPage() {
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Total patrimonial</p>
             <p className="text-2xl font-bold">{formatNumber(totalActivos)} €</p>
           </div>
-          {data.distribucionActivos.length > 0 && (
+          {assetsWithCategoryId.length > 0 && (
             <div className="flex-1 max-w-md space-y-2">
-              {[...data.distribucionActivos]
+              {[...assetsWithCategoryId]
+                .map((a) => ({ name: a.name, value: a.currentValue }))
                 .sort((a, b) => b.value - a.value)
                 .map((item) => {
                   const pct = totalActivos > 0 ? (item.value / totalActivos) * 100 : 0;
@@ -153,9 +181,10 @@ export default function ActivosPage() {
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {assetsWithCategoryId.map((asset) => (
               <AssetCard
-                key={asset.name}
+                key={asset.categoryId}
                 name={asset.name}
-                value={asset.value}
+                investedValue={asset.investedValue}
+                currentValue={asset.currentValue}
                 categoryId={asset.categoryId}
                 categoryMeta={categoryMeta[asset.name]}
                 evolution={
@@ -163,7 +192,7 @@ export default function ActivosPage() {
                     ? evolutionByCategory.get(asset.categoryId) ?? []
                     : []
                 }
-                onSaveValue={handleSaveValue}
+                onSave={handleSaveAsset}
                 canEdit={canEdit && Boolean(asset.categoryId)}
               />
             ))}

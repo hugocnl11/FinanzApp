@@ -13,29 +13,33 @@ export type AssetCardMeta = { color: string; icon: CategoryIconKey };
 
 type AssetCardProps = {
   name: string;
-  value: number;
+  investedValue: number;
+  currentValue: number;
   categoryId: string;
   categoryMeta?: AssetCardMeta;
   evolution?: AssetEvolutionPoint[];
-  onSaveValue: (categoryId: string, value: number) => Promise<void>;
+  onSave: (categoryId: string, investedValue: number, currentValue: number) => Promise<void>;
   canEdit?: boolean;
 };
 
 export function AssetCard({
   name,
-  value,
+  investedValue,
+  currentValue,
   categoryId,
   categoryMeta,
   evolution = [],
-  onSaveValue,
+  onSave,
   canEdit = true,
 }: AssetCardProps) {
-  const [localValue, setLocalValue] = useState(value.toString());
+  const [localInvested, setLocalInvested] = useState(investedValue.toString());
+  const [localCurrent, setLocalCurrent] = useState(currentValue.toString());
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setLocalValue(value.toString());
-  }, [value]);
+    setLocalInvested(investedValue.toString());
+    setLocalCurrent(currentValue.toString());
+  }, [investedValue, currentValue]);
 
   const color = categoryMeta?.color ?? "#6366f1";
   const IconComponent = categoryMeta?.icon ? CATEGORY_ICON_MAP[categoryMeta.icon] : null;
@@ -43,11 +47,13 @@ export function AssetCard({
   const chartData = evolution.map((p) => ({ mes: p.mes.slice(0, 3), valor: p.valor }));
 
   const handleSave = async () => {
-    const num = Math.max(0, Number(localValue.replace(",", ".")) || 0);
+    const invested = Math.max(0, Number(localInvested.replace(",", ".")) || 0);
+    const current = Math.max(0, Number(localCurrent.replace(",", ".")) || 0);
     setSaving(true);
     try {
-      await onSaveValue(categoryId, num);
-      setLocalValue(num.toString());
+      await onSave(categoryId, invested, current);
+      setLocalInvested(invested.toString());
+      setLocalCurrent(current.toString());
     } finally {
       setSaving(false);
     }
@@ -94,18 +100,38 @@ export function AssetCard({
         </div>
       )}
 
-      <div className="flex items-end gap-2 mt-auto">
-        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-          <label htmlFor={`valor-${categoryId}`} className="text-xs text-muted-foreground font-medium">
-            Valor actual (€)
+      <div className="flex flex-wrap items-end gap-2 mt-auto">
+        <div className="flex-1 min-w-0 flex flex-col gap-1">
+          <label htmlFor={`valor-ingresado-${categoryId}`} className="text-xs text-muted-foreground font-medium">
+            Valor ingresado (€)
           </label>
           <input
-            id={`valor-${categoryId}`}
+            id={`valor-ingresado-${categoryId}`}
             type="number"
             min={0}
             step="0.01"
-            value={localValue}
-            onChange={(e) => setLocalValue(e.target.value)}
+            value={localInvested}
+            onChange={(e) => setLocalInvested(e.target.value)}
+            disabled={!canEdit}
+            className={cn(
+              "h-9 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm",
+              "text-foreground placeholder:text-muted-foreground",
+              "focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring",
+              "disabled:opacity-50 disabled:pointer-events-none"
+            )}
+          />
+        </div>
+        <div className="flex-1 min-w-0 flex flex-col gap-1">
+          <label htmlFor={`valor-actual-${categoryId}`} className="text-xs text-muted-foreground font-medium">
+            Valor actual (€)
+          </label>
+          <input
+            id={`valor-actual-${categoryId}`}
+            type="number"
+            min={0}
+            step="0.01"
+            value={localCurrent}
+            onChange={(e) => setLocalCurrent(e.target.value)}
             disabled={!canEdit}
             className={cn(
               "h-9 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm",

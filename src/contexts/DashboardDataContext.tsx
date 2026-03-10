@@ -18,7 +18,7 @@ import { fetchAssetSnapshotsByMonth, fetchAssetSnapshotsForDate, fetchAssetSnaps
 import { buildMonthlySeries, latestByCategory, totalsByCategory } from "@/lib/dashboard/derive";
 import { getSession, isDemoUser, saveSession } from "@/lib/auth";
 import { restoreSessionFromCookie } from "@/lib/api/auth";
-import { DASHBOARD_MOCK } from "@/lib/dashboard/mock";
+import { DASHBOARD_MOCK, DEMO_CATEGORIES } from "@/lib/dashboard/mock";
 
 const emptyData: DashboardData = {
   ingresosMensuales: [],
@@ -124,7 +124,16 @@ export async function loadDashboardDataCore(opts: {
           goal: selectedGoal,
           goals: mockGoals,
           budgets: DASHBOARD_MOCK.budgets,
-          categories: [],
+          categories: DEMO_CATEGORIES.map((c) => ({
+            id: c.id,
+            name: c.name,
+            type: c.type as DashboardData["categories"][0]["type"],
+            icon: c.icon,
+            color: c.color,
+            active: c.active,
+            investedAmount: null,
+            taePercent: null,
+          })),
           notifications: DASHBOARD_MOCK.notifications,
           recurringMovements: DASHBOARD_MOCK.recurringMovements.map((rm) => ({
             ...mockMovements.find((m) => m.id === rm.id)!,

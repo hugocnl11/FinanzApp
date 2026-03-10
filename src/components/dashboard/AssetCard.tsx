@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { CATEGORY_ICON_MAP, type CategoryIconKey } from "@/lib/category-icons";
 import { formatNumber } from "@/lib/format";
 import type { AssetEvolutionPoint } from "@/hooks/useAssetEvolutionByCategory";
@@ -95,16 +95,24 @@ export function AssetCard({
       )}
 
       <div className="flex items-end gap-2 mt-auto">
-        <div className="flex-1 min-w-0">
-          <Input
-            label="Valor actual (€)"
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+          <label htmlFor={`valor-${categoryId}`} className="text-xs text-muted-foreground font-medium">
+            Valor actual (€)
+          </label>
+          <input
+            id={`valor-${categoryId}`}
             type="number"
             min={0}
             step="0.01"
             value={localValue}
             onChange={(e) => setLocalValue(e.target.value)}
             disabled={!canEdit}
-            className="h-9 pt-6"
+            className={cn(
+              "h-9 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm",
+              "text-foreground placeholder:text-muted-foreground",
+              "focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring",
+              "disabled:opacity-50 disabled:pointer-events-none"
+            )}
           />
         </div>
         {canEdit && (

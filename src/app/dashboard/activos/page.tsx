@@ -36,24 +36,28 @@ export default function ActivosPage() {
   }, []);
 
   const categoryMeta = useMemo(() => {
-    return categories.reduce<Record<string, { color: string; icon: CategoryIconKey }>>((acc, cat) => {
-      acc[cat.name] = { color: cat.color, icon: cat.icon };
-      return acc;
-    }, {});
+    return categories.reduce<Record<string, { color: string; icon: CategoryIconKey }>>(
+      (acc, cat) => {
+        acc[cat.name] = { color: cat.color, icon: cat.icon };
+        return acc;
+      },
+      {}
+    );
   }, [categories]);
 
   const assetsWithCategoryId = useMemo(() => {
     const cats = data.categories ?? [];
-    return data.distribucionActivos.map((item) => {
-      const category = cats.find(
-        (c) => (c.type === "investment" || c.type === "savings") && c.name === item.name
-      );
-      return {
-        name: item.name,
-        value: item.value,
-        categoryId: category?.id ?? "",
-      };
-    });
+    const assetCats = cats.filter(
+      (c) => (c.type === "investment" || c.type === "savings") && c.active !== false
+    );
+    const distributionMap = new Map(
+      data.distribucionActivos.map((item) => [item.name, item.value] as const)
+    );
+    return assetCats.map((cat) => ({
+      name: cat.name,
+      value: distributionMap.get(cat.name) ?? 0,
+      categoryId: cat.id,
+    }));
   }, [data.distribucionActivos, data.categories]);
 
   const totalActivos = useMemo(

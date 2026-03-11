@@ -120,13 +120,25 @@ export function AssetCard({
               <XAxis dataKey="mes" hide tick={{ fontSize: 10 }} />
               <YAxis hide domain={["auto", "auto"]} />
               <Tooltip
-                formatter={(v: number) =>
-                  showRentabilidad
-                    ? [`${v.toFixed(1)}%`, "Rentabilidad"]
-                    : [formatNumber(v) + " €", "Valor"]
-                }
-                labelFormatter={(label) => label}
-                contentStyle={{ fontSize: "12px" }}
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const entry = payload[0];
+                  const valor = Number(entry.value);
+                  const mes = entry.payload?.mes ?? "";
+                  return (
+                    <div className="bg-popover text-popover-foreground border border-border rounded-lg px-3 py-2 shadow-md text-xs">
+                      {mes && <span className="font-medium">{mes}</span>}
+                      <span className={mes ? "ml-2" : ""}>
+                        {showRentabilidad
+                          ? `${valor.toFixed(1)}%`
+                          : formatNumber(valor) + " €"}
+                      </span>
+                      <span className="text-muted-foreground ml-1">
+                        {showRentabilidad ? "Rentabilidad" : "Valor"}
+                      </span>
+                    </div>
+                  );
+                }}
               />
               <Area
                 type="monotone"

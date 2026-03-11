@@ -346,3 +346,10 @@ export const DEMO_CATEGORIES = [
   { id: "cat-16", name: "Acciones", type: "investment", icon: "LineChart", color: "#22c55e", active: true },
   { id: "cat-17", name: "Crypto", type: "investment", icon: "Droplet", color: "#f59e0b", active: true },
 ];
+
+/** Evolución mensual (12 meses, del más antiguo al más reciente) para gráficas de activos en demo */
+export const DEMO_ASSET_EVOLUTION: Record<string, number[]> = {
+  "cat-15": [2100, 2150, 2180, 2220, 2250, 2280, 2310, 2340, 2360, 2380, 2390, 2400], // Ahorro → 2400
+  "cat-16": [950, 980, 1010, 1040, 1070, 1090, 1110, 1130, 1150, 1170, 1190, 1200],  // Acciones → 1200
+  "cat-17": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],                                   // Crypto
+};

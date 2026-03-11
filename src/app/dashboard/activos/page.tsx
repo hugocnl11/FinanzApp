@@ -180,83 +180,15 @@ export default function ActivosPage() {
 
       {/* Resumen global */}
       <Card className="p-5">
-        <div className="flex flex-col sm:flex-row sm:items-stretch gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-stretch gap-4 sm:gap-8">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-            <div className="flex items-center gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Total patrimonial</p>
-                <p className="text-2xl font-bold">{formatNumber(totalActivos)} €</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {assetsWithCategoryId.length} activos
-                  {mayorResumen && ` · mayor: ${mayorResumen.name} (${mayorResumen.pct.toFixed(0)}%)`}
-                </p>
-              </div>
-              {assetsWithCategoryId.length > 0 && totalPositive > 0 && (
-                <div className="relative shrink-0 w-[100px] h-[100px]" aria-hidden title={`Total: ${formatNumber(totalActivos)} €`}>
-                  <svg width={100} height={100} viewBox="0 0 100 100" className="rotate-0">
-                    <circle
-                      cx={50}
-                      cy={50}
-                      r={35}
-                      fill="none"
-                      stroke="hsl(var(--muted))"
-                      strokeWidth={12}
-                      strokeLinecap="round"
-                    />
-                    {(() => {
-                      const circumference = 2 * Math.PI * 35;
-                      const palette = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#8b5cf6"];
-                      const n = sortedByValuePositive.length;
-                      const dashes: number[] = [];
-                      let sum = 0;
-                      for (let i = 0; i < n; i++) {
-                        if (i === n - 1) {
-                          dashes.push(Math.max(0, circumference - sum));
-                        } else {
-                          const d = circumference * (sortedByValuePositive[i].value / totalPositive);
-                          dashes.push(d);
-                          sum += d;
-                        }
-                      }
-                      let offset = 0;
-                      return sortedByValuePositive.map((item, i) => {
-                        const color = categoryMeta[item.name]?.color ?? palette[i % palette.length];
-                        const dash = dashes[i];
-                        const gap = circumference - dash;
-                        const dashOffset = offset;
-                        offset += dash;
-                        const dashStart = dashOffset + dash;
-                        return (
-                          <circle
-                            key={item.name}
-                            cx={50}
-                            cy={50}
-                            r={35}
-                            fill="none"
-                            stroke={color}
-                            strokeWidth={12}
-                            strokeDasharray={`${dash} ${gap}`}
-                            strokeLinecap="round"
-                            transform="rotate(-90 50 50)"
-                            style={{
-                              ["--dash-start" as string]: dashStart,
-                              ["--dash-target" as string]: dashOffset,
-                              strokeDashoffset: dashStart,
-                              animation: "donut-segment-reveal 0.6s ease-out forwards",
-                              animationDelay: `${i * 50}ms`,
-                            }}
-                          />
-                        );
-                      });
-                    })()}
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">
-                      {formatNumber(totalActivos)}
-                    </span>
-                  </div>
-                </div>
-              )}
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Total patrimonial</p>
+              <p className="text-2xl font-bold">{formatNumber(totalActivos)} €</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {assetsWithCategoryId.length} activos
+                {mayorResumen && ` · mayor: ${mayorResumen.name} (${mayorResumen.pct.toFixed(0)}%)`}
+              </p>
             </div>
           </div>
           {assetsWithCategoryId.length > 0 && (

@@ -5,6 +5,7 @@ import { fetchAssetSnapshotsInMonth } from "@/lib/api/asset-snapshots";
 import type { AssetSnapshotInMonth } from "@/lib/api/asset-snapshots";
 import type { MonthLabel } from "@/lib/dashboard/types";
 import { isDemoUser } from "@/lib/auth";
+import { DEMO_CATEGORIES, DEMO_ASSET_EVOLUTION } from "@/lib/dashboard/mock";
 
 const MONTH_LABELS: MonthLabel[] = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -28,7 +29,29 @@ export function useAssetEvolutionByCategory(months = 12) {
     setLoading(true);
     setError(null);
     if (typeof window !== "undefined" && isDemoUser()) {
-      setEvolutionByCategory(new Map());
+      const demoCategories = DEMO_CATEGORIES.filter(
+        (c) => c.type === "investment" || c.type === "savings"
+      );
+      const demoMap = new Map<string, AssetEvolutionPoint[]>();
+      const monthKeys: string[] = [];
+      const now = new Date();
+      for (let i = months - 1; i >= 0; i -= 1) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        monthKeys.push(`${y}-${m}`);
+      }
+      demoCategories.forEach((cat) => {
+        const values = DEMO_ASSET_EVOLUTION[cat.id];
+        if (!values || values.length === 0) return;
+        const series: AssetEvolutionPoint[] = monthKeys.map((key, i) => {
+          const monthIndex = parseInt(key.split("-")[1], 10) - 1;
+          const mes = MONTH_LABELS[monthIndex] ?? ("Mes" as MonthLabel);
+          return { mes, valor: values[i] ?? 0 };
+        });
+        demoMap.set(cat.id, series);
+      });
+      setEvolutionByCategory(demoMap);
       setLoading(false);
       return;
     }

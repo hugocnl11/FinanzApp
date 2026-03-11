@@ -20,6 +20,8 @@ type AssetCardProps = {
   categoryId: string;
   categoryMeta?: AssetCardMeta;
   evolution?: AssetEvolutionPoint[];
+  /** Solo aplica a inversión; en ahorro siempre se muestra valor */
+  chartMode?: "valor" | "rentabilidad";
   onSave: (
     categoryId: string,
     primaryValue: number,
@@ -38,6 +40,7 @@ export function AssetCard({
   categoryId,
   categoryMeta,
   evolution = [],
+  chartMode = "valor",
   onSave,
   canEdit = true,
 }: AssetCardProps) {
@@ -55,7 +58,15 @@ export function AssetCard({
   const color = categoryMeta?.color ?? "#6366f1";
   const IconComponent = categoryMeta?.icon ? CATEGORY_ICON_MAP[categoryMeta.icon] : null;
 
-  const chartData = evolution.map((p) => ({ mes: p.mes.slice(0, 3), valor: p.valor }));
+  const showRentabilidad = assetType === "investment" && chartMode === "rentabilidad";
+  const chartData = evolution.map((p) => {
+    const mes = p.mes.slice(0, 3);
+    if (showRentabilidad && investedValue > 0) {
+      const rentabilidad = ((p.valor - investedValue) / investedValue) * 100;
+      return { mes, valor: rentabilidad };
+    }
+    return { mes, valor: p.valor };
+  });
 
   const handleSave = async () => {
     const primary = Number(
@@ -109,7 +120,11 @@ export function AssetCard({
               <XAxis dataKey="mes" hide tick={{ fontSize: 10 }} />
               <YAxis hide domain={["auto", "auto"]} />
               <Tooltip
-                formatter={(v: number) => [formatNumber(v) + " €", "Valor"]}
+                formatter={(v: number) =>
+                  showRentabilidad
+                    ? [`${v.toFixed(1)}%`, "Rentabilidad"]
+                    : [formatNumber(v) + " €", "Valor"]
+                }
                 labelFormatter={(label) => label}
                 contentStyle={{ fontSize: "12px" }}
               />

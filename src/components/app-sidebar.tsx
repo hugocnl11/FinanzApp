@@ -68,8 +68,20 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-border/40">
       <SidebarHeader className="border-b border-border/40 bg-gradient-to-br from-sidebar/80 via-sidebar/50 to-sidebar/80 backdrop-blur-md">
-        <div className="flex items-center justify-center gap-3 px-3 py-4 group-data-[collapsible=icon]:justify-center">
-          <SidebarLogo />
+        <div
+          className={`flex flex-col items-center gap-1.5 px-3 pt-3 group-data-[collapsible=icon]:justify-center ${isDemo ? "pb-2" : "pb-3"}`}
+        >
+          <div className="flex items-center justify-center gap-3 w-full group-data-[collapsible=icon]:justify-center">
+            <SidebarLogo />
+          </div>
+          {isDemo && (
+            <span
+              className="rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 dark:bg-amber-500/25 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider group-data-[collapsible=icon]:hidden"
+              aria-label="Modo demo"
+            >
+              DEMO
+            </span>
+          )}
         </div>
       </SidebarHeader>
       <SidebarContent className="px-2 py-4" role="navigation" aria-label="Navegación principal">

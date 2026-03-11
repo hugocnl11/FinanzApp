@@ -347,9 +347,22 @@ export const DEMO_CATEGORIES = [
   { id: "cat-17", name: "Crypto", type: "investment", icon: "Droplet", color: "#f59e0b", active: true },
 ];
 
+/** Valor ingresado por categoría en demo (para activos con rentabilidad negativa de ejemplo) */
+export const DEMO_CATEGORY_INVESTED: Record<string, number> = {
+  "cat-16": 1500, // Acciones: invertido 1500, evolución termina en 1200 → rentabilidad negativa
+  "cat-17": 400,  // Crypto: invertido 400, evolución termina en 180 → rentabilidad negativa
+};
+
+/** Distribución de activos en demo (incluye Crypto para que coincida con la evolución) */
+export const DEMO_DISTRIBUCION_ACTIVOS = [
+  { name: "Ahorro", value: 2400 },
+  { name: "Acciones", value: 1200 },
+  { name: "Crypto", value: 180 },
+];
+
 /** Evolución mensual (12 meses, del más antiguo al más reciente) para gráficas de activos en demo */
 export const DEMO_ASSET_EVOLUTION: Record<string, number[]> = {
-  "cat-15": [2100, 2150, 2180, 2220, 2250, 2280, 2310, 2340, 2360, 2380, 2390, 2400], // Ahorro → 2400
-  "cat-16": [950, 980, 1010, 1040, 1070, 1090, 1110, 1130, 1150, 1170, 1190, 1200],  // Acciones → 1200
-  "cat-17": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],                                   // Crypto
+  "cat-15": [2100, 2150, 2180, 2220, 2250, 2280, 2310, 2340, 2360, 2380, 2390, 2400], // Ahorro → 2400 (positiva)
+  "cat-16": [1520, 1480, 1420, 1380, 1320, 1280, 1260, 1240, 1230, 1220, 1210, 1200], // Acciones: bajada 1500→1200 (negativa)
+  "cat-17": [380, 340, 300, 260, 240, 220, 210, 200, 195, 190, 185, 180],             // Crypto: bajada 400→180 (negativa)
 };

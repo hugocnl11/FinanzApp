@@ -62,7 +62,8 @@ export function AssetCard({
   const chartData = evolution.map((p) => {
     const mes = p.mes.slice(0, 3);
     if (showRentabilidad && investedValue > 0) {
-      const rentabilidad = ((p.valor - investedValue) / investedValue) * 100;
+      const rentabilidad =
+        p.valor === 0 ? 0 : ((p.valor - investedValue) / investedValue) * 100;
       return { mes, valor: rentabilidad };
     }
     return { mes, valor: p.valor };

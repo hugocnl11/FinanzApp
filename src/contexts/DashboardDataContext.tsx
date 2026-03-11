@@ -18,7 +18,7 @@ import { fetchAssetSnapshotsByMonth, fetchAssetSnapshotsForDate, fetchAssetSnaps
 import { buildMonthlySeries, latestByCategory, totalsByCategory } from "@/lib/dashboard/derive";
 import { getSession, isDemoUser, saveSession } from "@/lib/auth";
 import { restoreSessionFromCookie } from "@/lib/api/auth";
-import { DASHBOARD_MOCK, DEMO_CATEGORIES } from "@/lib/dashboard/mock";
+import { DASHBOARD_MOCK, DEMO_CATEGORIES, DEMO_CATEGORY_INVESTED, DEMO_DISTRIBUCION_ACTIVOS } from "@/lib/dashboard/mock";
 
 const emptyData: DashboardData = {
   ingresosMensuales: [],
@@ -88,16 +88,7 @@ export async function loadDashboardDataCore(opts: {
       const gastosMensuales = buildMonthlySeries(mockMovements, "Gasto", 12);
       const ingresosPorCategoria = totalsByCategory(mockMovements, "Ingreso");
       const gastosPorCategoria = totalsByCategory(mockMovements, "Gasto");
-      const inversiones = latestByCategory(mockMovements, "Inversión");
-      const ahorros = latestByCategory(mockMovements, "Ahorro");
-      const distribucionActivos = Array.from(
-        [...inversiones, ...ahorros].reduce((acc, item) => {
-          acc.set(item.name, (acc.get(item.name) ?? 0) + item.value);
-          return acc;
-        }, new Map<string, number>())
-      )
-        .map(([name, value]) => ({ name, value }))
-        .filter((item) => item.value > 0);
+      const distribucionActivos = DEMO_DISTRIBUCION_ACTIVOS;
 
       const mockGoals: Goal[] = DASHBOARD_MOCK.goals.map((g) => ({
         id: g.id,
@@ -131,7 +122,7 @@ export async function loadDashboardDataCore(opts: {
             icon: c.icon,
             color: c.color,
             active: c.active,
-            investedAmount: null,
+            investedAmount: DEMO_CATEGORY_INVESTED[c.id] ?? null,
             taePercent: null,
           })),
           notifications: DASHBOARD_MOCK.notifications,

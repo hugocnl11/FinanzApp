@@ -21,6 +21,15 @@
   animation: blob 7s infinite;
 }
 
+@keyframes donut-segment-reveal {
+  from {
+    stroke-dashoffset: var(--dash-start);
+  }
+  to {
+    stroke-dashoffset: var(--dash-target);
+  }
+}
+
 .animation-delay-2000 {
   animation-delay: 2s;
 }

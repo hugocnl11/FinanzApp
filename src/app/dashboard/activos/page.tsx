@@ -24,6 +24,7 @@ export default function ActivosPage() {
     Map<string, { investedValue?: number; taePercent?: number; currentValue: number }>
   >(new Map());
   const [chartMode, setChartMode] = useState<"valor" | "rentabilidad">("valor");
+  const [barsMounted, setBarsMounted] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -39,6 +40,11 @@ export default function ActivosPage() {
     const handler = () => load();
     window.addEventListener("finanzapp:data-updated", handler);
     return () => window.removeEventListener("finanzapp:data-updated", handler);
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setBarsMounted(true), 80);
+    return () => clearTimeout(t);
   }, []);
 
   const categoryMeta = useMemo(() => {
@@ -92,12 +98,22 @@ export default function ActivosPage() {
     [assetsWithCategoryId]
   );
 
+  const sortedByValuePositive = useMemo(
+    () => sortedByValue.filter((item) => item.value > 0),
+    [sortedByValue]
+  );
+
+  const totalPositive = useMemo(
+    () => sortedByValuePositive.reduce((sum, item) => sum + item.value, 0),
+    [sortedByValuePositive]
+  );
+
   const mayorResumen = useMemo(() => {
-    if (sortedByValue.length === 0 || totalActivos <= 0) return null;
-    const first = sortedByValue[0];
-    const pct = (first.value / totalActivos) * 100;
+    if (sortedByValuePositive.length === 0 || totalPositive <= 0) return null;
+    const first = sortedByValuePositive[0];
+    const pct = (first.value / totalPositive) * 100;
     return { name: first.name, pct };
-  }, [sortedByValue, totalActivos]);
+  }, [sortedByValuePositive, totalPositive]);
 
   const canEdit = Boolean(getUserId());
 
@@ -175,7 +191,7 @@ export default function ActivosPage() {
                   {mayorResumen && ` · mayor: ${mayorResumen.name} (${mayorResumen.pct.toFixed(0)}%)`}
                 </p>
               </div>
-              {assetsWithCategoryId.length > 0 && totalActivos > 0 && (
+              {assetsWithCategoryId.length > 0 && totalPositive > 0 && (
                 <div className="relative shrink-0 w-[100px] h-[100px]" aria-hidden title={`Total: ${formatNumber(totalActivos)} €`}>
                   <svg width={100} height={100} viewBox="0 0 100 100" className="rotate-0">
                     <circle
@@ -190,14 +206,26 @@ export default function ActivosPage() {
                     {(() => {
                       const circumference = 2 * Math.PI * 35;
                       const palette = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#8b5cf6"];
+                      const n = sortedByValuePositive.length;
+                      const dashes: number[] = [];
+                      let sum = 0;
+                      for (let i = 0; i < n; i++) {
+                        if (i === n - 1) {
+                          dashes.push(Math.max(0, circumference - sum));
+                        } else {
+                          const d = circumference * (sortedByValuePositive[i].value / totalPositive);
+                          dashes.push(d);
+                          sum += d;
+                        }
+                      }
                       let offset = 0;
-                      return sortedByValue.map((item, i) => {
+                      return sortedByValuePositive.map((item, i) => {
                         const color = categoryMeta[item.name]?.color ?? palette[i % palette.length];
-                        const pct = item.value / totalActivos;
-                        const dash = circumference * pct;
+                        const dash = dashes[i];
                         const gap = circumference - dash;
                         const dashOffset = offset;
                         offset += dash;
+                        const dashStart = dashOffset + dash;
                         return (
                           <circle
                             key={item.name}
@@ -208,9 +236,15 @@ export default function ActivosPage() {
                             stroke={color}
                             strokeWidth={12}
                             strokeDasharray={`${dash} ${gap}`}
-                            strokeDashoffset={dashOffset}
                             strokeLinecap="round"
                             transform="rotate(-90 50 50)"
+                            style={{
+                              ["--dash-start" as string]: dashStart,
+                              ["--dash-target" as string]: dashOffset,
+                              strokeDashoffset: dashStart,
+                              animation: "donut-segment-reveal 0.6s ease-out forwards",
+                              animationDelay: `${i * 50}ms`,
+                            }}
                           />
                         );
                       });
@@ -227,7 +261,7 @@ export default function ActivosPage() {
           </div>
           {assetsWithCategoryId.length > 0 && (
             <div className="flex-1 min-w-0 grid grid-cols-1 gap-y-2">
-              {sortedByValue.map((item) => {
+              {sortedByValue.map((item, i) => {
                 const pct = totalActivos > 0 ? (item.value / totalActivos) * 100 : 0;
                 const meta = categoryMeta[item.name];
                 const color = meta?.color ?? "#6366f1";
@@ -236,8 +270,12 @@ export default function ActivosPage() {
                     <span className="text-sm font-medium w-24 sm:w-28 truncate shrink-0">{item.name}</span>
                     <div className="flex-1 min-w-0 h-2 rounded-full bg-muted overflow-hidden">
                       <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${pct}%`, backgroundColor: color }}
+                        className="h-full rounded-full transition-all duration-500 ease-out"
+                        style={{
+                          width: barsMounted ? `${pct}%` : "0%",
+                          backgroundColor: color,
+                          transitionDelay: `${i * 40}ms`,
+                        }}
                       />
                     </div>
                     <span className="text-xs tabular-nums w-10 shrink-0 text-right">

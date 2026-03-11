@@ -8,6 +8,7 @@ import { AssetsDistributionManager } from "@/components/dashboard/AssetsDistribu
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { createAssetSnapshot } from "@/lib/api/asset-snapshots";
 import { updateCategory } from "@/lib/api/categories";
 import { getUserId, isDemoUser } from "@/lib/auth";
@@ -22,6 +23,7 @@ export default function ActivosPage() {
   const [demoOverrides, setDemoOverrides] = useState<
     Map<string, { investedValue?: number; taePercent?: number; currentValue: number }>
   >(new Map());
+  const [chartMode, setChartMode] = useState<"valor" | "rentabilidad">("valor");
 
   useEffect(() => {
     const load = async () => {
@@ -81,6 +83,21 @@ export default function ActivosPage() {
       assetsWithCategoryId.reduce((sum, a) => sum + a.currentValue, 0),
     [assetsWithCategoryId]
   );
+
+  const sortedByValue = useMemo(
+    () =>
+      [...assetsWithCategoryId]
+        .map((a) => ({ name: a.name, value: a.currentValue }))
+        .sort((a, b) => b.value - a.value),
+    [assetsWithCategoryId]
+  );
+
+  const mayorResumen = useMemo(() => {
+    if (sortedByValue.length === 0 || totalActivos <= 0) return null;
+    const first = sortedByValue[0];
+    const pct = (first.value / totalActivos) * 100;
+    return { name: first.name, pct };
+  }, [sortedByValue, totalActivos]);
 
   const canEdit = Boolean(getUserId());
 
@@ -147,35 +164,88 @@ export default function ActivosPage() {
 
       {/* Resumen global */}
       <Card className="p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Total patrimonial</p>
-            <p className="text-2xl font-bold">{formatNumber(totalActivos)} €</p>
+        <div className="flex flex-col sm:flex-row sm:items-stretch gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+            <div className="flex items-center gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Total patrimonial</p>
+                <p className="text-2xl font-bold">{formatNumber(totalActivos)} €</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {assetsWithCategoryId.length} activos
+                  {mayorResumen && ` · mayor: ${mayorResumen.name} (${mayorResumen.pct.toFixed(0)}%)`}
+                </p>
+              </div>
+              {assetsWithCategoryId.length > 0 && totalActivos > 0 && (
+                <div className="relative shrink-0 w-[100px] h-[100px]" aria-hidden title={`Total: ${formatNumber(totalActivos)} €`}>
+                  <svg width={100} height={100} viewBox="0 0 100 100" className="rotate-0">
+                    <circle
+                      cx={50}
+                      cy={50}
+                      r={35}
+                      fill="none"
+                      stroke="hsl(var(--muted))"
+                      strokeWidth={12}
+                      strokeLinecap="round"
+                    />
+                    {(() => {
+                      const circumference = 2 * Math.PI * 35;
+                      const palette = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#8b5cf6"];
+                      let offset = 0;
+                      return sortedByValue.map((item, i) => {
+                        const color = categoryMeta[item.name]?.color ?? palette[i % palette.length];
+                        const pct = item.value / totalActivos;
+                        const dash = circumference * pct;
+                        const gap = circumference - dash;
+                        const dashOffset = offset;
+                        offset += dash;
+                        return (
+                          <circle
+                            key={item.name}
+                            cx={50}
+                            cy={50}
+                            r={35}
+                            fill="none"
+                            stroke={color}
+                            strokeWidth={12}
+                            strokeDasharray={`${dash} ${gap}`}
+                            strokeDashoffset={dashOffset}
+                            strokeLinecap="round"
+                            transform="rotate(-90 50 50)"
+                          />
+                        );
+                      });
+                    })()}
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">
+                      {formatNumber(totalActivos)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           {assetsWithCategoryId.length > 0 && (
-            <div className="flex-1 max-w-md space-y-2">
-              {[...assetsWithCategoryId]
-                .map((a) => ({ name: a.name, value: a.currentValue }))
-                .sort((a, b) => b.value - a.value)
-                .map((item) => {
-                  const pct = totalActivos > 0 ? (item.value / totalActivos) * 100 : 0;
-                  const meta = categoryMeta[item.name];
-                  const color = meta?.color ?? "#6366f1";
-                  return (
-                    <div key={item.name} className="flex items-center gap-2">
-                      <span className="text-sm font-medium w-28 truncate">{item.name}</span>
-                      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{ width: `${pct}%`, backgroundColor: color }}
-                        />
-                      </div>
-                      <span className="text-xs tabular-nums w-12 text-right">
-                        {pct.toFixed(0)}%
-                      </span>
+            <div className="flex-1 min-w-0 grid grid-cols-1 gap-y-2">
+              {sortedByValue.map((item) => {
+                const pct = totalActivos > 0 ? (item.value / totalActivos) * 100 : 0;
+                const meta = categoryMeta[item.name];
+                const color = meta?.color ?? "#6366f1";
+                return (
+                  <div key={item.name} className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm font-medium w-24 sm:w-28 truncate shrink-0">{item.name}</span>
+                    <div className="flex-1 min-w-0 h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${pct}%`, backgroundColor: color }}
+                      />
                     </div>
-                  );
-                })}
+                    <span className="text-xs tabular-nums w-10 shrink-0 text-right">
+                      {pct.toFixed(0)}%
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -183,7 +253,37 @@ export default function ActivosPage() {
 
       {/* Grid por activo */}
       <section>
-        <h2 className="text-lg font-semibold mb-4">Por activo</h2>
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <h2 className="text-lg font-semibold">Por activo</h2>
+          {assetsWithCategoryId.some((a) => a.type === "investment") && (
+            <div className="flex rounded-full border border-input bg-muted/50 p-0.5">
+              <button
+                type="button"
+                onClick={() => setChartMode("valor")}
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                  chartMode === "valor"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Valor
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartMode("rentabilidad")}
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                  chartMode === "rentabilidad"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Rentabilidad
+              </button>
+            </div>
+          )}
+        </div>
         {assetsWithCategoryId.length === 0 ? (
           <Card className="p-8 text-center text-muted-foreground">
             No hay activos registrados. Añade activos de inversión o ahorro desde el dashboard o
@@ -208,6 +308,7 @@ export default function ActivosPage() {
                     ? evolutionByCategory.get(asset.categoryId) ?? []
                     : []
                 }
+                chartMode={chartMode}
                 onSave={handleSaveAsset}
                 canEdit={canEdit && Boolean(asset.categoryId)}
               />

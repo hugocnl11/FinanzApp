@@ -17,7 +17,14 @@ import { fetchAssetSnapshotsForDate, fetchAssetSnapshotsInMonth } from "@/lib/ap
 import type { AssetSnapshotLatest, AssetSnapshotInMonth } from "@/lib/api/asset-snapshots";
 import { fetchCategories } from "@/lib/api/categories";
 import type { Category } from "@/lib/dashboard/types";
-import { ImageDown, Settings2, ChevronUp, ChevronDown } from "lucide-react";
+import { ImageDown, Settings2, ChevronUp, ChevronDown, FileText } from "lucide-react";
+import {
+  buildReportData,
+  toInformeHtml,
+  toInformeCsv,
+  printInformePdf,
+  downloadInformeCsv,
+} from "@/lib/reports/informe";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
@@ -449,6 +456,20 @@ export default function GraficasPage() {
     }
   };
 
+  const handleExportInformePdf = () => {
+    const informe = buildReportData(data);
+    const html = toInformeHtml(informe);
+    printInformePdf(html);
+    toast.success("Informe listo para imprimir o guardar como PDF.");
+  };
+
+  const handleExportInformeCsv = () => {
+    const informe = buildReportData(data);
+    const csv = toInformeCsv(informe);
+    downloadInformeCsv(csv);
+    toast.success("Informe CSV descargado.");
+  };
+
   return (
     <div className="space-y-6 px-4 md:px-8" aria-label="Gráficas avanzadas">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -557,6 +578,16 @@ export default function GraficasPage() {
           <Button variant="outline" size="touch" className="gap-2 md:min-h-0 md:min-w-0 md:h-8 md:px-3 md:py-1.5 md:text-xs" onClick={handleExportImage} disabled={exporting} aria-label={exporting ? "Exportando gráficas" : "Exportar gráficas como imagen"}>
             <ImageDown className="h-4 w-4" aria-hidden />
             {exporting ? "Exportando…" : "Exportar imagen"}
+          </Button>
+          <Button variant="outline" size="touch" className="gap-2 md:min-h-0 md:min-w-0 md:h-8 md:px-3 md:py-1.5 md:text-xs" onClick={handleExportInformePdf} aria-label="Exportar informe como PDF">
+            <FileText className="h-4 w-4" aria-hidden />
+            <span className="hidden sm:inline">Informe PDF</span>
+            <span className="sm:hidden">PDF</span>
+          </Button>
+          <Button variant="outline" size="touch" className="gap-2 md:min-h-0 md:min-w-0 md:h-8 md:px-3 md:py-1.5 md:text-xs" onClick={handleExportInformeCsv} aria-label="Descargar informe CSV">
+            <FileText className="h-4 w-4" aria-hidden />
+            <span className="hidden sm:inline">Informe CSV</span>
+            <span className="sm:hidden">CSV</span>
           </Button>
         </div>
       </div>

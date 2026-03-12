@@ -18,7 +18,7 @@ import { fetchAssetSnapshotsByMonth, fetchAssetSnapshotsForDate, fetchAssetSnaps
 import { buildMonthlySeries, latestByCategory, totalsByCategory } from "@/lib/dashboard/derive";
 import { getSession, isDemoUser, saveSession } from "@/lib/auth";
 import { restoreSessionFromCookie } from "@/lib/api/auth";
-import { DASHBOARD_MOCK, DEMO_CATEGORIES, DEMO_CATEGORY_INVESTED, DEMO_DISTRIBUCION_ACTIVOS } from "@/lib/dashboard/mock";
+import { DASHBOARD_MOCK, DEMO_CATEGORIES, DEMO_CATEGORY_INVESTED, DEMO_DISTRIBUCION_ACTIVOS, DEMO_ASSET_EVOLUTION } from "@/lib/dashboard/mock";
 
 const emptyData: DashboardData = {
   ingresosMensuales: [],
@@ -89,6 +89,12 @@ export async function loadDashboardDataCore(opts: {
       const ingresosPorCategoria = totalsByCategory(mockMovements, "Ingreso");
       const gastosPorCategoria = totalsByCategory(mockMovements, "Gasto");
       const distribucionActivos = DEMO_DISTRIBUCION_ACTIVOS;
+      // Evolución de patrimonio: suma de DEMO_ASSET_EVOLUTION por mes (Ahorro + Acciones + Crypto)
+      const demoAssetIds = ["cat-15", "cat-16", "cat-17"];
+      const activosPorMes = ingresosMensuales.map((entry, i) => ({
+        mes: entry.mes as DashboardData["activosPorMes"][0]["mes"],
+        valor: demoAssetIds.reduce((acc, id) => acc + (DEMO_ASSET_EVOLUTION[id]?.[i] ?? 0), 0),
+      }));
 
       const mockGoals: Goal[] = DASHBOARD_MOCK.goals.map((g) => ({
         id: g.id,
@@ -111,7 +117,7 @@ export async function loadDashboardDataCore(opts: {
         setData({
           ingresosMensuales,
           gastosMensuales,
-          activosPorMes: [],
+          activosPorMes,
           goal: selectedGoal,
           goals: mockGoals,
           budgets: DASHBOARD_MOCK.budgets,

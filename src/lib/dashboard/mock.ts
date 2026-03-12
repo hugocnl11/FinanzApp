@@ -356,13 +356,13 @@ export const DEMO_CATEGORY_INVESTED: Record<string, number> = {
 /** Distribución de activos en demo (incluye Crypto para que coincida con la evolución) */
 export const DEMO_DISTRIBUCION_ACTIVOS = [
   { name: "Ahorro", value: 2400 },
-  { name: "Acciones", value: 1200 },
+  { name: "Acciones", value: 1700 },
   { name: "Crypto", value: 180 },
 ];
 
 /** Evolución mensual (12 meses, del más antiguo al más reciente) para gráficas de activos en demo */
 export const DEMO_ASSET_EVOLUTION: Record<string, number[]> = {
   "cat-15": [2100, 2150, 2180, 2220, 2250, 2280, 2310, 2340, 2360, 2380, 2390, 2400], // Ahorro → 2400 (positiva)
-  "cat-16": [1520, 1480, 1420, 1380, 1320, 1280, 1260, 1240, 1230, 1220, 1210, 1200], // Acciones: bajada 1500→1200 (negativa)
+  "cat-16": [1520, 1480, 1620, 1630, 1630, 1630, 1630, 1630, 1650, 1670, 1680, 1700], // Acciones: subida 1500→1700 (negativa)
   "cat-17": [380, 340, 300, 260, 240, 220, 210, 200, 195, 190, 185, 180],             // Crypto: bajada 400→180 (negativa)
 };

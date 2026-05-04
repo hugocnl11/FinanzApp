@@ -9,6 +9,7 @@ import { BudgetManager } from "@/components/dashboard/BudgetManager";
 import { motion } from "framer-motion";
 import { Ban } from "lucide-react";
 import { useDashboardDataContext } from "@/contexts/DashboardDataContext";
+import { usePeriod } from "@/contexts/PeriodContext";
 import { fetchBudgets, createBudget, updateBudget } from "@/lib/api/budgets";
 import { fetchCategories } from "@/lib/api/categories";
 import { getUserId } from "@/lib/auth";
@@ -104,6 +105,16 @@ export function BudgetSummary({
   mode?: BudgetSummaryMode;
   className?: string;
 }) {
+  const { dashboardMonthKey } = usePeriod();
+  const monthAnchor = useMemo(() => {
+    if (dashboardMonthKey) {
+      const [y, m] = dashboardMonthKey.split("-").map(Number);
+      if (y && m) return { year: y, month: m - 1 };
+    }
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() };
+  }, [dashboardMonthKey]);
+
   const dashboardContext = useDashboardDataContext();
   const [budgets, setBudgets] = useState<BudgetItem[]>(fallbackBudgets);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
@@ -199,9 +210,8 @@ export function BudgetSummary({
 
   const implicitVariableBudgets = useMemo(() => {
     if (movementsSource.length === 0) return [] as BudgetItem[];
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    const currentMonth = monthAnchor.month;
+    const currentYear = monthAnchor.year;
     const budgetedCategories = new Set(budgetsSource.map((budget) => budget.category));
 
     const spentMap = new Map<string, number>();
@@ -224,12 +234,11 @@ export function BudgetSummary({
         period: "variable",
         isImplicit: true,
       }));
-  }, [movementsSource, budgetsSource, categoryTypeToMovementTipo]);
+  }, [movementsSource, budgetsSource, categoryTypeToMovementTipo, monthAnchor.month, monthAnchor.year]);
 
   const spentByCategory = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    const currentMonth = monthAnchor.month;
+    const currentYear = monthAnchor.year;
     const map = new Map<string, number>();
     movementsSource.forEach((movement) => {
       const expectedTipo = categoryTypeToMovementTipo.get(movement.categoria);
@@ -240,7 +249,7 @@ export function BudgetSummary({
       map.set(movement.categoria, current + Math.abs(movement.cantidad));
     });
     return map;
-  }, [movementsSource, categoryTypeToMovementTipo]);
+  }, [movementsSource, categoryTypeToMovementTipo, monthAnchor.month, monthAnchor.year]);
 
   const budgetsWithSpent = useMemo(() => {
     return budgetsSource.map((budget) => ({

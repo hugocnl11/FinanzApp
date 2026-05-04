@@ -1,12 +1,19 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { LinePath } from "@visx/shape";
 import { scaleLinear, scalePoint } from "@visx/scale";
 import { curveMonotoneX } from "d3-shape";
 import { ParentSize } from "@visx/responsive";
 import { motion } from "framer-motion";
-import { last, previous, percentChange, filterMonthsByPeriod, getDailyIncomeAndExpenses } from "@/lib/dashboard/selectors";
+import {
+  last,
+  previous,
+  percentChange,
+  getDailyIncomeAndExpenses,
+  sliceMonthsEndingAt,
+  resolveEndMonthIndex,
+} from "@/lib/dashboard/selectors";
 import { buildMonthlySeries } from "@/lib/dashboard/derive";
 import type { MoneyByMonth, MoneyByDay, Movement } from "@/lib/dashboard/types";
 import { formatNumber } from "@/lib/format";
@@ -598,7 +605,7 @@ type AnalyticsChartsProps = {
 export function AnalyticsCharts({ type = "combined" }: AnalyticsChartsProps) {
   const { data } = useDashboardData();
   const { ingresosMensuales, gastosMensuales, activosPorMes, movimientos } = data;
-  const { period, getMonthCount } = usePeriod();
+  const { period, getMonthCount, dashboardMonthKey } = usePeriod();
 
   useEffect(() => {
     // reservado para futuras inicializaciones del dashboard
@@ -606,31 +613,59 @@ export function AnalyticsCharts({ type = "combined" }: AnalyticsChartsProps) {
 
   const monthCount = getMonthCount();
   const isDailyView = period === "Mes";
-  
+  const endKey = dashboardMonthKey || undefined;
+
+  const anchorForInversiones = useMemo(() => {
+    const idx = resolveEndMonthIndex(ingresosMensuales, endKey);
+    const mk = ingresosMensuales[idx]?.monthKey;
+    if (!mk) return new Date();
+    const [y, m] = mk.split("-").map(Number);
+    return new Date(y, m - 1, 15);
+  }, [ingresosMensuales, endKey]);
+
+  const movimientosForDailyTooltips = useMemo(() => {
+    if (!isDailyView) return [];
+    const idx = resolveEndMonthIndex(ingresosMensuales, endKey);
+    const mk = ingresosMensuales[idx]?.monthKey;
+    if (!mk) return movimientos;
+    const [y, mo] = mk.split("-").map(Number);
+    const start = `${y}-${String(mo).padStart(2, "0")}-01`;
+    const lastDay = new Date(y, mo, 0).getDate();
+    const end = `${y}-${String(mo).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    return movimientos.filter((m) => m.fecha >= start && m.fecha <= end);
+  }, [isDailyView, movimientos, ingresosMensuales, endKey]);
+
   // Para la gráfica de ingresos vs gastos (e inversiones)
   let chartIngresos: MoneyByMonth[] | MoneyByDay[];
   let chartGastos: MoneyByMonth[] | MoneyByDay[];
   let chartInversiones: MoneyByMonth[] | MoneyByDay[];
-  
+
   if (isDailyView) {
-    // Mostrar datos diarios del mes actual
-    const dailyData = getDailyIncomeAndExpenses(movimientos);
+    const idx = resolveEndMonthIndex(ingresosMensuales, endKey);
+    const mk = ingresosMensuales[idx]?.monthKey;
+    let dailyTarget: { year: number; month: number } | undefined;
+    if (mk) {
+      const [y, m] = mk.split("-").map(Number);
+      dailyTarget = { year: y, month: m - 1 };
+    }
+    const dailyData = getDailyIncomeAndExpenses(movimientos, dailyTarget);
     chartIngresos = dailyData.ingresos;
     chartGastos = dailyData.gastos;
     chartInversiones = dailyData.inversiones;
   } else {
-    // Mostrar datos mensuales filtrados
-    chartIngresos = filterMonthsByPeriod(ingresosMensuales, monthCount);
-    chartGastos = filterMonthsByPeriod(gastosMensuales, monthCount);
-    const inversionesMensuales = buildMonthlySeries(movimientos, "Inversión", 12);
-    chartInversiones = filterMonthsByPeriod(inversionesMensuales, monthCount);
+    chartIngresos = sliceMonthsEndingAt(ingresosMensuales, monthCount, endKey);
+    chartGastos = sliceMonthsEndingAt(gastosMensuales, monthCount, endKey);
+    const inversionesMensuales = buildMonthlySeries(movimientos, "Inversión", 12, anchorForInversiones);
+    chartInversiones = sliceMonthsEndingAt(inversionesMensuales, monthCount, endKey);
   }
-  
-  // Patrimonio: solo activos (últimos 12 meses) para cuadrar con el patrimonio real
-  const ingresos12 = filterMonthsByPeriod(ingresosMensuales, 12);
+
+  // Patrimonio: solo activos (12 meses hasta el mes seleccionado), índices alineados con ingresosMensuales
+  const endIdxPat = resolveEndMonthIndex(ingresosMensuales, endKey);
+  const startPat = Math.max(0, endIdxPat - 11);
+  const ingresos12 = ingresosMensuales.slice(startPat, endIdxPat + 1);
   const activos12 = ingresos12.map((m, i) => ({
     mes: m.mes,
-    valor: activosPorMes?.[i]?.valor ?? 0,
+    valor: activosPorMes?.[startPat + i]?.valor ?? 0,
   }));
   const patrimonioMensual12 = activos12;
   const patrimonioActual = last(patrimonioMensual12)?.valor ?? 0;
@@ -654,13 +689,13 @@ export function AnalyticsCharts({ type = "combined" }: AnalyticsChartsProps) {
   }
 
   return (
-    <div key={`chart-${period}`} className="w-full h-full">
-      <CombinedChartCard 
-        ingresos={chartIngresos} 
+    <div key={`chart-${period}-${dashboardMonthKey || "last"}`} className="w-full h-full">
+      <CombinedChartCard
+        ingresos={chartIngresos}
         gastos={chartGastos}
         inversiones={chartInversiones}
         isDailyView={isDailyView}
-        movimientos={isDailyView ? movimientos : []}
+        movimientos={isDailyView ? movimientosForDailyTooltips : []}
       />
     </div>
   );

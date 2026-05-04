@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { IncomeCard, ExpensesCard, GoalCard } from "@/components/dashboard/Widgets";
 import { BudgetSummary } from "@/components/dashboard/BudgetSummary";
 import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
+import { DashboardMonthSelector } from "@/components/dashboard/DashboardMonthSelector";
 import { PeriodProvider } from "@/contexts/PeriodContext";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -42,7 +43,10 @@ export default function DashboardPage() {
             Tu visión financiera en un solo lugar.
           </p>
         </div>
-        <PeriodSelector />
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+          <PeriodSelector />
+          <DashboardMonthSelector />
+        </div>
       </div>
 
       {/* Resumen + Presupuesto: en móvil una columna; en desktop dos columnas con altura alineada */}

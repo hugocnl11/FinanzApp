@@ -8,12 +8,16 @@ type PeriodContextType = {
   period: Period;
   setPeriod: (period: Period) => void;
   getMonthCount: () => number;
+  /** YYYY-MM del mes de referencia del dashboard; vacío = último mes con datos en las series */
+  dashboardMonthKey: string;
+  setDashboardMonthKey: (key: string) => void;
 };
 
 const PeriodContext = createContext<PeriodContextType | undefined>(undefined);
 
 export function PeriodProvider({ children }: { children: ReactNode }) {
   const [period, setPeriod] = useState<Period>("Mes");
+  const [dashboardMonthKey, setDashboardMonthKey] = useState("");
 
   const getMonthCount = () => {
     switch (period) {
@@ -27,7 +31,9 @@ export function PeriodProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <PeriodContext.Provider value={{ period, setPeriod, getMonthCount }}>
+    <PeriodContext.Provider
+      value={{ period, setPeriod, getMonthCount, dashboardMonthKey, setDashboardMonthKey }}
+    >
       {children}
     </PeriodContext.Provider>
   );

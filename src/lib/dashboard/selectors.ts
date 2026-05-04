@@ -187,13 +187,77 @@ export function percentChangeByPeriod(current: MoneyByMonth[], previous: MoneyBy
   return percentChange(currentSum, previousSum);
 }
 
+/** Índice del mes de fin en la serie; si no hay monthKey en los datos, usa el último índice */
+export function resolveEndMonthIndex(series: MoneyByMonth[], endMonthKey?: string | null): number {
+  if (series.length === 0) return -1;
+  if (endMonthKey) {
+    const idx = series.findIndex((m) => m.monthKey === endMonthKey);
+    if (idx >= 0) return idx;
+  }
+  for (let i = series.length - 1; i >= 0; i--) {
+    if (series[i].monthKey) return i;
+  }
+  return series.length - 1;
+}
+
+export function sliceMonthsEndingAt(
+  series: MoneyByMonth[],
+  count: number,
+  endMonthKey?: string | null
+): MoneyByMonth[] {
+  const endIdx = resolveEndMonthIndex(series, endMonthKey);
+  if (endIdx < 0) return [];
+  if (!series.some((m) => m.monthKey)) {
+    return series.slice(-Math.min(count, series.length));
+  }
+  const start = Math.max(0, endIdx - (count - 1));
+  return series.slice(start, endIdx + 1);
+}
+
+export function sumMoneyByMonthForDashboard(
+  series: MoneyByMonth[],
+  monthCount: number,
+  endMonthKey?: string | null
+): number {
+  return sliceMonthsEndingAt(series, monthCount, endMonthKey).reduce((a, m) => a + m.valor, 0);
+}
+
+export function percentChangeForDashboard(
+  series: MoneyByMonth[],
+  monthCount: number,
+  endMonthKey?: string | null
+): number {
+  const endIdx = resolveEndMonthIndex(series, endMonthKey);
+  if (endIdx < 0) return 0;
+  if (monthCount <= 1) {
+    const cur = series[endIdx]?.valor ?? 0;
+    const prev = series[endIdx - 1]?.valor ?? 0;
+    return percentChange(cur, prev);
+  }
+  const startCur = Math.max(0, endIdx - (monthCount - 1));
+  const curSum = series.slice(startCur, endIdx + 1).reduce((a, m) => a + m.valor, 0);
+  const prevEnd = startCur - 1;
+  if (prevEnd < 0) return percentChange(curSum, 0);
+  const startPrev = Math.max(0, prevEnd - (monthCount - 1));
+  const prevSum = series.slice(startPrev, prevEnd + 1).reduce((a, m) => a + m.valor, 0);
+  return percentChange(curSum, prevSum);
+}
+
 // Funciones para datos diarios
-export function getDailyDataFromMovements(movements: Movement[], type: "Ingreso" | "Gasto" | "Inversión"): MoneyByDay[] {
+export function getDailyDataFromMovements(
+  movements: Movement[],
+  type: "Ingreso" | "Gasto" | "Inversión",
+  target?: { year: number; month: number }
+): MoneyByDay[] {
   const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
-  
-  // Filtrar movimientos del mes actual
+  const currentYear = target?.year ?? now.getFullYear();
+  const currentMonth = target?.month ?? now.getMonth();
+
+  const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const isCurrentCalendarMonth =
+    currentYear === now.getFullYear() && currentMonth === now.getMonth();
+  const endDay = isCurrentCalendarMonth ? now.getDate() : lastDayOfMonth;
+
   const currentMonthMovements = movements.filter((m) => {
     const movementDate = new Date(m.fecha);
     return (
@@ -202,12 +266,10 @@ export function getDailyDataFromMovements(movements: Movement[], type: "Ingreso"
       m.tipo === type
     );
   });
-  
-  // Obtener días del mes actual hasta hoy
-  const daysInMonth = now.getDate();
+
   const dailyData: MoneyByDay[] = [];
-  
-  for (let day = 1; day <= daysInMonth; day++) {
+
+  for (let day = 1; day <= endDay; day++) {
     const dayStr = day.toString().padStart(2, "0");
     const dateStr = `${currentYear}-${(currentMonth + 1).toString().padStart(2, "0")}-${dayStr}`;
     
@@ -225,15 +287,18 @@ export function getDailyDataFromMovements(movements: Movement[], type: "Ingreso"
   return dailyData;
 }
 
-export function getDailyIncomeAndExpenses(movements: Movement[]): {
+export function getDailyIncomeAndExpenses(
+  movements: Movement[],
+  target?: { year: number; month: number }
+): {
   ingresos: MoneyByDay[];
   gastos: MoneyByDay[];
   inversiones: MoneyByDay[];
 } {
   return {
-    ingresos: getDailyDataFromMovements(movements, "Ingreso"),
-    gastos: getDailyDataFromMovements(movements, "Gasto"),
-    inversiones: getDailyDataFromMovements(movements, "Inversión"),
+    ingresos: getDailyDataFromMovements(movements, "Ingreso", target),
+    gastos: getDailyDataFromMovements(movements, "Gasto", target),
+    inversiones: getDailyDataFromMovements(movements, "Inversión", target),
   };
 }
 

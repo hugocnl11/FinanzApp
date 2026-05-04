@@ -3,7 +3,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown";
 import { AssetsDistributionManager } from "@/components/dashboard/AssetsDistributionManager";
-import { gastosPorCategoriaDesdeMovimientos, scaleCategoriesToTotal, sumFilteredMonths, filterMonthsByPeriod, percentChangeByPeriod } from "@/lib/dashboard/selectors";
+import {
+  gastosPorCategoriaDesdeMovimientos,
+  scaleCategoriesToTotal,
+  sumMoneyByMonthForDashboard,
+  percentChangeForDashboard,
+  movimientosPorRango,
+  resolveEndMonthIndex,
+} from "@/lib/dashboard/selectors";
+
+function monthKeyToRange(monthKey: string): { start: string; end: string } {
+  const [y, m] = monthKey.split("-").map(Number);
+  const start = `${y}-${String(m).padStart(2, "0")}-01`;
+  const endDate = new Date(y, m, 0);
+  const end = `${y}-${String(m).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
+  return { start, end };
+}
 import type { CategoryIconKey } from "@/lib/category-icons";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { useDashboardData } from "@/hooks/useDashboardData";
@@ -22,7 +37,7 @@ type DashboardCategoryBreakdownsProps = {
 
 export function DashboardCategoryBreakdowns({ type = "expenses" }: DashboardCategoryBreakdownsProps) {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const { period, getMonthCount } = usePeriod();
+  const { period, getMonthCount, dashboardMonthKey } = usePeriod();
   const { data } = useDashboardData();
 
   useEffect(() => {
@@ -54,18 +69,38 @@ export function DashboardCategoryBreakdowns({ type = "expenses" }: DashboardCate
   const gastosCategories = useMemo(() => {
     const base = data.gastosPorCategoria;
     const monthCount = getMonthCount();
-    const totalPeriod = sumFilteredMonths(data.gastosMensuales, monthCount);
+    const endKey = dashboardMonthKey || undefined;
+    const totalPeriod = sumMoneyByMonthForDashboard(data.gastosMensuales, monthCount, endKey);
 
-    const fromMovs = gastosPorCategoriaDesdeMovimientos(data.movimientos);
+    let movs = data.movimientos;
+    const resolvedEnd =
+      endKey ?? data.gastosMensuales[resolveEndMonthIndex(data.gastosMensuales, null)]?.monthKey;
+    if (resolvedEnd) {
+      if (monthCount === 1) {
+        const { start, end } = monthKeyToRange(resolvedEnd);
+        movs = movimientosPorRango(data.movimientos, start, end);
+      } else {
+        const endIdx = resolveEndMonthIndex(data.gastosMensuales, endKey);
+        const firstKey = data.gastosMensuales[Math.max(0, endIdx - 11)]?.monthKey;
+        if (firstKey) {
+          const { start } = monthKeyToRange(firstKey);
+          const { end } = monthKeyToRange(resolvedEnd);
+          movs = movimientosPorRango(data.movimientos, start, end);
+        }
+      }
+    }
+
+    const fromMovs = gastosPorCategoriaDesdeMovimientos(movs);
     const scaled = scaleCategoriesToTotal(fromMovs.length ? fromMovs : base, totalPeriod);
     return scaled;
-  }, [data, period, getMonthCount]);
+  }, [data, period, getMonthCount, dashboardMonthKey]);
 
   // Calcular % de cambio según el período
   const gastosPercentChange = useMemo(() => {
     const monthCount = getMonthCount();
-    return percentChangeByPeriod(data.gastosMensuales, data.gastosMensuales, monthCount);
-  }, [data, period, getMonthCount]);
+    const endKey = dashboardMonthKey || undefined;
+    return percentChangeForDashboard(data.gastosMensuales, monthCount, endKey);
+  }, [data, period, getMonthCount, dashboardMonthKey]);
 
   const periodLabel = period === "Mes" ? "MES" : "AÑO";
 
@@ -81,7 +116,7 @@ export function DashboardCategoryBreakdowns({ type = "expenses" }: DashboardCate
   }
 
   return (
-    <div key={`category-breakdown-${period}`}>
+    <div key={`category-breakdown-${period}-${dashboardMonthKey || "last"}`}>
       <CategoryBreakdown
         title="Gastos por Categoría"
         categories={gastosCategories}

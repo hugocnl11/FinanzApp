@@ -94,6 +94,7 @@ export async function loadDashboardDataCore(opts: {
       const activosPorMes = ingresosMensuales.map((entry, i) => ({
         mes: entry.mes as DashboardData["activosPorMes"][0]["mes"],
         valor: demoAssetIds.reduce((acc, id) => acc + (DEMO_ASSET_EVOLUTION[id]?.[i] ?? 0), 0),
+        monthKey: entry.monthKey,
       }));
 
       const mockGoals: Goal[] = DASHBOARD_MOCK.goals.map((g) => ({
@@ -181,10 +182,6 @@ export async function loadDashboardDataCore(opts: {
     const snapshotsTodayData = snapshotsTodayRes.status === "fulfilled" ? (snapshotsTodayRes.value.data ?? []) : [];
     const snapshotsLatestData = snapshotsLatestRes.status === "fulfilled" ? (snapshotsLatestRes.value.data ?? []) : [];
 
-    const activosPorMes = assetSnapshotsData.map((d: { mes: string; valor: number }) => ({
-      mes: d.mes as DashboardData["activosPorMes"][0]["mes"],
-      valor: d.valor,
-    }));
     const primaryGoalId =
       typeof window !== "undefined"
         ? window.localStorage.getItem("finanzapp:primary-goal")
@@ -194,6 +191,12 @@ export async function loadDashboardDataCore(opts: {
 
     const ingresosMensuales = buildMonthlySeries(movements, "Ingreso", 12);
     const gastosMensuales = buildMonthlySeries(movements, "Gasto", 12);
+
+    const activosPorMes = assetSnapshotsData.map((d: { mes: string; valor: number }, i: number) => ({
+      mes: d.mes as DashboardData["activosPorMes"][0]["mes"],
+      valor: d.valor,
+      monthKey: ingresosMensuales[i]?.monthKey,
+    }));
 
     const ingresosPorCategoria = totalsByCategory(movements, "Ingreso");
     const gastosPorCategoria = totalsByCategory(movements, "Gasto");

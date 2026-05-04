@@ -23,9 +23,11 @@ function parseDate(value: string) {
 export function buildMonthlySeries(
   movements: Movement[],
   type: Movement["tipo"],
-  months = 12
+  months = 12,
+  /** Fin de la ventana (por defecto hoy); útil para alinear con el mes seleccionado en el dashboard */
+  anchorDate: Date = new Date()
 ): MoneyByMonth[] {
-  const now = new Date();
+  const now = anchorDate;
   const series: MoneyByMonth[] = [];
 
   for (let i = months - 1; i >= 0; i -= 1) {
@@ -42,7 +44,8 @@ export function buildMonthlySeries(
       })
       .reduce((acc, movement) => acc + Math.abs(movement.cantidad), 0);
 
-    series.push({ mes: label, valor: total });
+    const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+    series.push({ mes: label, valor: total, monthKey });
   }
 
   return series;

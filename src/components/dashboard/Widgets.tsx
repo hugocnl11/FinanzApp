@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, memo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { sumFilteredMonths, percentChangeByPeriod } from "@/lib/dashboard/selectors";
+import { sumMoneyByMonthForDashboard, percentChangeForDashboard } from "@/lib/dashboard/selectors";
 import { formatNumber, formatCurrency } from "@/lib/format";
 import { useCurrency } from "@/hooks/useCurrency";
 import { usePeriod } from "@/contexts/PeriodContext";
@@ -20,13 +20,14 @@ import { Pencil } from "lucide-react";
 // Componente individual para Ingresos (memoizado para evitar re-renders innecesarios)
 export const IncomeCard = memo(function IncomeCard() {
   const currency = useCurrency();
-  const { period, getMonthCount } = usePeriod();
+  const { period, getMonthCount, dashboardMonthKey } = usePeriod();
   const { data } = useDashboardData();
   const { ingresosMensuales } = data;
-  
+
   const monthCount = getMonthCount();
-  const total = sumFilteredMonths(ingresosMensuales, monthCount);
-  const percentChange = percentChangeByPeriod(ingresosMensuales, ingresosMensuales, monthCount);
+  const endKey = dashboardMonthKey || undefined;
+  const total = sumMoneyByMonthForDashboard(ingresosMensuales, monthCount, endKey);
+  const percentChange = percentChangeForDashboard(ingresosMensuales, monthCount, endKey);
   
   const periodText = period === "Mes" ? "este mes" : "este año";
   
@@ -35,7 +36,7 @@ export const IncomeCard = memo(function IncomeCard() {
       <div className="flex flex-col space-y-2 min-w-0">
         <h3 className="text-sm font-medium text-muted-foreground">Ingresos</h3>
         <motion.div 
-          key={`income-${period}`}
+          key={`income-${period}-${dashboardMonthKey || "last"}`}
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
@@ -44,7 +45,7 @@ export const IncomeCard = memo(function IncomeCard() {
           {formatCurrency(total, currency)}
         </motion.div>
         <motion.div 
-          key={`income-percent-${period}`}
+          key={`income-percent-${period}-${dashboardMonthKey || "last"}`}
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
@@ -60,13 +61,14 @@ export const IncomeCard = memo(function IncomeCard() {
 // Componente individual para Gastos (memoizado)
 export const ExpensesCard = memo(function ExpensesCard() {
   const currency = useCurrency();
-  const { period, getMonthCount } = usePeriod();
+  const { period, getMonthCount, dashboardMonthKey } = usePeriod();
   const { data } = useDashboardData();
   const { gastosMensuales } = data;
-  
+
   const monthCount = getMonthCount();
-  const total = sumFilteredMonths(gastosMensuales, monthCount);
-  const percentChange = percentChangeByPeriod(gastosMensuales, gastosMensuales, monthCount);
+  const endKey = dashboardMonthKey || undefined;
+  const total = sumMoneyByMonthForDashboard(gastosMensuales, monthCount, endKey);
+  const percentChange = percentChangeForDashboard(gastosMensuales, monthCount, endKey);
   
   const periodText = period === "Mes" ? "este mes" : "este año";
   
@@ -75,7 +77,7 @@ export const ExpensesCard = memo(function ExpensesCard() {
       <div className="flex flex-col space-y-2 min-w-0">
         <h3 className="text-sm font-medium text-muted-foreground">Gastos</h3>
         <motion.div 
-          key={`expenses-${period}`}
+          key={`expenses-${period}-${dashboardMonthKey || "last"}`}
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
@@ -84,7 +86,7 @@ export const ExpensesCard = memo(function ExpensesCard() {
           {formatCurrency(total, currency)}
         </motion.div>
         <motion.div 
-          key={`expenses-percent-${period}`}
+          key={`expenses-percent-${period}-${dashboardMonthKey || "last"}`}
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}

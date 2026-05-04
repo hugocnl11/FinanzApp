@@ -15,6 +15,8 @@ export type MonthLabel =
 export type MoneyByMonth = {
   mes: MonthLabel;
   valor: number;
+  /** YYYY-MM, alineado con buildMonthlySeries (últimos N meses) */
+  monthKey?: string;
 };
 
 export type MoneyByDay = {

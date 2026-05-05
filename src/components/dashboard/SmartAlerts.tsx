@@ -13,6 +13,7 @@ type Alert = {
   type: AlertType;
   title: string;
   message: string;
+  action?: string;
   icon: React.ElementType;
 };
 
@@ -50,6 +51,7 @@ export function SmartAlerts() {
             type: "danger",
             title: "¡Presupuesto superado!",
             message: `Has superado el límite de ${budget.category} en ${Math.round(percentage - 100)}%`,
+            action: `Ajusta el presupuesto de ${budget.category} o reduce gasto esta semana`,
             icon: AlertTriangle,
           });
         } else if (percentage >= 80) {
@@ -58,6 +60,7 @@ export function SmartAlerts() {
             type: "warning",
             title: "Presupuesto cerca del límite",
             message: `Has gastado el ${Math.round(percentage)}% de tu presupuesto en ${budget.category}`,
+            action: `Revisa movimientos de ${budget.category} para evitar sobrepasarte`,
             icon: AlertTriangle,
           });
         }
@@ -115,6 +118,7 @@ export function SmartAlerts() {
               type: "recommendation",
               title: "Recomendación de ahorro",
               message: `Para alcanzar "${goal.title}", ahorra €${suggestedMonthly.toFixed(0)}/mes`,
+              action: "Programa una transferencia recurrente mensual para automatizarlo",
               icon: Sparkles,
             });
           }
@@ -182,6 +186,7 @@ export function SmartAlerts() {
             type: "recommendation",
             title: "Oportunidad de ahorro",
             message: `Puedes ahorrar hasta €${potentialSavings.toFixed(0)} más este mes para "${primaryGoal.title}"`,
+            action: "Mueve ese margen al objetivo principal al cierre de mes",
             icon: Sparkles,
           });
         }
@@ -197,6 +202,7 @@ export function SmartAlerts() {
             type: "recommendation",
             title: "Mejora tu tasa de ahorro",
             message: `Solo estás ahorrando el ${savingsRate.toFixed(1)}%. Intenta alcanzar al menos el 20%`,
+            action: "Empieza recortando 1 categoría variable un 10-15%",
             icon: Sparkles,
           });
         } else if (savingsRate >= 30) {
@@ -349,6 +355,11 @@ export function SmartAlerts() {
               <div className="text-xs text-muted-foreground">
                 {alert.message}
               </div>
+              {alert.action && (
+                <div className="text-[11px] font-medium text-foreground/80">
+                  Siguiente paso: {alert.action}
+                </div>
+              )}
             </div>
           </Card>
         );

@@ -59,6 +59,12 @@ export function AssetCard({
   const IconComponent = categoryMeta?.icon ? CATEGORY_ICON_MAP[categoryMeta.icon] : null;
 
   const showRentabilidad = assetType === "investment" && chartMode === "rentabilidad";
+  const totalReturnPct =
+    assetType === "investment" && investedValue > 0
+      ? ((currentValue - investedValue) / investedValue) * 100
+      : null;
+  const performanceColor =
+    showRentabilidad && totalReturnPct != null && totalReturnPct < 0 ? "#ef4444" : color;
   const chartData = evolution.map((p) => {
     const mes = p.mes.slice(0, 3);
     if (showRentabilidad && investedValue > 0) {
@@ -106,6 +112,19 @@ export function AssetCard({
         >
           {assetType === "savings" ? "Ahorro" : "Inversión"}
         </span>
+        {assetType === "investment" && totalReturnPct != null && (
+          <span
+            className={cn(
+              "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+              totalReturnPct >= 0
+                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                : "bg-rose-500/15 text-rose-700 dark:text-rose-400"
+            )}
+          >
+            {totalReturnPct >= 0 ? "+" : ""}
+            {totalReturnPct.toFixed(1)}%
+          </span>
+        )}
       </div>
 
       {chartData.length > 0 && (
@@ -114,8 +133,8 @@ export function AssetCard({
             <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id={`area-${categoryId}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={color} stopOpacity={0.4} />
-                  <stop offset="100%" stopColor={color} stopOpacity={0} />
+                  <stop offset="0%" stopColor={performanceColor} stopOpacity={0.4} />
+                  <stop offset="100%" stopColor={performanceColor} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <XAxis dataKey="mes" hide tick={{ fontSize: 10 }} />
@@ -144,7 +163,7 @@ export function AssetCard({
               <Area
                 type="monotone"
                 dataKey="valor"
-                stroke={color}
+                stroke={performanceColor}
                 strokeWidth={1.5}
                 fill={`url(#area-${categoryId})`}
               />

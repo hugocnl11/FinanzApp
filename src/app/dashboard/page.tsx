@@ -6,8 +6,15 @@ import { IncomeCard, ExpensesCard, GoalCard } from "@/components/dashboard/Widge
 import { BudgetSummary } from "@/components/dashboard/BudgetSummary";
 import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
 import { DashboardMonthSelector } from "@/components/dashboard/DashboardMonthSelector";
+import { ForecastCard } from "@/components/dashboard/ForecastCard";
+import { FinanceCalendar } from "@/components/dashboard/FinanceCalendar";
+import { SmartAlerts } from "@/components/dashboard/SmartAlerts";
+import { NotificationCenter } from "@/components/dashboard/NotificationCenter";
 import { PeriodProvider } from "@/contexts/PeriodContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { useDashboardData } from "@/hooks/useDashboardData";
+import { Download } from "lucide-react";
 
 const AnalyticsCharts = dynamic(
   () => import("@/components/dashboard/AnalyticsCharts").then((m) => ({ default: m.AnalyticsCharts })),
@@ -22,6 +29,7 @@ const DashboardCategoryBreakdowns = dynamic(
 export default function DashboardPage() {
   const leftColRef = useRef<HTMLDivElement>(null);
   const [budgetMaxHeight, setBudgetMaxHeight] = useState<number | undefined>(undefined);
+  const { data } = useDashboardData();
 
   useEffect(() => {
     const el = leftColRef.current;
@@ -33,6 +41,30 @@ export default function DashboardPage() {
     return () => ro.disconnect();
   }, []);
 
+  const exportCsv = () => {
+    const header = ["fecha", "concepto", "categoria", "tipo", "cantidad"];
+    const rows = (data.movimientos ?? []).map((m) => [
+      m.fecha,
+      `"${(m.concepto ?? "").replaceAll('"', '""')}"`,
+      `"${(m.categoria ?? "").replaceAll('"', '""')}"`,
+      m.tipo,
+      String(m.cantidad),
+    ]);
+    const csv = [header.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `finanzapp-dashboard-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  const lastUpdate = data.movimientos?.length
+    ? [...data.movimientos]
+        .map((m) => m.fecha)
+        .sort((a, b) => b.localeCompare(a))[0]
+    : null;
+
   return (
     <PeriodProvider>
       <div className="space-y-4 px-4 md:px-8" aria-label="Dashboard">
@@ -42,8 +74,18 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">
             Tu visión financiera en un solo lugar.
           </p>
+          {lastUpdate && (
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Última actualización: {new Date(lastUpdate).toLocaleDateString("es-ES")}
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+          <Button variant="outline" size="sm" onClick={exportCsv}>
+            <Download className="h-4 w-4" />
+            Exportar CSV
+          </Button>
+          <NotificationCenter />
           <PeriodSelector />
           <DashboardMonthSelector />
         </div>
@@ -88,6 +130,18 @@ export default function DashboardPage() {
           </div>
           <div className="min-w-0">
             <DashboardCategoryBreakdowns type="assets" />
+          </div>
+        </div>
+      </section>
+
+      <section className="min-w-0">
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
+          <div className="lg:col-span-2 min-w-0">
+            <SmartAlerts />
+          </div>
+          <div className="min-w-0 space-y-4">
+            <ForecastCard />
+            <FinanceCalendar />
           </div>
         </div>
       </section>

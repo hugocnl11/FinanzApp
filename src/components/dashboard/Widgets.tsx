@@ -1,9 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState, memo } from "react";
+import { useCallback, useEffect, useMemo, useState, memo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { sumMoneyByMonthForDashboard, percentChangeForDashboard } from "@/lib/dashboard/selectors";
+import {
+  sumMoneyByMonthForDashboard,
+  percentChangeForDashboard,
+  sliceMonthsEndingAt,
+} from "@/lib/dashboard/selectors";
 import { formatNumber, formatCurrency } from "@/lib/format";
 import { useCurrency } from "@/hooks/useCurrency";
 import { usePeriod } from "@/contexts/PeriodContext";
@@ -28,6 +32,11 @@ export const IncomeCard = memo(function IncomeCard() {
   const endKey = dashboardMonthKey || undefined;
   const total = sumMoneyByMonthForDashboard(ingresosMensuales, monthCount, endKey);
   const percentChange = percentChangeForDashboard(ingresosMensuales, monthCount, endKey);
+  const movingAvg3m = useMemo(() => {
+    const series = sliceMonthsEndingAt(ingresosMensuales, 3, endKey);
+    if (series.length === 0) return 0;
+    return series.reduce((acc, row) => acc + row.valor, 0) / series.length;
+  }, [ingresosMensuales, endKey]);
   
   const periodText = period === "Mes" ? "este mes" : "este año";
   
@@ -53,6 +62,9 @@ export const IncomeCard = memo(function IncomeCard() {
         >
           {percentChange >= 0 ? '+' : ''}{Math.round(percentChange)}% {periodText}
         </motion.div>
+        <div className="text-[11px] text-muted-foreground">
+          media 3m: {formatCurrency(movingAvg3m, currency)}
+        </div>
       </div>
     </Card>
   );
@@ -69,6 +81,11 @@ export const ExpensesCard = memo(function ExpensesCard() {
   const endKey = dashboardMonthKey || undefined;
   const total = sumMoneyByMonthForDashboard(gastosMensuales, monthCount, endKey);
   const percentChange = percentChangeForDashboard(gastosMensuales, monthCount, endKey);
+  const movingAvg3m = useMemo(() => {
+    const series = sliceMonthsEndingAt(gastosMensuales, 3, endKey);
+    if (series.length === 0) return 0;
+    return series.reduce((acc, row) => acc + row.valor, 0) / series.length;
+  }, [gastosMensuales, endKey]);
   
   const periodText = period === "Mes" ? "este mes" : "este año";
   
@@ -94,6 +111,9 @@ export const ExpensesCard = memo(function ExpensesCard() {
         >
           {percentChange >= 0 ? '+' : ''}{Math.round(percentChange)}% {periodText}
         </motion.div>
+        <div className="text-[11px] text-muted-foreground">
+          media 3m: {formatCurrency(movingAvg3m, currency)}
+        </div>
       </div>
     </Card>
   );
@@ -192,6 +212,18 @@ export const GoalCard = memo(function GoalCard() {
   const porcentaje = isBudgetGoal && target > 0
     ? Math.min(100, Math.max(0, ((target - saved) / target) * 100))
     : target ? (saved / target) * 100 : 0;
+  const monthlyNeeded = (() => {
+    if (!currentGoal?.dueDate || isBudgetGoal) return null;
+    const due = new Date(currentGoal.dueDate);
+    if (Number.isNaN(due.getTime())) return null;
+    const today = new Date();
+    const months = Math.max(
+      1,
+      (due.getFullYear() - today.getFullYear()) * 12 + (due.getMonth() - today.getMonth()) + 1
+    );
+    const remaining = Math.max(0, target - saved);
+    return remaining / months;
+  })();
 
   return (
     <Card className="p-6 space-y-3">
@@ -228,6 +260,11 @@ export const GoalCard = memo(function GoalCard() {
       <div className="text-xs text-muted-foreground">
         {isBudgetGoal ? `${Math.round(porcentaje)}% resto disponible` : `${Math.round(porcentaje)}% completado`}
       </div>
+      {!isBudgetGoal && monthlyNeeded != null && monthlyNeeded > 0 && (
+        <div className="text-xs font-medium text-amber-600 dark:text-amber-400">
+          Plan sugerido: {formatCurrency(monthlyNeeded, currency)}/mes hasta la fecha objetivo
+        </div>
+      )}
     </Card>
   );
 });

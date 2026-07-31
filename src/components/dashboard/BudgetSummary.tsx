@@ -73,6 +73,19 @@ const VARIABLE_CATEGORIES = [
 
 type BudgetSummaryMode = "selector" | "combined";
 
+function normalizeBudgetPeriod(period: string | undefined): "fixed" | "variable" {
+  const p = (period ?? "variable").toLowerCase();
+  return p === "fixed" ? "fixed" : "variable";
+}
+
+function sumBudgetLimit(list: BudgetItem[]) {
+  return list.reduce((acc, item) => acc + (Number(item.limit) || 0), 0);
+}
+
+function sumBudgetSpent(list: BudgetItem[]) {
+  return list.reduce((acc, item) => acc + (Number(item.spent) || 0), 0);
+}
+
 // Mapeo de iconos y colores por defecto para cada categoría
 const FALLBACK_CATEGORY_META: Record<string, { icon: CategoryIconKey; color: string }> = {
   // Fijos
@@ -205,7 +218,7 @@ export function BudgetSummary({
 
   const filterByType = (type: BudgetType, source = budgetsSource) => {
     const periodKey = type === "Fijo" ? "fixed" : "variable";
-    return source.filter((budget) => budget.period === periodKey);
+    return source.filter((budget) => normalizeBudgetPeriod(budget.period) === periodKey);
   };
 
   const implicitVariableBudgets = useMemo(() => {
@@ -295,13 +308,14 @@ export function BudgetSummary({
   };
 
   const totals = useMemo(() => {
-    // En combined, el estado general debe sumar fijo + variable (incl. implícitos)
-    const list =
-      mode === "combined"
-        ? [...fixedBudgets, ...variableBudgets]
-        : filteredBudgets;
-    const totalLimit = list.reduce((acc, item) => acc + item.limit, 0);
-    const totalSpent = list.reduce((acc, item) => acc + item.spent, 0);
+    if (mode === "combined") {
+      const totalLimit = sumBudgetLimit(fixedBudgets) + sumBudgetLimit(variableBudgets);
+      const totalSpent = sumBudgetSpent(fixedBudgets) + sumBudgetSpent(variableBudgets);
+      const percent = totalLimit ? (totalSpent / totalLimit) * 100 : 0;
+      return { totalLimit, totalSpent, percent };
+    }
+    const totalLimit = sumBudgetLimit(filteredBudgets);
+    const totalSpent = sumBudgetSpent(filteredBudgets);
     const percent = totalLimit ? (totalSpent / totalLimit) * 100 : 0;
     return { totalLimit, totalSpent, percent };
   }, [mode, fixedBudgets, variableBudgets, filteredBudgets]);
@@ -391,8 +405,8 @@ export function BudgetSummary({
                     {label}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {formatNumber(list.reduce((acc, item) => acc + item.spent, 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /{" "}
-                    {formatNumber(list.reduce((acc, item) => acc + item.limit, 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {formatNumber(sumBudgetSpent(list), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /{" "}
+                    {formatNumber(sumBudgetLimit(list), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="h-px w-full bg-border/50 mb-3 shrink-0" />

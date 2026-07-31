@@ -38,45 +38,50 @@ type ChartDensity = {
   dailyXStep: number;
 };
 
-/** Densidad de etiquetas/puntos según px disponibles por punto del eje X. */
-function getChartDensity(innerWidth: number, pointCount: number): ChartDensity {
+/** Cuántas etiquetas caben sin solaparse, según ancho y tamaño de label. */
+function labelStepForWidth(innerWidth: number, pointCount: number, labelWidth: number): number {
+  const n = Math.max(pointCount, 1);
+  // Un poco de solape permitido (0.75) para no quedarnos cortos en anchos medios
+  const maxLabels = Math.max(3, Math.floor(innerWidth / Math.max(labelWidth * 0.75, 1)));
+  return Math.max(1, Math.ceil(n / maxLabels));
+}
+
+/** Densidad de etiquetas/puntos según px disponibles — siempre reparte extremos + muestra intermedia. */
+function getChartDensity(innerWidth: number, pointCount: number, seriesCount = 1): ChartDensity {
   const n = Math.max(pointCount, 1);
   const last = n - 1;
-  const mid = Math.floor(last / 2);
   const pxPerPoint = innerWidth / n;
 
-  if (pxPerPoint >= 56) {
-    return {
-      showValueLabel: () => true,
-      showXLabel: () => true,
-      pointRadius: 4,
-      valueFontSize: 12,
-      labelWidth: 48,
-      marginX: 20,
-      dailyXStep: 3,
-    };
+  let valueFontSize = 12;
+  let labelWidth = 48;
+  let pointRadius = 4;
+  let marginX = 20;
+
+  if (pxPerPoint < 28 || innerWidth < 260) {
+    valueFontSize = 9;
+    labelWidth = 30;
+    pointRadius = 2.5;
+    marginX = 10;
+  } else if (pxPerPoint < 44 || innerWidth < 400) {
+    valueFontSize = 10;
+    labelWidth = 36;
+    pointRadius = 3;
+    marginX = 12;
   }
 
-  if (pxPerPoint >= 36) {
-    return {
-      showValueLabel: (i) => i % 2 === 0 || i === last,
-      showXLabel: (i) => i % 2 === 0 || i === 0 || i === last,
-      pointRadius: 3,
-      valueFontSize: 10,
-      labelWidth: 40,
-      marginX: 14,
-      dailyXStep: 4,
-    };
-  }
+  const step = labelStepForWidth(innerWidth, n, labelWidth);
+  // Con varias series, espaciar más las etiquetas de valor para que no se pisen
+  const valueStep = seriesCount > 1 ? Math.max(step, Math.ceil(step * 1.5)) : step;
+  const dailyXStep = Math.max(step, pxPerPoint < 28 ? 4 : 3);
 
   return {
-    showValueLabel: (i) => i === last,
-    showXLabel: (i) => i === 0 || i === mid || i === last,
-    pointRadius: 2.5,
-    valueFontSize: 10,
-    labelWidth: 36,
-    marginX: 12,
-    dailyXStep: 5,
+    showValueLabel: (i) => i === 0 || i === last || i % valueStep === 0,
+    showXLabel: (i) => i === 0 || i === last || i % step === 0,
+    pointRadius,
+    valueFontSize,
+    labelWidth,
+    marginX,
+    dailyXStep,
   };
 }
 
@@ -325,7 +330,8 @@ function CombinedChartCard({
       <div className="mt-4 h-[200px] relative" ref={chartContainerRef}>
         <ParentSize>
           {({ width, height }) => {
-            const density = getChartDensity(Math.max(width - 40, 1), labels.length);
+            const seriesCount = 2 + (inversiones.length ? 1 : 0);
+            const density = getChartDensity(Math.max(width - 40, 1), labels.length, seriesCount);
             const margin = { ...baseMargin, left: density.marginX, right: density.marginX };
             const innerWidth = Math.max(width - margin.left - margin.right, 1);
             const innerHeight = height - margin.top - margin.bottom;

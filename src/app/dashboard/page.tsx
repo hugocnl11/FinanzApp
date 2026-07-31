@@ -124,11 +124,11 @@ export default function DashboardPage() {
 
       {/* Resto de gráficas */}
       <section className="min-w-0">
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-          <div className="min-w-0">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 md:items-stretch">
+          <div className="min-w-0 h-full">
             <AnalyticsCharts type="patrimonio" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 h-full">
             <DashboardCategoryBreakdowns type="assets" />
           </div>
         </div>

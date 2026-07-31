@@ -1,4 +1,4 @@
-import type { MoneyByMonth, MoneyByDay } from "./types";
+import type { MoneyByMonth, MoneyByDay, MonthLabel } from "./types";
 import type { Budget, Category, CategoryAmount, Goal, Movement } from "./types";
 
 const MOVEMENT_TIPO_BY_CATEGORY_TYPE: Record<"expense" | "investment" | "savings", Movement["tipo"]> = {
@@ -302,6 +302,128 @@ export function getDailyIncomeAndExpenses(
   };
 }
 
+const MONTH_FULL_LABELS: MonthLabel[] = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
+
+/** Fin de la ventana del chart: último día del mes ancla, o hoy si es el mes calendario actual. */
+export function resolveChartEndDate(endMonthKey?: string | null): Date {
+  const now = new Date();
+  now.setHours(12, 0, 0, 0);
+  if (!endMonthKey) return now;
+  const [y, m] = endMonthKey.split("-").map(Number);
+  if (!y || !m) return now;
+  const isCurrent = y === now.getFullYear() && m === now.getMonth() + 1;
+  if (isCurrent) return now;
+  return new Date(y, m, 0, 12, 0, 0, 0); // último día del mes
+}
+
+function toDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function findMonthBoundaryIndex(dateKeys: string[]): number {
+  if (dateKeys.length < 2) return -1;
+  const firstMonth = dateKeys[0].slice(0, 7);
+  for (let i = 1; i < dateKeys.length; i++) {
+    if (dateKeys[i].slice(0, 7) !== firstMonth) return i;
+  }
+  return -1;
+}
+
+function findYearBoundaryIndex(monthKeys: string[]): number {
+  if (monthKeys.length < 2) return -1;
+  const firstYear = monthKeys[0]?.slice(0, 4);
+  for (let i = 1; i < monthKeys.length; i++) {
+    if (monthKeys[i]?.slice(0, 4) !== firstYear) return i;
+  }
+  return -1;
+}
+
+function getRollingDailySeries(
+  movements: Movement[],
+  type: "Ingreso" | "Gasto" | "Inversión",
+  endDate: Date,
+  days: number
+): MoneyByDay[] {
+  const byDate = new Map<string, number>();
+  for (const m of movements) {
+    if (m.tipo !== type) continue;
+    byDate.set(m.fecha, (byDate.get(m.fecha) ?? 0) + Math.abs(m.cantidad));
+  }
+
+  const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 12);
+  const result: MoneyByDay[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(end);
+    d.setDate(end.getDate() - i);
+    const key = toDateKey(d);
+    result.push({ dia: key, valor: byDate.get(key) ?? 0 });
+  }
+  return result;
+}
+
+/** Últimos N días hasta endDate (inclusive), con índice del primer día de un mes distinto. */
+export function getRollingDailyIncomeAndExpenses(
+  movements: Movement[],
+  endDate: Date,
+  days = 31
+): {
+  ingresos: MoneyByDay[];
+  gastos: MoneyByDay[];
+  inversiones: MoneyByDay[];
+  separatorIndex: number;
+} {
+  const ingresos = getRollingDailySeries(movements, "Ingreso", endDate, days);
+  const gastos = getRollingDailySeries(movements, "Gasto", endDate, days);
+  const inversiones = getRollingDailySeries(movements, "Inversión", endDate, days);
+  const separatorIndex = findMonthBoundaryIndex(ingresos.map((d) => d.dia));
+  return { ingresos, gastos, inversiones, separatorIndex };
+}
+
+/**
+ * Ventana fija de `count` meses hasta endMonthKey, rellenando con 0 si faltan.
+ * separatorIndex = primer mes de un año distinto al del inicio (-1 si no hay cruce).
+ */
+export function ensureMonthWindow(
+  series: MoneyByMonth[],
+  count: number,
+  endMonthKey?: string | null
+): { series: MoneyByMonth[]; separatorIndex: number } {
+  const endDate = resolveChartEndDate(endMonthKey);
+  const endY = endDate.getFullYear();
+  const endM = endDate.getMonth(); // 0-indexed
+  const byKey = new Map(series.filter((s) => s.monthKey).map((s) => [s.monthKey!, s]));
+
+  const filled: MoneyByMonth[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(endY, endM - i, 1);
+    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const existing = byKey.get(monthKey);
+    filled.push(
+      existing ?? {
+        mes: MONTH_FULL_LABELS[d.getMonth()],
+        valor: 0,
+        monthKey,
+      }
+    );
+  }
+
+  const separatorIndex = findYearBoundaryIndex(filled.map((s) => s.monthKey ?? ""));
+  return { series: filled, separatorIndex };
+}
+
 const MES_LABELS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
 /** Comparativa anual: ingresos y gastos por mes del año actual vs año anterior */
@@ -345,11 +467,12 @@ export function proyeccionMensual(
   const avgIng = ing.length ? ing.reduce((a, x) => a + x.valor, 0) / ing.length : 0;
   const avgGas = gas.length ? gas.reduce((a, x) => a + x.valor, 0) / gas.length : 0;
   const result: Array<{ mes: string; ingresos: number; gastos: number }> = [];
-  const start = new Date();
-  start.setMonth(start.getMonth() + 1);
+  // Día 1 para evitar el desbordamiento de setMonth en días 29–31 (p. ej. 31 jul → dos "Oct")
+  const now = new Date();
+  const startYear = now.getFullYear();
+  const startMonth = now.getMonth() + 1; // primer mes a proyectar (índice Date)
   for (let i = 0; i < numProyectar; i++) {
-    const d = new Date(start);
-    d.setMonth(d.getMonth() + i);
+    const d = new Date(startYear, startMonth + i, 1);
     result.push({
       mes: MES_LABELS[d.getMonth()],
       ingresos: Math.round(avgIng),

@@ -35,11 +35,11 @@ export function ForecastCard() {
         <p className="text-sm text-muted-foreground">Sin datos suficientes para proyectar.</p>
       ) : (
         <div className="space-y-2">
-          {forecast.map((row) => {
+          {forecast.map((row, i) => {
             const balance = row.ingresos - row.gastos;
             return (
               <div
-                key={row.mes}
+                key={`${row.mes}-${i}`}
                 className="flex items-center justify-between rounded-md border border-border/70 bg-muted/20 px-3 py-2 text-sm"
               >
                 <span className="font-medium">{row.mes}</span>

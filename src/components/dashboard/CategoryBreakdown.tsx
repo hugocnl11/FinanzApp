@@ -98,25 +98,25 @@ export function CategoryBreakdown({
     );
   }
 
-  // variant === "donut"
-  const radius = 80;
-  const stroke = 18;
-  const size = 220;
+  // variant === "donut" — tamaño contenido para dejar sitio a la leyenda
+  const radius = 60;
+  const stroke = 14;
+  const size = 168;
   const center = size / 2;
   const circumference = 2 * Math.PI * radius;
   let offset = 0;
   const donutKey = animationKey ?? `${title}-${periodLabel}`;
 
   return (
-    <Card className="p-6 min-h-[320px] h-full flex flex-col gap-6 min-w-0 overflow-hidden">
-      <div className="flex items-center justify-between min-w-0">
+    <Card className="p-6 min-h-[320px] h-full flex flex-col gap-4 min-w-0 overflow-hidden">
+      <div className="flex items-center justify-between min-w-0 shrink-0">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">{periodLabel}</p>
           <h3 className="text-lg font-semibold truncate">{title}</h3>
         </div>
         {headerRight ? <div className="text-xs shrink-0">{headerRight}</div> : null}
       </div>
-      <div className="flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-10 min-w-0">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-5 min-w-0 flex-1 min-h-0">
         <div className="relative mx-auto shrink-0">
           <svg key={donutKey} width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
             <circle
@@ -160,11 +160,11 @@ export function CategoryBreakdown({
               );
             })}
           </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className="text-xs text-muted-foreground">Total</div>
-            <div className="text-2xl font-bold">{formatNumber(total)} €</div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</div>
+            <div className="text-lg font-bold tabular-nums leading-tight">{formatNumber(total)} €</div>
             {percentChange !== undefined && (
-              <div className="text-xs font-medium mt-1 text-center leading-tight">
+              <div className="text-[10px] font-medium mt-0.5 text-center leading-tight">
                 <span className={percentChange < 0 ? "text-green-500" : "text-red-500"}>
                   {percentChange >= 0 ? "+" : ""}
                   {percentChange.toFixed(0)}%
@@ -183,14 +183,14 @@ export function CategoryBreakdown({
           `}</style>
         </div>
 
-        <div className="w-full min-w-0 flex flex-col gap-2 text-sm">
+        <div className="w-full min-w-0 flex flex-col gap-1.5 text-sm lg:max-h-[248px] lg:overflow-y-auto min-h-0">
           {sortedCategories.map((cat, i) => {
             const meta = categoryMeta?.[cat.name];
             const Icon = meta ? CATEGORY_ICON_MAP[meta.icon] : null;
             return (
               <div
                 key={cat.name}
-                className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2 min-w-0"
+                className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-1.5 min-w-0"
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span

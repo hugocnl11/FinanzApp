@@ -10,8 +10,9 @@ import {
   last,
   previous,
   percentChange,
-  getDailyIncomeAndExpenses,
-  sliceMonthsEndingAt,
+  getRollingDailyIncomeAndExpenses,
+  resolveChartEndDate,
+  ensureMonthWindow,
   resolveEndMonthIndex,
 } from "@/lib/dashboard/selectors";
 import { buildMonthlySeries } from "@/lib/dashboard/derive";
@@ -27,6 +28,58 @@ type DataPoint = {
   value: number;
 };
 
+type ChartDensity = {
+  showValueLabel: (i: number) => boolean;
+  showXLabel: (i: number) => boolean;
+  pointRadius: number;
+  valueFontSize: number;
+  labelWidth: number;
+  marginX: number;
+  dailyXStep: number;
+};
+
+/** Densidad de etiquetas/puntos según px disponibles por punto del eje X. */
+function getChartDensity(innerWidth: number, pointCount: number): ChartDensity {
+  const n = Math.max(pointCount, 1);
+  const last = n - 1;
+  const mid = Math.floor(last / 2);
+  const pxPerPoint = innerWidth / n;
+
+  if (pxPerPoint >= 56) {
+    return {
+      showValueLabel: () => true,
+      showXLabel: () => true,
+      pointRadius: 4,
+      valueFontSize: 12,
+      labelWidth: 48,
+      marginX: 20,
+      dailyXStep: 3,
+    };
+  }
+
+  if (pxPerPoint >= 36) {
+    return {
+      showValueLabel: (i) => i % 2 === 0 || i === last,
+      showXLabel: (i) => i % 2 === 0 || i === 0 || i === last,
+      pointRadius: 3,
+      valueFontSize: 10,
+      labelWidth: 40,
+      marginX: 14,
+      dailyXStep: 4,
+    };
+  }
+
+  return {
+    showValueLabel: (i) => i === last,
+    showXLabel: (i) => i === 0 || i === mid || i === last,
+    pointRadius: 2.5,
+    valueFontSize: 10,
+    labelWidth: 36,
+    marginX: 12,
+    dailyXStep: 5,
+  };
+}
+
 type ChartCardProps<T> = {
   title: string;
   value: string;
@@ -39,7 +92,7 @@ type ChartCardProps<T> = {
 };
 
 function ChartCard<T extends Record<string, any>>({ title, value, percent, subtitle, data, invertPercentColor = false, xKey, yKey }: ChartCardProps<T>) {
-  const margin = { top: 36, right: 20, bottom: 30, left: 20 };
+  const baseMargin = { top: 36, bottom: 30 };
   const percentColor = invertPercentColor
     ? (percent < 0 ? "text-green-500" : "text-red-500")
     : (percent >= 0 ? "text-green-500" : "text-red-500");
@@ -64,14 +117,14 @@ function ChartCard<T extends Record<string, any>>({ title, value, percent, subti
 
   if (data.length === 0) {
     return (
-      <Card className="p-6 min-h-[320px] flex flex-col items-center justify-center text-sm text-muted-foreground">
+      <Card className={cn("p-6 min-h-[320px] flex flex-col items-center justify-center text-sm text-muted-foreground", isPatrimonio && "h-full")}>
         Sin datos disponibles
       </Card>
     );
   }
 
   return (
-    <Card className="p-6 min-h-[320px]">
+    <Card className={cn("p-6 min-h-[320px]", isPatrimonio && "h-full")}>
       <div className="flex flex-col space-y-2">
         <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
         <div className="text-2xl font-bold">{value}</div>
@@ -81,8 +134,12 @@ function ChartCard<T extends Record<string, any>>({ title, value, percent, subti
       <div className="mt-4 h-[200px]">
         <ParentSize>
           {({ width, height }) => {
-            const innerWidth = width - margin.left - margin.right;
+            // Estimación previa con margen medio para elegir densidad; luego se recalcula el plot area
+            const density = getChartDensity(Math.max(width - 40, 1), data.length);
+            const margin = { ...baseMargin, left: density.marginX, right: density.marginX };
+            const innerWidth = Math.max(width - margin.left - margin.right, 1);
             const innerHeight = height - margin.top - margin.bottom;
+            const halfLabel = density.labelWidth / 2;
 
             const xScale = scalePoint({
               domain: data.map((d) => String(d[xKey])),
@@ -117,53 +174,63 @@ function ChartCard<T extends Record<string, any>>({ title, value, percent, subti
                     {...lineMotion}
                   />
                   {/* Puntos animados y etiquetas de valor */}
-                  {data.map((d, i) => (
-                    <g key={i}>
-                      <motion.circle
-                        cx={xScale(String(d[xKey]))}
-                        cy={yScale(Number(d[yKey]))}
-                        r={4}
-                        fill={pointColor}
-                        {...pointMotion}
-                        transition={{ ...pointMotion.transition, delay: 0.2 + i * 0.07 }}
-                      />
-                      <foreignObject
-                        x={(xScale(String(d[xKey])) as number) - 24}
-                        y={yScale(Number(d[yKey])) - 28}
-                        width={48}
-                        height={20}
-                        style={{ pointerEvents: 'none' }}
-                      >
-                        <div
-                          style={{
-                            color: labelColor,
-                            fontWeight: 600,
-                            fontSize: 12,
-                            textAlign: "center",
-                            width: "fit-content",
-                            margin: "0 auto",
-                            lineHeight: '18px',
-                          }}
-                        >
-                          {formatNumber(Number(d[yKey]))}€
-                        </div>
-                      </foreignObject>
-                    </g>
-                  ))}
+                  {data.map((d, i) => {
+                    const xPos = xScale(String(d[xKey])) as number;
+                    const yPos = yScale(Number(d[yKey]));
+                    const showLabel = density.showValueLabel(i);
+                    return (
+                      <g key={i}>
+                        <motion.circle
+                          cx={xPos}
+                          cy={yPos}
+                          r={density.pointRadius}
+                          fill={pointColor}
+                          {...pointMotion}
+                          transition={{ ...pointMotion.transition, delay: 0.2 + i * 0.07 }}
+                        />
+                        {showLabel && (
+                          <foreignObject
+                            x={xPos - halfLabel}
+                            y={yPos - 28}
+                            width={density.labelWidth}
+                            height={20}
+                            style={{ pointerEvents: "none" }}
+                          >
+                            <div
+                              style={{
+                                color: labelColor,
+                                fontWeight: 600,
+                                fontSize: density.valueFontSize,
+                                textAlign: "center",
+                                width: "fit-content",
+                                margin: "0 auto",
+                                lineHeight: "18px",
+                              }}
+                            >
+                              {formatNumber(Number(d[yKey]))}€
+                            </div>
+                          </foreignObject>
+                        )}
+                      </g>
+                    );
+                  })}
                   {/* Etiquetas */}
-                  {data.map((d, i) => (
-                    <text
-                      key={"label-" + i}
-                      x={xScale(String(d[xKey]))}
-                      y={innerHeight + 20}
-                      textAnchor="middle"
-                      fontSize={12}
-                      fill="currentColor"
-                      className="text-muted-foreground"
-                    >
-                      {String(d[xKey]).slice(0, 3)}
-                    </text>
-                  ))}
+                  {data.map((d, i) => {
+                    if (!density.showXLabel(i)) return null;
+                    return (
+                      <text
+                        key={"label-" + i}
+                        x={xScale(String(d[xKey]))}
+                        y={innerHeight + 20}
+                        textAnchor="middle"
+                        fontSize={density.valueFontSize}
+                        fill="currentColor"
+                        className="text-muted-foreground"
+                      >
+                        {String(d[xKey]).slice(0, 3)}
+                      </text>
+                    );
+                  })}
                 </g>
               </svg>
             );
@@ -175,37 +242,48 @@ function ChartCard<T extends Record<string, any>>({ title, value, percent, subti
 }
 
 const INVERSIONES_COLOR = "#3b82f6"; // blue-500, contrasta con verde y rojo
+const MONTH_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
-function CombinedChartCard({ 
-  ingresos, 
+function formatDailyTick(dateKey: string): string {
+  if (dateKey.length >= 10) return String(Number(dateKey.slice(8, 10)));
+  return dateKey;
+}
+
+function CombinedChartCard({
+  ingresos,
   gastos,
   inversiones = [],
   isDailyView = false,
-  movimientos = []
-}: { 
-  ingresos: MoneyByMonth[] | MoneyByDay[], 
-  gastos: MoneyByMonth[] | MoneyByDay[],
-  inversiones?: MoneyByMonth[] | MoneyByDay[],
-  isDailyView?: boolean,
-  movimientos?: Movement[]
+  movimientos = [],
+  separatorIndex = -1,
+  monthKeys = [],
+}: {
+  ingresos: MoneyByMonth[] | MoneyByDay[];
+  gastos: MoneyByMonth[] | MoneyByDay[];
+  inversiones?: MoneyByMonth[] | MoneyByDay[];
+  isDailyView?: boolean;
+  movimientos?: Movement[];
+  separatorIndex?: number;
+  monthKeys?: string[];
 }) {
-  const margin = { top: 36, right: 20, bottom: 30, left: 20 };
+  const baseMargin = { top: 36, bottom: 30 };
   const [hoveredDay, setHoveredDay] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  
-  // Función para obtener movimientos de un día específico
+
   const getMovementsByDay = (day: string): Movement[] => {
     if (!isDailyView) return [];
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${day.padStart(2, "0")}`;
-    return movimientos.filter(m => m.fecha === dateStr);
+    const dateStr =
+      day.length >= 10
+        ? day.slice(0, 10)
+        : (() => {
+            const now = new Date();
+            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${day.padStart(2, "0")}`;
+          })();
+    return movimientos.filter((m) => m.fecha === dateStr);
   };
-  
-  // Determinar labels y valores según el tipo de vista
-  const labels = isDailyView 
+
+  const labels = isDailyView
     ? (ingresos as MoneyByDay[]).map((d) => d.dia)
     : (ingresos as MoneyByMonth[]).map((d) => d.mes);
   const ingresosVals = ingresos.map((d) => d.valor);
@@ -224,23 +302,37 @@ function CombinedChartCard({
   return (
     <Card className="p-6 min-h-[320px] relative">
       <div className="flex flex-col space-y-2">
-        <h3 className="text-sm font-medium text-muted-foreground">Ingresos / Gastos / Inversión {isDailyView ? "Diarios" : "Totales"}</h3>
+        <h3 className="text-sm font-medium text-muted-foreground">
+          Ingresos / Gastos / Inversión {isDailyView ? "Diarios" : "Totales"}
+        </h3>
         <div className="flex flex-wrap gap-x-6 gap-y-1 items-end">
-          <span className="text-2xl font-bold text-green-600">{formatNumber(ingresosVals.reduce((a, b) => a + b, 0))} €</span>
+          <span className="text-2xl font-bold text-green-600">
+            {formatNumber(ingresosVals.reduce((a, b) => a + b, 0))} €
+          </span>
           <span className="text-muted-foreground">·</span>
-          <span className="text-2xl font-bold text-red-500">{formatNumber(gastosVals.reduce((a, b) => a + b, 0))} €</span>
+          <span className="text-2xl font-bold text-red-500">
+            {formatNumber(gastosVals.reduce((a, b) => a + b, 0))} €
+          </span>
           <span className="text-muted-foreground">·</span>
           <span className="text-2xl font-bold" style={{ color: INVERSIONES_COLOR }}>
             {formatNumber(inversionesVals.reduce((a, b) => a + b, 0))} €
           </span>
         </div>
-        <p className="text-xs text-muted-foreground">{isDailyView ? "Evolución diaria del mes actual" : "Evolución mensual"}</p>
+        <p className="text-xs text-muted-foreground">
+          {isDailyView ? "Últimos 31 días" : "Últimos 12 meses"}
+        </p>
       </div>
       <div className="mt-4 h-[200px] relative" ref={chartContainerRef}>
         <ParentSize>
           {({ width, height }) => {
-            const innerWidth = width - margin.left - margin.right;
+            const density = getChartDensity(Math.max(width - 40, 1), labels.length);
+            const margin = { ...baseMargin, left: density.marginX, right: density.marginX };
+            const innerWidth = Math.max(width - margin.left - margin.right, 1);
             const innerHeight = height - margin.top - margin.bottom;
+            const halfLabel = density.labelWidth / 2;
+            const pointR = (hasMovements: boolean) =>
+              hasMovements && isDailyView ? Math.max(density.pointRadius + 2, 5) : density.pointRadius;
+
             const xScale = scalePoint({
               domain: labels,
               range: [0, innerWidth],
@@ -251,7 +343,6 @@ function CombinedChartCard({
               range: [innerHeight, 0],
               nice: true,
             });
-            // Líneas
             const ingresosLine = LinePath({
               data: ingresos,
               x: (d) => xScale(isDailyView ? (d as MoneyByDay).dia : (d as MoneyByMonth).mes) || 0,
@@ -272,10 +363,49 @@ function CombinedChartCard({
                   curve: curveMonotoneX,
                 })
               : null;
+
+            const sepLabel = labels[separatorIndex];
+            const sepX =
+              separatorIndex >= 0 && sepLabel != null
+                ? (xScale(sepLabel) as number | undefined)
+                : undefined;
+            const sepCaption = (() => {
+              if (separatorIndex < 0 || sepLabel == null) return "";
+              if (isDailyView && sepLabel.length >= 7) {
+                const month = Number(sepLabel.slice(5, 7)) - 1;
+                const year = sepLabel.slice(2, 4);
+                return `${MONTH_SHORT[month] ?? ""} '${year}`;
+              }
+              const mk = monthKeys[separatorIndex];
+              return mk ? mk.slice(0, 4) : sepLabel.slice(0, 3);
+            })();
+
             return (
               <svg width={width} height={height}>
                 <g transform={`translate(${margin.left},${margin.top})`}>
-                  {/* Línea ingresos */}
+                  {sepX != null && Number.isFinite(sepX) && (
+                    <g>
+                      <line
+                        x1={sepX}
+                        x2={sepX}
+                        y1={-8}
+                        y2={innerHeight}
+                        stroke="currentColor"
+                        strokeWidth={1}
+                        strokeDasharray="4 3"
+                        className="text-muted-foreground/60"
+                      />
+                      <text
+                        x={sepX + 4}
+                        y={-2}
+                        fontSize={10}
+                        fill="currentColor"
+                        className="text-muted-foreground"
+                      >
+                        {sepCaption}
+                      </text>
+                    </g>
+                  )}
                   <motion.path
                     d={ingresosLine?.props.d || ""}
                     stroke="#22c55e"
@@ -286,26 +416,23 @@ function CombinedChartCard({
                     animate={{ pathLength: 1 }}
                     transition={{ duration: 0.9, ease: "easeInOut" }}
                   />
-                  {/* Puntos ingresos y etiquetas */}
                   {ingresos.map((d, i) => {
                     const gasto = gastos[i];
                     const label = isDailyView ? (d as MoneyByDay).dia : (d as MoneyByMonth).mes;
                     const yIngreso = yScale(d.valor);
-                    const yGasto = yScale(gasto.valor);
-                    const isIngresoMayor = d.valor > gasto.valor;
+                    const isIngresoMayor = d.valor > (gasto?.valor ?? 0);
                     const labelYOffset = isIngresoMayor ? -36 : 8;
-                    const showLabel = d.valor > 0; // Solo mostrar si hay valor
-                    
+                    const showLabel = d.valor > 0 && density.showValueLabel(i);
                     const dayMovements = isDailyView ? getMovementsByDay(label) : [];
                     const hasMovements = dayMovements.length > 0;
                     const xPos = xScale(label) as number;
-                    
+
                     return (
-                      <g key={"ingreso-"+i}>
+                      <g key={"ingreso-" + i}>
                         <motion.circle
                           cx={xPos}
                           cy={yIngreso}
-                          r={hasMovements && isDailyView ? 6 : 4}
+                          r={pointR(hasMovements)}
                           fill="#22c55e"
                           initial={{ scale: 0, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
@@ -318,7 +445,7 @@ function CombinedChartCard({
                               const containerRect = chartContainerRef.current.getBoundingClientRect();
                               setTooltipPosition({
                                 x: rect.left - containerRect.left + rect.width / 2,
-                                y: rect.top - containerRect.top - 10
+                                y: rect.top - containerRect.top - 10,
                               });
                             }
                           }}
@@ -331,21 +458,21 @@ function CombinedChartCard({
                         />
                         {showLabel && (
                           <foreignObject
-                            x={xPos - 24}
+                            x={xPos - halfLabel}
                             y={yIngreso + labelYOffset}
-                            width={48}
+                            width={density.labelWidth}
                             height={20}
-                            style={{ pointerEvents: 'none' }}
+                            style={{ pointerEvents: "none" }}
                           >
                             <div
                               style={{
-                                color: '#22c55e',
+                                color: "#22c55e",
                                 fontWeight: 600,
-                                fontSize: 12,
+                                fontSize: density.valueFontSize,
                                 textAlign: "center",
                                 width: "fit-content",
                                 margin: "0 auto",
-                                lineHeight: '18px',
+                                lineHeight: "18px",
                               }}
                             >
                               {formatNumber(d.valor)}€
@@ -355,7 +482,6 @@ function CombinedChartCard({
                       </g>
                     );
                   })}
-                  {/* Línea gastos */}
                   <motion.path
                     d={gastosLine?.props.d || ""}
                     stroke="#ef4444"
@@ -366,26 +492,23 @@ function CombinedChartCard({
                     animate={{ pathLength: 1 }}
                     transition={{ duration: 0.9, ease: "easeInOut", delay: 0.2 }}
                   />
-                  {/* Puntos gastos y etiquetas */}
                   {gastos.map((d, i) => {
                     const ingreso = ingresos[i];
                     const label = isDailyView ? (d as MoneyByDay).dia : (d as MoneyByMonth).mes;
                     const yGasto = yScale(d.valor);
-                    const yIngreso = yScale(ingreso.valor);
-                    const isGastoMayor = d.valor > ingreso.valor;
+                    const isGastoMayor = d.valor > (ingreso?.valor ?? 0);
                     const labelYOffset = isGastoMayor ? -36 : 8;
-                    const showLabel = d.valor > 0; // Solo mostrar si hay valor
-                    
+                    const showLabel = d.valor > 0 && density.showValueLabel(i);
                     const dayMovements = isDailyView ? getMovementsByDay(label) : [];
                     const hasMovements = dayMovements.length > 0;
                     const xPos = xScale(label) as number;
-                    
+
                     return (
-                      <g key={"gasto-"+i}>
+                      <g key={"gasto-" + i}>
                         <motion.circle
                           cx={xPos}
                           cy={yGasto}
-                          r={hasMovements && isDailyView ? 6 : 4}
+                          r={pointR(hasMovements)}
                           fill="#ef4444"
                           initial={{ scale: 0, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
@@ -398,7 +521,7 @@ function CombinedChartCard({
                               const containerRect = chartContainerRef.current.getBoundingClientRect();
                               setTooltipPosition({
                                 x: rect.left - containerRect.left + rect.width / 2,
-                                y: rect.top - containerRect.top - 10
+                                y: rect.top - containerRect.top - 10,
                               });
                             }
                           }}
@@ -411,21 +534,21 @@ function CombinedChartCard({
                         />
                         {showLabel && (
                           <foreignObject
-                            x={xPos - 24}
+                            x={xPos - halfLabel}
                             y={yGasto + labelYOffset}
-                            width={48}
+                            width={density.labelWidth}
                             height={20}
-                            style={{ pointerEvents: 'none' }}
+                            style={{ pointerEvents: "none" }}
                           >
                             <div
                               style={{
-                                color: '#ef4444',
+                                color: "#ef4444",
                                 fontWeight: 600,
-                                fontSize: 12,
+                                fontSize: density.valueFontSize,
                                 textAlign: "center",
                                 width: "fit-content",
                                 margin: "0 auto",
-                                lineHeight: '18px',
+                                lineHeight: "18px",
                               }}
                             >
                               {formatNumber(d.valor)}€
@@ -435,7 +558,6 @@ function CombinedChartCard({
                       </g>
                     );
                   })}
-                  {/* Línea inversiones */}
                   {inversionesLine && (
                     <>
                       <motion.path
@@ -451,15 +573,14 @@ function CombinedChartCard({
                       {inversiones.map((d, i) => {
                         const label = isDailyView ? (d as MoneyByDay).dia : (d as MoneyByMonth).mes;
                         const yInv = yScale(d.valor);
-                        const showLabel = d.valor > 0;
+                        const showLabel = d.valor > 0 && density.showValueLabel(i);
                         const xPos = xScale(label) as number;
-                        const labelYOffset = -36;
                         return (
                           <g key={"inv-" + i}>
                             <motion.circle
                               cx={xPos}
                               cy={yInv}
-                              r={4}
+                              r={density.pointRadius}
                               fill={INVERSIONES_COLOR}
                               initial={{ scale: 0, opacity: 0 }}
                               animate={{ scale: 1, opacity: 1 }}
@@ -467,9 +588,9 @@ function CombinedChartCard({
                             />
                             {showLabel && (
                               <foreignObject
-                                x={xPos - 24}
-                                y={yInv + labelYOffset}
-                                width={48}
+                                x={xPos - halfLabel}
+                                y={yInv - 36}
+                                width={density.labelWidth}
                                 height={20}
                                 style={{ pointerEvents: "none" }}
                               >
@@ -477,7 +598,7 @@ function CombinedChartCard({
                                   style={{
                                     color: INVERSIONES_COLOR,
                                     fontWeight: 600,
-                                    fontSize: 12,
+                                    fontSize: density.valueFontSize,
                                     textAlign: "center",
                                     width: "fit-content",
                                     margin: "0 auto",
@@ -493,23 +614,22 @@ function CombinedChartCard({
                       })}
                     </>
                   )}
-                  {/* Etiquetas del eje X */}
                   {labels.map((label, i) => {
-                    // Mostrar cada 2 o 3 etiquetas si hay muchos días
-                    const shouldShow = isDailyView ? i % 3 === 0 || i === labels.length - 1 : true;
+                    const shouldShow = isDailyView
+                      ? i % density.dailyXStep === 0 || i === labels.length - 1 || i === separatorIndex
+                      : density.showXLabel(i) || i === separatorIndex;
                     if (!shouldShow) return null;
-                    
                     return (
                       <text
-                        key={"label-"+i}
+                        key={"label-" + i}
                         x={xScale(label)}
                         y={innerHeight + 20}
                         textAnchor="middle"
-                        fontSize={12}
+                        fontSize={density.valueFontSize}
                         fill="currentColor"
                         className="text-muted-foreground"
                       >
-                        {isDailyView ? label : label.slice(0, 3)}
+                        {isDailyView ? formatDailyTick(label) : label.slice(0, 3)}
                       </text>
                     );
                   })}
@@ -518,7 +638,6 @@ function CombinedChartCard({
             );
           }}
         </ParentSize>
-        {/* Tooltip personalizado para movimientos del día */}
         {hoveredDay && tooltipPosition && isDailyView && (() => {
           const dayMovements = getMovementsByDay(hoveredDay);
           if (dayMovements.length === 0) return null;
@@ -528,7 +647,7 @@ function CombinedChartCard({
               style={{
                 left: `${tooltipPosition.x}px`,
                 top: `${tooltipPosition.y}px`,
-                transform: 'translateX(-50%) translateY(-100%)',
+                transform: "translateX(-50%) translateY(-100%)",
               }}
             >
               <DayMovementsTooltip day={hoveredDay} movements={dayMovements} />
@@ -537,45 +656,54 @@ function CombinedChartCard({
         })()}
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 justify-center">
-        <div className="flex items-center gap-1 text-xs text-green-600"><span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> Ingresos</div>
-        <div className="flex items-center gap-1 text-xs text-red-500"><span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> Gastos</div>
-        <div className="flex items-center gap-1 text-xs" style={{ color: INVERSIONES_COLOR }}><span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: INVERSIONES_COLOR }} /> Inversiones</div>
+        <div className="flex items-center gap-1 text-xs text-green-600">
+          <span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> Ingresos
+        </div>
+        <div className="flex items-center gap-1 text-xs text-red-500">
+          <span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> Gastos
+        </div>
+        <div className="flex items-center gap-1 text-xs" style={{ color: INVERSIONES_COLOR }}>
+          <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: INVERSIONES_COLOR }} /> Inversiones
+        </div>
       </div>
     </Card>
   );
 }
 
-// Componente para mostrar movimientos del día en el tooltip
 function DayMovementsTooltip({ day, movements }: { day: string; movements: Movement[] }) {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
-  const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${day.padStart(2, "0")}`;
-  const date = new Date(dateStr);
+  const dateStr =
+    day.length >= 10
+      ? day.slice(0, 10)
+      : (() => {
+          const now = new Date();
+          return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${day.padStart(2, "0")}`;
+        })();
+  const date = new Date(dateStr + "T12:00:00");
   const formattedDate = date.toLocaleDateString("es-ES", { day: "numeric", month: "long" });
-  
-  const ingresos = movements.filter(m => m.tipo === "Ingreso");
-  const gastos = movements.filter(m => m.tipo === "Gasto");
+
+  const ingresos = movements.filter((m) => m.tipo === "Ingreso");
+  const gastos = movements.filter((m) => m.tipo === "Gasto");
   const totalIngresos = ingresos.reduce((acc, m) => acc + m.cantidad, 0);
   const totalGastos = Math.abs(gastos.reduce((acc, m) => acc + m.cantidad, 0));
-  
+
   const displayedMovements = movements.slice(0, 7);
   const hasMore = movements.length > 7;
-  
+
   return (
     <div className="space-y-2">
-      <div className="font-semibold text-sm border-b border-border pb-1">
-        {formattedDate}
-      </div>
+      <div className="font-semibold text-sm border-b border-border pb-1">{formattedDate}</div>
       <div className="space-y-1 text-xs">
         {displayedMovements.map((movement, idx) => {
           const isIngreso = movement.tipo === "Ingreso";
-          const color = isIngreso ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
+          const color = isIngreso
+            ? "text-green-600 dark:text-green-400"
+            : "text-red-600 dark:text-red-400";
           return (
             <div key={movement.id || idx} className="flex items-center justify-between gap-2">
               <span className="truncate">{movement.concepto}</span>
               <span className={cn("font-medium shrink-0", color)}>
-                {isIngreso ? "+" : "-"}{formatNumber(Math.abs(movement.cantidad))} €
+                {isIngreso ? "+" : "-"}
+                {formatNumber(Math.abs(movement.cantidad))} €
               </span>
             </div>
           );
@@ -615,51 +743,66 @@ export function AnalyticsCharts({ type = "combined" }: AnalyticsChartsProps) {
   const isDailyView = period === "Mes";
   const endKey = dashboardMonthKey || undefined;
 
-  const anchorForInversiones = useMemo(() => {
+  const chartEndDate = useMemo(() => {
+    if (endKey) return resolveChartEndDate(endKey);
     const idx = resolveEndMonthIndex(ingresosMensuales, endKey);
     const mk = ingresosMensuales[idx]?.monthKey;
-    if (!mk) return new Date();
-    const [y, m] = mk.split("-").map(Number);
-    return new Date(y, m - 1, 15);
-  }, [ingresosMensuales, endKey]);
+    return resolveChartEndDate(mk);
+  }, [endKey, ingresosMensuales]);
+
+  const resolvedEndKey = useMemo(() => {
+    if (endKey) return endKey;
+    const idx = resolveEndMonthIndex(ingresosMensuales, null);
+    return ingresosMensuales[idx]?.monthKey;
+  }, [endKey, ingresosMensuales]);
+
+  const anchorForInversiones = useMemo(() => chartEndDate, [chartEndDate]);
 
   const movimientosForDailyTooltips = useMemo(() => {
     if (!isDailyView) return [];
-    const idx = resolveEndMonthIndex(ingresosMensuales, endKey);
-    const mk = ingresosMensuales[idx]?.monthKey;
-    if (!mk) return movimientos;
-    const [y, mo] = mk.split("-").map(Number);
-    const start = `${y}-${String(mo).padStart(2, "0")}-01`;
-    const lastDay = new Date(y, mo, 0).getDate();
-    const end = `${y}-${String(mo).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-    return movimientos.filter((m) => m.fecha >= start && m.fecha <= end);
-  }, [isDailyView, movimientos, ingresosMensuales, endKey]);
+    const end = chartEndDate;
+    const start = new Date(end);
+    start.setDate(end.getDate() - 30);
+    const startKey = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
+    const endKeyStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`;
+    return movimientos.filter((m) => m.fecha >= startKey && m.fecha <= endKeyStr);
+  }, [isDailyView, movimientos, chartEndDate]);
 
-  // Para la gráfica de ingresos vs gastos (e inversiones)
-  let chartIngresos: MoneyByMonth[] | MoneyByDay[];
-  let chartGastos: MoneyByMonth[] | MoneyByDay[];
-  let chartInversiones: MoneyByMonth[] | MoneyByDay[];
-
-  if (isDailyView) {
-    const idx = resolveEndMonthIndex(ingresosMensuales, endKey);
-    const mk = ingresosMensuales[idx]?.monthKey;
-    let dailyTarget: { year: number; month: number } | undefined;
-    if (mk) {
-      const [y, m] = mk.split("-").map(Number);
-      dailyTarget = { year: y, month: m - 1 };
+  const chartBundle = useMemo(() => {
+    if (isDailyView) {
+      const daily = getRollingDailyIncomeAndExpenses(movimientos, chartEndDate, 31);
+      return {
+        ingresos: daily.ingresos as MoneyByMonth[] | MoneyByDay[],
+        gastos: daily.gastos as MoneyByMonth[] | MoneyByDay[],
+        inversiones: daily.inversiones as MoneyByMonth[] | MoneyByDay[],
+        separatorIndex: daily.separatorIndex,
+        monthKeys: [] as string[],
+      };
     }
-    const dailyData = getDailyIncomeAndExpenses(movimientos, dailyTarget);
-    chartIngresos = dailyData.ingresos;
-    chartGastos = dailyData.gastos;
-    chartInversiones = dailyData.inversiones;
-  } else {
-    chartIngresos = sliceMonthsEndingAt(ingresosMensuales, monthCount, endKey);
-    chartGastos = sliceMonthsEndingAt(gastosMensuales, monthCount, endKey);
-    const inversionesMensuales = buildMonthlySeries(movimientos, "Inversión", 12, anchorForInversiones);
-    chartInversiones = sliceMonthsEndingAt(inversionesMensuales, monthCount, endKey);
-  }
 
-  // Patrimonio: solo activos (12 meses hasta el mes seleccionado), índices alineados con ingresosMensuales
+    const inversionesMensuales = buildMonthlySeries(movimientos, "Inversión", 12, anchorForInversiones);
+    const ing = ensureMonthWindow(ingresosMensuales, monthCount, resolvedEndKey);
+    const gas = ensureMonthWindow(gastosMensuales, monthCount, resolvedEndKey);
+    const inv = ensureMonthWindow(inversionesMensuales, monthCount, resolvedEndKey);
+    return {
+      ingresos: ing.series as MoneyByMonth[] | MoneyByDay[],
+      gastos: gas.series as MoneyByMonth[] | MoneyByDay[],
+      inversiones: inv.series as MoneyByMonth[] | MoneyByDay[],
+      separatorIndex: ing.separatorIndex,
+      monthKeys: ing.series.map((s) => s.monthKey ?? ""),
+    };
+  }, [
+    isDailyView,
+    movimientos,
+    chartEndDate,
+    ingresosMensuales,
+    gastosMensuales,
+    monthCount,
+    resolvedEndKey,
+    anchorForInversiones,
+  ]);
+
+  // Patrimonio: solo activos (12 meses hasta el mes seleccionado)
   const endIdxPat = resolveEndMonthIndex(ingresosMensuales, endKey);
   const startPat = Math.max(0, endIdxPat - 11);
   const ingresos12 = ingresosMensuales.slice(startPat, endIdxPat + 1);
@@ -691,12 +834,14 @@ export function AnalyticsCharts({ type = "combined" }: AnalyticsChartsProps) {
   return (
     <div key={`chart-${period}-${dashboardMonthKey || "last"}`} className="w-full h-full">
       <CombinedChartCard
-        ingresos={chartIngresos}
-        gastos={chartGastos}
-        inversiones={chartInversiones}
+        ingresos={chartBundle.ingresos}
+        gastos={chartBundle.gastos}
+        inversiones={chartBundle.inversiones}
         isDailyView={isDailyView}
         movimientos={isDailyView ? movimientosForDailyTooltips : []}
+        separatorIndex={chartBundle.separatorIndex}
+        monthKeys={chartBundle.monthKeys}
       />
     </div>
   );
-} 
+}

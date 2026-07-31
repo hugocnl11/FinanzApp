@@ -295,12 +295,16 @@ export function BudgetSummary({
   };
 
   const totals = useMemo(() => {
-    const list = mode === "combined" ? budgetsWithSpent : filteredBudgets;
+    // En combined, el estado general debe sumar fijo + variable (incl. implícitos)
+    const list =
+      mode === "combined"
+        ? [...fixedBudgets, ...variableBudgets]
+        : filteredBudgets;
     const totalLimit = list.reduce((acc, item) => acc + item.limit, 0);
     const totalSpent = list.reduce((acc, item) => acc + item.spent, 0);
     const percent = totalLimit ? (totalSpent / totalLimit) * 100 : 0;
     return { totalLimit, totalSpent, percent };
-  }, [budgetsWithSpent, filteredBudgets, mode]);
+  }, [mode, fixedBudgets, variableBudgets, filteredBudgets]);
 
   const isOver = totals.totalSpent > totals.totalLimit;
 

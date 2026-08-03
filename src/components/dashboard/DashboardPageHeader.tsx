@@ -9,6 +9,11 @@ type DashboardPageHeaderProps = {
   actions?: ReactNode;
   titleId?: string;
   className?: string;
+  /**
+   * En pantallas grandes, description/meta van en línea junto al título.
+   * En pantallas pequeñas se ocultan por completo.
+   */
+  inlineDetailsOnWide?: boolean;
 };
 
 export function DashboardPageHeader({
@@ -19,7 +24,10 @@ export function DashboardPageHeader({
   actions,
   titleId,
   className,
+  inlineDetailsOnWide = false,
 }: DashboardPageHeaderProps) {
+  const hasDetails = Boolean(description || meta);
+
   return (
     <div
       className={cn(
@@ -33,16 +41,45 @@ export function DashboardPageHeader({
             {eyebrow}
           </p>
         ) : null}
-        <h1
-          id={titleId}
-          className="truncate text-2xl font-bold tracking-tight text-foreground md:text-3xl"
-        >
-          {title}
-        </h1>
-        {description ? (
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        ) : null}
-        {meta ? <div className="mt-1 text-[11px] text-muted-foreground">{meta}</div> : null}
+
+        {inlineDetailsOnWide ? (
+          <div className="flex min-w-0 items-baseline gap-3">
+            <h1
+              id={titleId}
+              className="shrink-0 truncate text-2xl font-bold tracking-tight text-foreground md:text-3xl"
+            >
+              {title}
+            </h1>
+            {hasDetails ? (
+              <div className="hidden min-w-0 items-baseline gap-2 text-sm text-muted-foreground lg:flex">
+                {description ? (
+                  <span className="truncate">{description}</span>
+                ) : null}
+                {description && meta ? (
+                  <span className="shrink-0 text-border" aria-hidden>
+                    ·
+                  </span>
+                ) : null}
+                {meta ? (
+                  <span className="shrink-0 text-[11px] sm:text-sm">{meta}</span>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <>
+            <h1
+              id={titleId}
+              className="truncate text-2xl font-bold tracking-tight text-foreground md:text-3xl"
+            >
+              {title}
+            </h1>
+            {description ? (
+              <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+            ) : null}
+            {meta ? <div className="mt-1 text-[11px] text-muted-foreground">{meta}</div> : null}
+          </>
+        )}
       </div>
       {actions ? (
         <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">

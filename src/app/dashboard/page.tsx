@@ -78,6 +78,7 @@ export default function DashboardPage() {
             ? `Última actualización: ${new Date(lastUpdate).toLocaleDateString("es-ES")}`
             : undefined
         }
+        inlineDetailsOnWide
         actions={
           <>
             <Button variant="outline" size="sm" onClick={exportCsv}>

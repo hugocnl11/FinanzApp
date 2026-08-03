@@ -9,7 +9,7 @@ export function DashboardHeader({ className }: { className?: string }) {
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 flex h-14 min-h-[44px] shrink-0 items-center gap-2 border-b border-border/40 bg-background px-4 md:hidden",
+        "sticky top-0 z-30 flex h-14 min-h-[44px] shrink-0 items-center gap-2 border-b border-border bg-background/95 px-4 backdrop-blur-sm md:hidden",
         "pt-[env(safe-area-inset-top)]",
         className
       )}

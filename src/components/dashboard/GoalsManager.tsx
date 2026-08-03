@@ -234,7 +234,7 @@ export function GoalsManager(props?: GoalsManagerProps) {
           <div className="space-y-4">
             <div className={cn(
               "flex items-center gap-3",
-              inline && "rounded-xl border border-border bg-white dark:bg-[#18181b] px-4 py-3 shadow"
+              inline && "rounded-xl border border-border bg-card px-4 py-3 shadow-sm"
             )}>
               <span className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground">
                 Total: {progressStats.total}
@@ -276,7 +276,7 @@ export function GoalsManager(props?: GoalsManagerProps) {
                     className={cn(
                       "rounded-2xl border p-4 transition-shadow",
                       !goal.color && "border-border",
-                      inline && "bg-white dark:bg-[#18181b] shadow hover:shadow-md"
+                      inline && "bg-card shadow-sm hover:shadow"
                     )}
                     style={
                       inline && goal.color
@@ -357,7 +357,7 @@ export function GoalsManager(props?: GoalsManagerProps) {
 
           <div className={cn(
             "space-y-4 rounded-2xl border border-border p-4",
-            inline ? "bg-white dark:bg-[#18181b] shadow" : "bg-muted/30"
+            inline ? "bg-card shadow-sm" : "bg-muted/30"
           )}>
             <div>
               <h3 className="text-sm font-semibold">Nuevo objetivo</h3>

@@ -12,7 +12,7 @@ export function ProgressBar() {
       <div className="text-2xl font-bold">{ahorrado.toLocaleString()} € / {objetivo.toLocaleString()} €</div>
       <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
         <div
-          className="h-full bg-primary transition-all"
+          className="h-full bg-foreground transition-all"
           style={{ width: `${porcentaje}%` }}
         />
       </div>

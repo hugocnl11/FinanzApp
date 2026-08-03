@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { Download } from "lucide-react";
+import { DashboardPageHeader } from "@/components/dashboard/DashboardPageHeader";
 
 const AnalyticsCharts = dynamic(
   () => import("@/components/dashboard/AnalyticsCharts").then((m) => ({ default: m.AnalyticsCharts })),
@@ -67,29 +68,29 @@ export default function DashboardPage() {
 
   return (
     <PeriodProvider>
-      <div className="space-y-4 px-4 md:px-8" aria-label="Dashboard">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="min-w-0">
-          <h1 id="dashboard-titulo" className="text-2xl md:text-3xl font-bold truncate">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Tu visión financiera en un solo lugar.
-          </p>
-          {lastUpdate && (
-            <p className="text-[11px] text-muted-foreground mt-1">
-              Última actualización: {new Date(lastUpdate).toLocaleDateString("es-ES")}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-          <Button variant="outline" size="sm" onClick={exportCsv}>
-            <Download className="h-4 w-4" />
-            Exportar CSV
-          </Button>
-          <NotificationCenter />
-          <PeriodSelector />
-          <DashboardMonthSelector />
-        </div>
-      </div>
+      <div className="space-y-6" aria-label="Dashboard">
+      <DashboardPageHeader
+        eyebrow="Resumen"
+        title="Dashboard"
+        titleId="dashboard-titulo"
+        description="Tu visión financiera en un solo lugar."
+        meta={
+          lastUpdate
+            ? `Última actualización: ${new Date(lastUpdate).toLocaleDateString("es-ES")}`
+            : undefined
+        }
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={exportCsv}>
+              <Download className="h-4 w-4" />
+              Exportar CSV
+            </Button>
+            <NotificationCenter />
+            <PeriodSelector />
+            <DashboardMonthSelector />
+          </>
+        }
+      />
 
       {/* Resumen + Presupuesto: en móvil una columna; en desktop dos columnas con altura alineada */}
       <section aria-labelledby="dashboard-titulo">

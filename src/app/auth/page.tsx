@@ -1,9 +1,10 @@
-import { AuthCard } from '../../components/AuthCard';
+import { AuthCard } from "@/components/AuthCard";
+import { AuthShell } from "@/components/auth/AuthShell";
 
 export default function AuthPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black p-4">
+    <AuthShell>
       <AuthCard />
-    </div>
+    </AuthShell>
   );
-} 
+}

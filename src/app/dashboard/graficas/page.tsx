@@ -38,6 +38,7 @@ import { getSession, isDemoUser, updateSessionUser } from "@/lib/auth";
 import { updateProfile } from "@/lib/api/auth";
 import { loadFromStorage, saveToStorage } from "@/lib/storage";
 import { toast } from "@/lib/toast";
+import { DashboardPageHeader } from "@/components/dashboard/DashboardPageHeader";
 import type { ChartWidgetsPref, UserPreferences } from "@/lib/api/types";
 
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -471,14 +472,13 @@ export default function GraficasPage() {
   };
 
   return (
-    <div className="space-y-6 px-4 md:px-8" aria-label="Gráficas avanzadas">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 id="graficas-titulo" className="text-2xl md:text-3xl font-bold truncate">Gráficas Avanzadas</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Análisis detallado de tus finanzas
-          </p>
-        </div>
+    <div className="space-y-6" aria-label="Gráficas avanzadas">
+      <DashboardPageHeader
+        eyebrow="Análisis"
+        title="Gráficas avanzadas"
+        titleId="graficas-titulo"
+        description="Análisis detallado de tus finanzas."
+        actions={
         <div className="flex flex-wrap gap-2" role="group" aria-label="Acciones de gráficas">
           {chartWidgetsLoaded && (
             <Sheet>
@@ -590,7 +590,8 @@ export default function GraficasPage() {
             <span className="sm:hidden">CSV</span>
           </Button>
         </div>
-      </div>
+        }
+      />
 
       {!chartWidgetsLoaded ? (
         <div className="grid min-w-0 gap-3 md:grid-cols-2" ref={chartsRef}>

@@ -1,105 +1,240 @@
-import type { DashboardData } from "./types";
+import type { Budget, DashboardData, Movement } from "./types";
 
-// Generar movimientos de los últimos 14 meses (Febrero 2025 - Marzo 2026)
-const generateMovements = () => {
-  const movements = [];
-  const now = new Date(2026, 2, 3); // 3 de marzo 2026
-  const months = [
-    { name: "Febrero", year: 2025, month: 1 },
-    { name: "Marzo", year: 2025, month: 2 },
-    { name: "Abril", year: 2025, month: 3 },
-    { name: "Mayo", year: 2025, month: 4 },
-    { name: "Junio", year: 2025, month: 5 },
-    { name: "Julio", year: 2025, month: 6 },
-    { name: "Agosto", year: 2025, month: 7 },
-    { name: "Septiembre", year: 2025, month: 8 },
-    { name: "Octubre", year: 2025, month: 9 },
-    { name: "Noviembre", year: 2025, month: 10 },
-    { name: "Diciembre", year: 2025, month: 11 },
-    { name: "Enero", year: 2026, month: 0 },
-    { name: "Febrero", year: 2026, month: 1 },
-    { name: "Marzo", year: 2026, month: 2 },
-  ];
+const DEMO_START = { year: 2025, month: 1 }; // febrero 2025 (0-indexed month)
+const DEMO_END = { year: 2030, month: 11 }; // diciembre 2030
 
+type SpecialExpense = { concepto: string; categoria: string; cantidad: number };
+
+type MonthProfile = {
+  baseIncome: number;
+  extraIncome: number;
+  baseExpenses: number;
+  extraExpenses: number;
+  specialExpenses: SpecialExpense[];
+  extraIncomeLabel?: string;
+  invest?: boolean;
+  freelance?: boolean;
+  save?: boolean;
+};
+
+/** PRNG determinista por semilla (Mulberry32) */
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function monthKey(year: number, monthIndex: number) {
+  return `${year}-${pad2(monthIndex + 1)}`;
+}
+
+function todayISO(now = new Date()) {
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+}
+
+function iterMonths(
+  from: { year: number; month: number },
+  to: { year: number; month: number }
+) {
+  const out: { year: number; month: number }[] = [];
+  let y = from.year;
+  let m = from.month;
+  while (y < to.year || (y === to.year && m <= to.month)) {
+    out.push({ year: y, month: m });
+    m += 1;
+    if (m > 11) {
+      m = 0;
+      y += 1;
+    }
+  }
+  return out;
+}
+
+/** Perfil cíclico anual + subida salarial suave */
+function profileFor(year: number, monthIndex: number): MonthProfile {
+  const salaryBump = (year - 2025) * 50;
+  const baseIncome = 2400 + salaryBump;
+  const baseExpenses = 1800;
+
+  // Mes calendario (0=ene … 11=dic)
+  switch (monthIndex) {
+    case 2: // marzo — vacaciones
+      return {
+        baseIncome,
+        extraIncome: 0,
+        baseExpenses,
+        extraExpenses: 800,
+        specialExpenses: [{ concepto: "Vacaciones", categoria: "Otros", cantidad: -800 }],
+        invest: true,
+        save: false,
+      };
+    case 3: // abril — nómina baja
+      return {
+        baseIncome: baseIncome - 300,
+        extraIncome: 0,
+        baseExpenses,
+        extraExpenses: 0,
+        specialExpenses: [],
+        freelance: true,
+        save: false,
+      };
+    case 4: // mayo — bonus
+      return {
+        baseIncome,
+        extraIncome: 600,
+        extraIncomeLabel: "Bonus",
+        baseExpenses,
+        extraExpenses: 0,
+        specialExpenses: [],
+        invest: true,
+        save: true,
+      };
+    case 5: // junio — reparación
+      return {
+        baseIncome,
+        extraIncome: 0,
+        baseExpenses,
+        extraExpenses: 450,
+        specialExpenses: [
+          { concepto: "Reparación coche", categoria: "Transporte", cantidad: -450 },
+        ],
+        freelance: true,
+        save: false,
+      };
+    case 7: // agosto — verano
+      return {
+        baseIncome: baseIncome - 300,
+        extraIncome: 0,
+        baseExpenses,
+        extraExpenses: 600,
+        specialExpenses: [
+          { concepto: "Vacaciones verano", categoria: "Otros", cantidad: -600 },
+        ],
+        save: false,
+      };
+    case 8: // septiembre — freelance
+      return {
+        baseIncome,
+        extraIncome: 400,
+        extraIncomeLabel: "Freelance",
+        baseExpenses,
+        extraExpenses: 0,
+        specialExpenses: [],
+        invest: true,
+        save: true,
+      };
+    case 9: // octubre — tech
+      return {
+        baseIncome,
+        extraIncome: 0,
+        baseExpenses,
+        extraExpenses: 700,
+        specialExpenses: [
+          { concepto: "Laptop / gadgets", categoria: "Tecnología", cantidad: -700 },
+        ],
+        invest: true,
+        save: false,
+      };
+    case 11: // diciembre — navidad
+      return {
+        baseIncome,
+        extraIncome: 800,
+        extraIncomeLabel: "Aguinaldo",
+        baseExpenses,
+        extraExpenses: 1200,
+        specialExpenses: [
+          { concepto: "Regalos Navidad", categoria: "Regalos", cantidad: -600 },
+          { concepto: "Cena Navidad", categoria: "Restaurantes", cantidad: -200 },
+          { concepto: "Ropa invierno", categoria: "Ropa", cantidad: -400 },
+        ],
+        save: false,
+      };
+    default:
+      return {
+        baseIncome,
+        extraIncome: 0,
+        baseExpenses,
+        extraExpenses: 0,
+        specialExpenses: [],
+        invest: monthIndex % 3 === 0,
+        save: true,
+      };
+  }
+}
+
+function generateAllMovements(): Movement[] {
+  const movements: Movement[] = [];
   let movId = 1;
 
-  // Configuración por mes para crear variabilidad y déficits
-  const monthConfig = [
-    { baseIncome: 2400, extraIncome: 0, baseExpenses: 1800, extraExpenses: 0, specialExpenses: [] }, // Febrero - Normal
-    { baseIncome: 2400, extraIncome: 0, baseExpenses: 1800, extraExpenses: 800, specialExpenses: [{ concepto: "Vacaciones", categoria: "Otros", cantidad: -800 }] }, // Marzo - Déficit por vacaciones
-    { baseIncome: 2100, extraIncome: 0, baseExpenses: 1800, extraExpenses: 0, specialExpenses: [] }, // Abril - Ingreso bajo, déficit
-    { baseIncome: 2400, extraIncome: 600, baseExpenses: 1800, extraExpenses: 0, specialExpenses: [] }, // Mayo - Bonus, superávit
-    { baseIncome: 2400, extraIncome: 0, baseExpenses: 1800, extraExpenses: 450, specialExpenses: [{ concepto: "Reparación coche", categoria: "Transporte", cantidad: -450 }] }, // Junio - Déficit por reparación
-    { baseIncome: 2400, extraIncome: 0, baseExpenses: 1800, extraExpenses: 0, specialExpenses: [] }, // Julio - Normal
-    { baseIncome: 2100, extraIncome: 0, baseExpenses: 1800, extraExpenses: 600, specialExpenses: [{ concepto: "Vacaciones verano", categoria: "Otros", cantidad: -600 }] }, // Agosto - Déficit por vacaciones
-    { baseIncome: 2400, extraIncome: 400, baseExpenses: 1800, extraExpenses: 0, specialExpenses: [] }, // Septiembre - Ingreso extra, superávit
-    { baseIncome: 2400, extraIncome: 0, baseExpenses: 1800, extraExpenses: 700, specialExpenses: [{ concepto: "Laptop nueva", categoria: "Tecnología", cantidad: -700 }] }, // Octubre - Déficit por compra grande
-    { baseIncome: 2400, extraIncome: 0, baseExpenses: 1800, extraExpenses: 0, specialExpenses: [] }, // Noviembre - Normal
-    { baseIncome: 2400, extraIncome: 800, baseExpenses: 1800, extraExpenses: 1200, specialExpenses: [{ concepto: "Regalos Navidad", categoria: "Regalos", cantidad: -600 }, { concepto: "Cena Navidad", categoria: "Restaurantes", cantidad: -200 }, { concepto: "Ropa invierno", categoria: "Ropa", cantidad: -400 }] }, // Diciembre - Déficit a pesar de aguinaldo
-    { baseIncome: 2400, extraIncome: 0, baseExpenses: 1800, extraExpenses: 0, specialExpenses: [] }, // Enero - Normal
-    { baseIncome: 2400, extraIncome: 0, baseExpenses: 1800, extraExpenses: 0, specialExpenses: [] }, // Febrero 2026 - Normal
-    { baseIncome: 2400, extraIncome: 300, baseExpenses: 1800, extraExpenses: 0, specialExpenses: [] }, // Marzo 2026 - Ingreso extra
-  ];
+  for (const { year, month } of iterMonths(DEMO_START, DEMO_END)) {
+    const rand = mulberry32(year * 100 + month * 7 + 42);
+    const config = profileFor(year, month);
+    const ym = `${year}-${pad2(month + 1)}`;
 
-  months.forEach((m, monthIndex) => {
-    const config = monthConfig[monthIndex];
-    
-    // Nómina base (día 1 de cada mes)
     movements.push({
       id: `mov-${movId++}`,
-      fecha: `${m.year}-${String(m.month + 1).padStart(2, "0")}-01`,
+      fecha: `${ym}-01`,
       concepto: "Nómina",
       categoria: "Nomina",
       tipo: "Ingreso",
       cantidad: config.baseIncome,
     });
 
-    // Ingresos extra ocasionales
     if (config.extraIncome > 0) {
+      const day = 5 + Math.floor(rand() * 5);
       movements.push({
         id: `mov-${movId++}`,
-        fecha: `${m.year}-${String(m.month + 1).padStart(2, "0")}-${String(5 + Math.floor(Math.random() * 5)).padStart(2, "0")}`,
-        concepto: monthIndex === 4 ? "Bonus" : monthIndex === 7 ? "Freelance" : "Aguinaldo",
+        fecha: `${ym}-${pad2(day)}`,
+        concepto: config.extraIncomeLabel ?? "Ingreso extra",
         categoria: "Transferencia",
         tipo: "Ingreso",
         cantidad: config.extraIncome,
       });
     }
 
-    // Alquiler (día 5, fijo)
     movements.push({
       id: `mov-${movId++}`,
-      fecha: `${m.year}-${String(m.month + 1).padStart(2, "0")}-05`,
+      fecha: `${ym}-05`,
       concepto: "Alquiler",
       categoria: "Alquiler",
       tipo: "Gasto",
       cantidad: -850,
     });
 
-    // Gastos variables base distribuidos durante el mes
     const baseVariableExpenses = [
-      { concepto: "Supermercado", categoria: "Comida", cantidad: -85 - Math.floor(Math.random() * 40) },
-      { concepto: "Supermercado", categoria: "Comida", cantidad: -90 - Math.floor(Math.random() * 30) },
-      { concepto: "Gasolina", categoria: "Transporte", cantidad: -45 - Math.floor(Math.random() * 20) },
-      { concepto: "Restaurante", categoria: "Restaurantes", cantidad: -60 - Math.floor(Math.random() * 40) },
+      { concepto: "Supermercado", categoria: "Comida", cantidad: -85 - Math.floor(rand() * 40) },
+      { concepto: "Supermercado", categoria: "Comida", cantidad: -90 - Math.floor(rand() * 30) },
+      { concepto: "Gasolina", categoria: "Transporte", cantidad: -45 - Math.floor(rand() * 20) },
+      { concepto: "Restaurante", categoria: "Restaurantes", cantidad: -60 - Math.floor(rand() * 40) },
       { concepto: "Netflix", categoria: "Suscripciones", cantidad: -15 },
       { concepto: "Spotify", categoria: "Suscripciones", cantidad: -10 },
       { concepto: "Gimnasio", categoria: "Salud", cantidad: -40 },
-      { concepto: "Farmacia", categoria: "Salud", cantidad: -25 - Math.floor(Math.random() * 30) },
-      { concepto: "Uber", categoria: "Transporte", cantidad: -12 - Math.floor(Math.random() * 15) },
-      { concepto: "Cafetería", categoria: "Restaurantes", cantidad: -8 - Math.floor(Math.random() * 10) },
-      { concepto: "Cine", categoria: "Otros", cantidad: -18 - Math.floor(Math.random() * 15) },
+      { concepto: "Farmacia", categoria: "Salud", cantidad: -25 - Math.floor(rand() * 30) },
+      { concepto: "Uber", categoria: "Transporte", cantidad: -12 - Math.floor(rand() * 15) },
+      { concepto: "Cafetería", categoria: "Restaurantes", cantidad: -8 - Math.floor(rand() * 10) },
+      { concepto: "Cine", categoria: "Otros", cantidad: -18 - Math.floor(rand() * 15) },
+      { concepto: "Supermercado", categoria: "Comida", cantidad: -70 - Math.floor(rand() * 35) },
     ];
 
-    // Ajustar cantidad de gastos variables según el mes
-    const numVariableExpenses = Math.floor(config.baseExpenses / 150); // Aproximadamente
-    const selectedExpenses = baseVariableExpenses.slice(0, Math.min(numVariableExpenses, baseVariableExpenses.length));
+    const numVariable = Math.min(
+      baseVariableExpenses.length,
+      Math.max(8, Math.floor(config.baseExpenses / 150))
+    );
 
-    selectedExpenses.forEach((expense, idx) => {
-      const day = 5 + idx * 2 + Math.floor(Math.random() * 2);
+    baseVariableExpenses.slice(0, numVariable).forEach((expense, idx) => {
+      const day = Math.min(28, 6 + idx * 2 + Math.floor(rand() * 2));
       movements.push({
         id: `mov-${movId++}`,
-        fecha: `${m.year}-${String(m.month + 1).padStart(2, "0")}-${String(Math.min(day, 28)).padStart(2, "0")}`,
+        fecha: `${ym}-${pad2(day)}`,
         concepto: expense.concepto,
         categoria: expense.categoria,
         tipo: "Gasto",
@@ -107,11 +242,11 @@ const generateMovements = () => {
       });
     });
 
-    // Gastos especiales del mes (vacaciones, reparaciones, etc.)
     config.specialExpenses.forEach((expense) => {
+      const day = 10 + Math.floor(rand() * 15);
       movements.push({
         id: `mov-${movId++}`,
-        fecha: `${m.year}-${String(m.month + 1).padStart(2, "0")}-${String(10 + Math.floor(Math.random() * 15)).padStart(2, "0")}`,
+        fecha: `${ym}-${pad2(Math.min(day, 28))}`,
         concepto: expense.concepto,
         categoria: expense.categoria,
         tipo: "Gasto",
@@ -119,211 +254,343 @@ const generateMovements = () => {
       });
     });
 
-    // Gastos extra distribuidos
     if (config.extraExpenses > 0) {
-      const extraExpenseAmount = Math.floor(config.extraExpenses / 3);
+      const chunk = Math.floor(config.extraExpenses / 3);
       for (let i = 0; i < 3; i++) {
+        const day = Math.min(28, 12 + i * 5 + Math.floor(rand() * 3));
         movements.push({
           id: `mov-${movId++}`,
-          fecha: `${m.year}-${String(m.month + 1).padStart(2, "0")}-${String(12 + i * 5 + Math.floor(Math.random() * 3)).padStart(2, "0")}`,
+          fecha: `${ym}-${pad2(day)}`,
           concepto: i === 0 ? "Restaurante" : i === 1 ? "Compras" : "Otros gastos",
-          categoria: i === 0 ? "Restaurantes" : i === 1 ? "Otros" : "Otros",
+          categoria: i === 0 ? "Restaurantes" : "Otros",
           tipo: "Gasto",
-          cantidad: -extraExpenseAmount - Math.floor(Math.random() * 50),
+          cantidad: -chunk - Math.floor(rand() * 50),
         });
       }
     }
 
-    // Ingresos adicionales ocasionales (solo algunos meses)
-    if (monthIndex === 2 || monthIndex === 5) {
+    if (config.freelance) {
+      const day = 15 + Math.floor(rand() * 10);
       movements.push({
         id: `mov-${movId++}`,
-        fecha: `${m.year}-${String(m.month + 1).padStart(2, "0")}-${String(15 + Math.floor(Math.random() * 10)).padStart(2, "0")}`,
+        fecha: `${ym}-${pad2(Math.min(day, 28))}`,
         concepto: "Freelance",
         categoria: "Transferencia",
         tipo: "Ingreso",
-        cantidad: 300 + Math.floor(Math.random() * 200),
+        cantidad: 300 + Math.floor(rand() * 200),
       });
     }
 
-    // Inversiones ocasionales (solo algunos meses)
-    if (monthIndex === 1 || monthIndex === 4 || monthIndex === 8 || monthIndex === 13) {
+    if (config.invest) {
+      const day = 20 + Math.floor(rand() * 5);
       movements.push({
         id: `mov-${movId++}`,
-        fecha: `${m.year}-${String(m.month + 1).padStart(2, "0")}-${String(20 + Math.floor(Math.random() * 5)).padStart(2, "0")}`,
+        fecha: `${ym}-${pad2(Math.min(day, 28))}`,
         concepto: "Inversión ETF",
         categoria: "Acciones",
         tipo: "Inversión",
-        cantidad: -250 - Math.floor(Math.random() * 150),
+        cantidad: -(250 + Math.floor(rand() * 150)),
       });
     }
 
-    // Ahorro mensual (solo si hay superávit)
-    const totalIncome = config.baseIncome + config.extraIncome;
-    const totalExpenses = config.baseExpenses + config.extraExpenses;
-    if (totalIncome > totalExpenses && monthIndex !== 2 && monthIndex !== 3 && monthIndex !== 5 && monthIndex !== 7 && monthIndex !== 9 && monthIndex !== 10 && monthIndex !== 11) {
+    // Crypto ocasional (cada 4 meses)
+    if (month % 4 === 1) {
+      const day = 18 + Math.floor(rand() * 6);
       movements.push({
         id: `mov-${movId++}`,
-        fecha: `${m.year}-${String(m.month + 1).padStart(2, "0")}-${String(25 + Math.floor(Math.random() * 3)).padStart(2, "0")}`,
+        fecha: `${ym}-${pad2(Math.min(day, 28))}`,
+        concepto: "Compra crypto",
+        categoria: "Crypto",
+        tipo: "Inversión",
+        cantidad: -(80 + Math.floor(rand() * 120)),
+      });
+    }
+
+    if (config.save) {
+      const day = 25 + Math.floor(rand() * 3);
+      movements.push({
+        id: `mov-${movId++}`,
+        fecha: `${ym}-${pad2(Math.min(day, 28))}`,
         concepto: "Ahorro mensual",
         categoria: "Ahorro",
         tipo: "Ahorro",
-        cantidad: -200 - Math.floor(Math.random() * 100),
+        cantidad: -(200 + Math.floor(rand() * 100)),
       });
     }
-  });
+  }
 
   return movements;
-};
+}
 
-export const DASHBOARD_MOCK: DashboardData = {
-  ingresosMensuales: [
-    { mes: "Febrero", valor: 2400 },
-    { mes: "Marzo", valor: 2450 },
-    { mes: "Abril", valor: 2400 },
-    { mes: "Mayo", valor: 2700 },
-    { mes: "Junio", valor: 2400 },
-    { mes: "Julio", valor: 2450 },
-    { mes: "Agosto", valor: 2400 },
-    { mes: "Septiembre", valor: 2500 },
-    { mes: "Octubre", valor: 2400 },
-    { mes: "Noviembre", valor: 2600 },
-    { mes: "Diciembre", valor: 2400 },
-    { mes: "Enero", valor: 2450 },
-    { mes: "Febrero", valor: 2400 },
-    { mes: "Marzo", valor: 2700 },
-  ],
-  gastosMensuales: [
-    { mes: "Febrero", valor: 1850 },
-    { mes: "Marzo", valor: 1920 },
-    { mes: "Abril", valor: 1780 },
-    { mes: "Mayo", valor: 1950 },
-    { mes: "Junio", valor: 1880 },
-    { mes: "Julio", valor: 1820 },
-    { mes: "Agosto", valor: 1900 },
-    { mes: "Septiembre", valor: 1870 },
-    { mes: "Octubre", valor: 1930 },
-    { mes: "Noviembre", valor: 1850 },
-    { mes: "Diciembre", valor: 2100 },
-    { mes: "Enero", valor: 1890 },
-    { mes: "Febrero", valor: 1850 },
-    { mes: "Marzo", valor: 1820 },
-  ],
-  activosPorMes: [],
-  goal: {
-    id: "emergency-fund",
-    title: "Fondo de emergencia",
-    target: 5100,
-    saved: 4277,
-    type: "ahorro",
-    dueDate: "2026-06-30",
-    description: "Para sobrevivir 8 meses sin ingresos",
-  },
-  gastosPorCategoria: [
-    { name: "Alquiler", value: 10200 },
-    { name: "Comida", value: 2400 },
-    { name: "Transporte", value: 1200 },
-    { name: "Restaurantes", value: 1800 },
-    { name: "Salud", value: 900 },
-    { name: "Suscripciones", value: 300 },
-    { name: "Otros", value: 600 },
-  ],
-  ingresosPorCategoria: [
-    { name: "Nomina", value: 28800 },
-    { name: "Transferencia", value: 2400 },
-  ],
-  distribucionActivos: [
-    { name: "Acciones", value: 1200 },
-    { name: "Ahorro", value: 2400 },
-  ],
-  movimientos: generateMovements(),
-  budgets: [
-    // Presupuestos fijos (period: "fixed")
-    { id: "bud-fixed-1", category: "Alquiler", limit: 850, spent: 850, period: "fixed" },
-    { id: "bud-fixed-2", category: "Suscripciones", limit: 30, spent: 25, period: "fixed" },
-    { id: "bud-fixed-3", category: "Salud", limit: 80, spent: 75, period: "fixed" },
-    // Presupuestos variables (period: "variable")
-    { id: "bud-var-1", category: "Comida", limit: 400, spent: 380, period: "variable" },
-    { id: "bud-var-2", category: "Transporte", limit: 150, spent: 140, period: "variable" },
-    { id: "bud-var-3", category: "Restaurantes", limit: 200, spent: 180, period: "variable" },
-    { id: "bud-var-4", category: "Otros", limit: 100, spent: 85, period: "variable" },
-    { id: "bud-var-5", category: "Tecnología", limit: 120, spent: 95, period: "variable" },
-    { id: "bud-var-6", category: "Ropa", limit: 80, spent: 60, period: "variable" },
-  ],
-  categories: [],
-  goals: [
+/** Cache de todos los movimientos 2025-02 → 2030-12 (determinista) */
+const ALL_DEMO_MOVEMENTS = generateAllMovements();
+
+/** Movimientos visibles hasta hoy (los días futuros van apareciendo al pasar el tiempo) */
+export function getDemoMovements(now = new Date()): Movement[] {
+  const cutoff = todayISO(now);
+  return ALL_DEMO_MOVEMENTS.filter((m) => m.fecha <= cutoff);
+}
+
+/** Evolución de activos por mes (clave YYYY-MM) hasta 2030 */
+function buildAssetTimeline(): Record<string, Record<string, number>> {
+  const timeline: Record<string, Record<string, number>> = {
+    "cat-15": {}, // Ahorro
+    "cat-16": {}, // Acciones
+    "cat-17": {}, // Crypto
+  };
+
+  let ahorro = 2100;
+  let acciones = 1520;
+  let crypto = 380;
+
+  for (const { year, month } of iterMonths(DEMO_START, DEMO_END)) {
+    const rand = mulberry32(year * 17 + month * 31 + 99);
+    const key = monthKey(year, month);
+    const profile = profileFor(year, month);
+
+    // Ahorro: crece si hay ahorro ese mes
+    if (profile.save) {
+      ahorro += 80 + Math.floor(rand() * 40);
+    } else if (profile.extraExpenses > 400) {
+      ahorro = Math.max(1500, ahorro - Math.floor(40 + rand() * 60));
+    } else {
+      ahorro += Math.floor(10 + rand() * 20);
+    }
+
+    // Acciones: tendencia alcista suave + ruido
+    const investBump = profile.invest ? 40 + Math.floor(rand() * 80) : 0;
+    acciones += investBump + Math.floor((rand() - 0.42) * 90);
+    acciones = Math.max(800, acciones);
+
+    // Crypto: más volátil, tendencia ligeramente bajista/recuperación cíclica
+    const cryptoDelta = Math.floor((rand() - 0.48) * 70);
+    crypto = Math.max(80, crypto + cryptoDelta + (month % 4 === 1 ? 30 : 0));
+
+    timeline["cat-15"][key] = Math.round(ahorro);
+    timeline["cat-16"][key] = Math.round(acciones);
+    timeline["cat-17"][key] = Math.round(crypto);
+  }
+
+  return timeline;
+}
+
+const DEMO_ASSET_TIMELINE = buildAssetTimeline();
+
+/** Últimos `months` valores de evolución (del más antiguo al más reciente), anclados en hoy */
+export function getDemoAssetEvolutionSeries(
+  months = 12,
+  now = new Date()
+): Record<string, number[]> {
+  const keys: string[] = [];
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    keys.push(monthKey(d.getFullYear(), d.getMonth()));
+  }
+
+  const result: Record<string, number[]> = {};
+  for (const catId of Object.keys(DEMO_ASSET_TIMELINE)) {
+    result[catId] = keys.map((k) => DEMO_ASSET_TIMELINE[catId][k] ?? 0);
+  }
+  return result;
+}
+
+/** Distribución de activos al mes actual */
+export function getDemoDistribucionActivos(now = new Date()) {
+  const key = monthKey(now.getFullYear(), now.getMonth());
+  const fallbackKey = Object.keys(DEMO_ASSET_TIMELINE["cat-15"]).find((k) => k <= key) ?? key;
+  const pick = (cat: string) =>
+    DEMO_ASSET_TIMELINE[cat][key] ??
+    DEMO_ASSET_TIMELINE[cat][fallbackKey] ??
+    0;
+
+  return [
+    { name: "Ahorro", value: pick("cat-15") },
+    { name: "Acciones", value: pick("cat-16") },
+    { name: "Crypto", value: pick("cat-17") },
+  ];
+}
+
+export function getDemoCategoryInvested(now = new Date()): Record<string, number> {
+  const dist = getDemoDistribucionActivos(now);
+  const acciones = dist.find((d) => d.name === "Acciones")?.value ?? 1500;
+  const crypto = dist.find((d) => d.name === "Crypto")?.value ?? 400;
+  // Invertido un poco por debajo/encima del valor de mercado para ejemplos de rentabilidad
+  return {
+    "cat-16": Math.round(acciones * 0.88),
+    "cat-17": Math.round(crypto * 2.2),
+  };
+}
+
+const BUDGET_LIMITS: { id: string; category: string; limit: number; period: "fixed" | "variable" }[] =
+  [
+    { id: "bud-fixed-1", category: "Alquiler", limit: 850, period: "fixed" },
+    { id: "bud-fixed-2", category: "Suscripciones", limit: 30, period: "fixed" },
+    { id: "bud-fixed-3", category: "Salud", limit: 80, period: "fixed" },
+    { id: "bud-var-1", category: "Comida", limit: 400, period: "variable" },
+    { id: "bud-var-2", category: "Transporte", limit: 150, period: "variable" },
+    { id: "bud-var-3", category: "Restaurantes", limit: 200, period: "variable" },
+    { id: "bud-var-4", category: "Otros", limit: 100, period: "variable" },
+    { id: "bud-var-5", category: "Tecnología", limit: 120, period: "variable" },
+    { id: "bud-var-6", category: "Ropa", limit: 80, period: "variable" },
+  ];
+
+/** Presupuestos con `spent` del mes en curso (según movimientos visibles) */
+export function getDemoBudgets(now = new Date()): Budget[] {
+  const ym = monthKey(now.getFullYear(), now.getMonth());
+  const monthMovs = getDemoMovements(now).filter((m) => m.fecha.startsWith(ym) && m.tipo === "Gasto");
+
+  return BUDGET_LIMITS.map((b) => {
+    const spent = monthMovs
+      .filter((m) => m.categoria === b.category)
+      .reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
+    return { ...b, spent: Math.round(spent) };
+  });
+}
+
+function daysAgoISO(days: number, now = new Date()) {
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days);
+  return todayISO(d);
+}
+
+function nextMonthDay(day: number, now = new Date()) {
+  const d = new Date(now.getFullYear(), now.getMonth() + 1, day);
+  return todayISO(d);
+}
+
+/** Progreso de objetivos en función del tiempo (2025→2030) */
+function goalProgress(now = new Date()) {
+  const start = new Date(2025, 1, 1).getTime();
+  const end = new Date(2030, 11, 31).getTime();
+  const t = Math.min(1, Math.max(0, (now.getTime() - start) / (end - start)));
+  return t;
+}
+
+export function getDemoGoals(now = new Date()) {
+  const t = goalProgress(now);
+  return [
     {
       id: "goal-1",
       title: "Fondo de emergencia",
-      target: 5100,
-      saved: 4277,
-      type: "ahorro",
-      dueDate: "2026-06-30",
-      description: "Para sobrevivir 8 meses sin ingresos",
+      target: 8000,
+      saved: Math.round(1200 + t * 6200),
+      type: "ahorro" as const,
+      dueDate: "2028-06-30",
+      description: "Para sobrevivir varios meses sin ingresos",
       isPrimary: true,
       color: "#22c55e",
     },
     {
       id: "goal-2",
-      title: "Viaje verano",
-      target: 2500,
-      saved: 1250,
-      type: "ahorro",
-      dueDate: "2026-08-01",
-      description: "Ahorro para vacaciones de verano",
+      title: "Viaje largo",
+      target: 3500,
+      saved: Math.round(400 + t * 2800),
+      type: "ahorro" as const,
+      dueDate: "2029-08-01",
+      description: "Ahorro para un viaje especial",
       isPrimary: false,
       color: "#0ea5e9",
     },
     {
       id: "goal-3",
-      title: "Laptop nueva",
-      target: 1800,
-      saved: 720,
-      type: "ahorro",
-      dueDate: "2026-05-15",
-      description: "Renovar equipo de trabajo",
+      title: "Equipo de trabajo",
+      target: 2200,
+      saved: Math.round(200 + t * 1600),
+      type: "ahorro" as const,
+      dueDate: "2027-11-15",
+      description: "Renovar portátil y periféricos",
       isPrimary: false,
       color: "#f59e0b",
     },
-  ],
-  notifications: [
+  ];
+}
+
+function getDemoNotifications(now = new Date()) {
+  return [
     {
       id: "not-1",
-      type: "warning",
-      message: "El presupuesto de Comida está al 95%.",
+      type: "warning" as const,
+      message: "El presupuesto de Comida está cerca del límite este mes.",
       read: false,
-      date: "2026-01-20",
+      date: daysAgoISO(3, now),
     },
     {
       id: "not-2",
-      type: "success",
-      message: "Has alcanzado el 50% del objetivo Viaje verano.",
+      type: "success" as const,
+      message: "Buen ritmo de ahorro en tu objetivo principal.",
       read: true,
-      date: "2026-01-15",
+      date: daysAgoISO(8, now),
     },
-  ],
-  recurringMovements: [
+  ];
+}
+
+function getDemoRecurring(now = new Date()) {
+  const salary = 2400 + (now.getFullYear() - 2025) * 50;
+  return [
     {
       id: "rec-1",
-      fecha: "2026-01-01",
+      fecha: `${monthKey(now.getFullYear(), now.getMonth())}-01`,
       concepto: "Nómina",
       categoria: "Nomina",
-      tipo: "Ingreso",
-      cantidad: 2400,
-      frequency: "monthly",
-      nextDate: "2026-02-01",
+      tipo: "Ingreso" as const,
+      cantidad: salary,
+      frequency: "monthly" as const,
+      nextDate: nextMonthDay(1, now),
     },
     {
       id: "rec-2",
-      fecha: "2026-01-05",
+      fecha: `${monthKey(now.getFullYear(), now.getMonth())}-05`,
       concepto: "Alquiler",
       categoria: "Alquiler",
-      tipo: "Gasto",
+      tipo: "Gasto" as const,
       cantidad: -850,
-      frequency: "monthly",
-      nextDate: "2026-02-05",
+      frequency: "monthly" as const,
+      nextDate: nextMonthDay(5, now),
     },
-  ],
+  ];
+}
+
+/**
+ * Mock del dashboard. `movimientos` y series relacionadas se calculan al acceder
+ * para respetar la fecha de hoy (datos futuros van apareciendo con el tiempo).
+ */
+export const DASHBOARD_MOCK: DashboardData = {
+  get ingresosMensuales() {
+    return [];
+  },
+  get gastosMensuales() {
+    return [];
+  },
+  get activosPorMes() {
+    return [];
+  },
+  get goal() {
+    return getDemoGoals()[0] ?? null;
+  },
+  get gastosPorCategoria() {
+    return [];
+  },
+  get ingresosPorCategoria() {
+    return [];
+  },
+  get distribucionActivos() {
+    return getDemoDistribucionActivos();
+  },
+  get movimientos() {
+    return getDemoMovements();
+  },
+  get budgets() {
+    return getDemoBudgets();
+  },
+  categories: [],
+  get goals() {
+    return getDemoGoals();
+  },
+  get notifications() {
+    return getDemoNotifications();
+  },
+  get recurringMovements() {
+    return getDemoRecurring();
+  },
 };
 
 // Categorías base que se crean al registrarse
@@ -347,22 +614,14 @@ export const DEMO_CATEGORIES = [
   { id: "cat-17", name: "Crypto", type: "investment", icon: "Droplet", color: "#f59e0b", active: true },
 ];
 
-/** Valor ingresado por categoría en demo (para activos con rentabilidad negativa de ejemplo) */
-export const DEMO_CATEGORY_INVESTED: Record<string, number> = {
-  "cat-16": 1500, // Acciones: invertido 1500, evolución termina en 1200 → rentabilidad negativa
-  "cat-17": 400,  // Crypto: invertido 400, evolución termina en 180 → rentabilidad negativa
-};
+/** @deprecated Prefer getDemoCategoryInvested() — se mantiene por imports existentes */
+export const DEMO_CATEGORY_INVESTED: Record<string, number> = getDemoCategoryInvested();
 
-/** Distribución de activos en demo (incluye Crypto para que coincida con la evolución) */
-export const DEMO_DISTRIBUCION_ACTIVOS = [
-  { name: "Ahorro", value: 2400 },
-  { name: "Acciones", value: 1700 },
-  { name: "Crypto", value: 180 },
-];
+/** @deprecated Prefer getDemoDistribucionActivos() */
+export const DEMO_DISTRIBUCION_ACTIVOS = getDemoDistribucionActivos();
 
-/** Evolución mensual (12 meses, del más antiguo al más reciente) para gráficas de activos en demo */
-export const DEMO_ASSET_EVOLUTION: Record<string, number[]> = {
-  "cat-15": [2100, 2150, 2180, 2220, 2250, 2280, 2310, 2340, 2360, 2380, 2390, 2400], // Ahorro → 2400 (positiva)
-  "cat-16": [1520, 1480, 1620, 1630, 1630, 1630, 1630, 1630, 1650, 1670, 1680, 1700], // Acciones: subida 1500→1700 (negativa)
-  "cat-17": [380, 340, 300, 260, 240, 220, 210, 200, 195, 190, 185, 180],             // Crypto: bajada 400→180 (negativa)
-};
+/**
+ * Serie de 12 meses anclada en “hoy” al cargar el módulo.
+ * Preferir getDemoAssetEvolutionSeries() en runtime.
+ */
+export const DEMO_ASSET_EVOLUTION: Record<string, number[]> = getDemoAssetEvolutionSeries(12);

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { DM_Sans } from "next/font/google";
 import { AppLogo } from "@/components/brand/AppLogo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { startDemoSession } from "@/lib/auth";
@@ -13,12 +12,6 @@ import { scaleLinear, scalePoint } from "@visx/scale";
 import { curveMonotoneX } from "d3-shape";
 import { motion } from "framer-motion";
 import { ArrowRight, LineChart, PieChart, Target, Wallet } from "lucide-react";
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-landing",
-  weight: ["400", "500", "600", "700"],
-});
 
 const pillars = [
   {
@@ -106,10 +99,7 @@ export default function Home() {
   };
 
   return (
-    <div
-      className={`${dmSans.variable} min-h-screen bg-background text-foreground antialiased`}
-      style={{ fontFamily: "var(--font-landing), ui-sans-serif, system-ui, sans-serif" }}
-    >
+    <div className="min-h-screen bg-background text-foreground">
       {/* Atmosphere — sutil, sin pelear con el texto */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-background" />
@@ -151,7 +141,7 @@ export default function Home() {
           </Link>
           <Link
             href="/register"
-            className="rounded-lg bg-foreground px-3.5 py-2 text-sm font-semibold text-background transition hover:opacity-90"
+            className="rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
           >
             Crear cuenta
           </Link>
@@ -178,7 +168,7 @@ export default function Home() {
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <Link
                 href="/register"
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
               >
                 Empezar gratis
                 <ArrowRight className="h-4 w-4" />
@@ -186,7 +176,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={handleDemoClick}
-                className="rounded-lg border border-border dark:border-white/15 bg-card dark:bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted"
+                className="rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted"
               >
                 Ver demo
               </button>
@@ -200,7 +190,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="relative overflow-hidden rounded-2xl border border-border dark:border-white/15 bg-card dark:bg-zinc-900 p-5 shadow-lg dark:shadow-none sm:p-6">
+            <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-lg dark:shadow-none sm:p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wider text-foreground/60 dark:text-foreground/75">
@@ -209,7 +199,7 @@ export default function Home() {
                   <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-foreground sm:text-4xl">
                     11.880 €
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                  <p className="mt-1 text-sm font-semibold text-primary">
                     +12,4% vs mes anterior
                   </p>
                 </div>
@@ -328,7 +318,7 @@ export default function Home() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-40px" }}
             transition={{ duration: 0.4 }}
-            className="grid grid-cols-3 divide-x divide-border dark:divide-white/12 border-y border-border dark:border-white/12"
+            className="grid grid-cols-3 divide-x divide-border border-y border-border"
           >
             {[
               {
@@ -372,7 +362,7 @@ export default function Home() {
               transition={{ duration: 0.4 }}
               className="lg:sticky lg:top-24"
             >
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
                 Qué incluye
               </p>
               <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
@@ -391,15 +381,15 @@ export default function Home() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-40px" }}
                   transition={{ duration: 0.35, delay: i * 0.06 }}
-                  className="group flex gap-4 border-t border-border dark:border-white/12 py-6 last:border-b sm:gap-5 sm:py-7"
+                  className="group flex gap-4 border-t border-border py-6 last:border-b sm:gap-5 sm:py-7"
                 >
-                  <span className="mt-0.5 w-8 shrink-0 font-mono text-sm font-medium tabular-nums text-emerald-700 dark:text-emerald-300">
+                  <span className="mt-0.5 w-8 shrink-0 font-mono text-sm font-medium tabular-nums text-primary">
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2.5">
                       <pillar.icon
-                        className="h-4 w-4 text-foreground/55 transition group-hover:text-emerald-600 dark:text-foreground/70 dark:group-hover:text-emerald-400"
+                        className="h-4 w-4 text-foreground/55 transition group-hover:text-primary dark:text-foreground/70"
                         strokeWidth={1.75}
                       />
                       <h3 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
@@ -417,7 +407,7 @@ export default function Home() {
         </section>
 
         <section className="mx-auto max-w-6xl px-6 pb-20">
-          <div className="rounded-2xl border border-border dark:border-white/15 bg-card dark:bg-zinc-900 px-6 py-12 text-center sm:px-12 sm:py-14">
+          <div className="rounded-2xl border border-border bg-card px-6 py-12 text-center sm:px-12 sm:py-14">
             <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               Empieza con una cuenta clara.
             </h2>
@@ -427,14 +417,14 @@ export default function Home() {
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link
                 href="/register"
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
               >
                 Crear cuenta
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/login"
-                className="rounded-lg border border-border dark:border-white/12 bg-background px-5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted"
+                className="rounded-lg border border-border bg-background px-5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted"
               >
                 Ya tengo cuenta
               </Link>
@@ -450,7 +440,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t border-border dark:border-white/12">
+      <footer className="border-t border-border">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-8 text-sm text-foreground/70 dark:text-foreground/82 md:flex-row md:items-center md:justify-between">
           <span>© 2026 FinanzApp</span>
           <a
@@ -459,7 +449,7 @@ export default function Home() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 transition hover:text-foreground"
           >
-            <span className="flex h-5 w-5 items-center justify-center rounded border border-border dark:border-white/12 bg-white p-0.5 dark:bg-white/90">
+            <span className="flex h-5 w-5 items-center justify-center rounded border border-border bg-white p-0.5 dark:bg-white/90">
               <img
                 src="https://cdn.simpleicons.org/github"
                 alt=""

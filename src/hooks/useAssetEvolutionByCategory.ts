@@ -5,7 +5,7 @@ import { fetchAssetSnapshotsInMonth } from "@/lib/api/asset-snapshots";
 import type { AssetSnapshotInMonth } from "@/lib/api/asset-snapshots";
 import type { MonthLabel } from "@/lib/dashboard/types";
 import { isDemoUser } from "@/lib/auth";
-import { DEMO_CATEGORIES, DEMO_ASSET_EVOLUTION } from "@/lib/dashboard/mock";
+import { DEMO_CATEGORIES, getDemoAssetEvolutionSeries } from "@/lib/dashboard/mock";
 
 const MONTH_LABELS: MonthLabel[] = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -41,8 +41,9 @@ export function useAssetEvolutionByCategory(months = 12) {
         const m = String(d.getMonth() + 1).padStart(2, "0");
         monthKeys.push(`${y}-${m}`);
       }
+      const evolution = getDemoAssetEvolutionSeries(months, now);
       demoCategories.forEach((cat) => {
-        const values = DEMO_ASSET_EVOLUTION[cat.id];
+        const values = evolution[cat.id];
         if (!values || values.length === 0) return;
         const series: AssetEvolutionPoint[] = monthKeys.map((key, i) => {
           const monthIndex = parseInt(key.split("-")[1], 10) - 1;

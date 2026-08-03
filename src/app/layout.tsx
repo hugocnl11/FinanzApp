@@ -1,12 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Inter } from "next/font/google";
+import { DM_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 import { PwaRegister } from "@/components/PwaRegister";
 
-const inter = Inter({ subsets: ["latin"] });
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -39,7 +42,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${dmSans.className} antialiased`}>
         <PwaRegister />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         {children}

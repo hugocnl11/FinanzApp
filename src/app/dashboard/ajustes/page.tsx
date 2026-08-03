@@ -32,6 +32,7 @@ import { updateProfile, fetch2FAStatus, setup2FA, verify2FASetup, disable2FA } f
 import type { UserPreferences } from "@/lib/api/types";
 import { useTheme } from "next-themes";
 import { toast } from "@/lib/toast";
+import { DashboardPageHeader } from "@/components/dashboard/DashboardPageHeader";
 
 type SessionItem = { id: string; current: boolean; userAgent?: string; createdAt: string };
 
@@ -468,13 +469,12 @@ export default function AjustesPage() {
   };
 
   return (
-    <div className="space-y-4 min-w-0">
-      <div className="min-w-0">
-        <h1 className="text-2xl md:text-3xl font-bold truncate">Ajustes</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Configura tu cuenta y preferencias
-        </p>
-      </div>
+    <div className="space-y-6 min-w-0">
+      <DashboardPageHeader
+        eyebrow="Configuración"
+        title="Ajustes"
+        description="Configura tu cuenta y preferencias."
+      />
 
       {/* Categorías */}
       <div className="grid grid-cols-1 gap-4 min-w-0">

@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { register as registerUser } from "@/lib/api/auth";
 import { AppLogo } from "@/components/brand/AppLogo";
+import { AuthShell } from "@/components/auth/AuthShell";
 
 const registerSchema = z
   .object({
@@ -68,7 +69,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black p-4">
+    <AuthShell>
       <Card className="w-full max-w-[420px] p-6 sm:p-8">
         {/* Logo */}
         <div className="flex items-center justify-center gap-3 mb-6">
@@ -136,15 +137,15 @@ export default function RegisterPage() {
             error={errors.confirm?.message}
           />
           <div>
-            <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <label className="flex items-start gap-2 text-sm text-foreground/80">
               <input
                 type="checkbox"
-                className="h-4 w-4 mt-0.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded dark:border-gray-700 dark:bg-gray-800"
+                className="mt-0.5 h-4 w-4 rounded border-input text-primary focus:ring-ring"
                 {...register("terms")}
               />
               <span>
                 Acepto los{" "}
-                <Link href="#" className="text-blue-600 hover:text-green-600 dark:text-blue-400 dark:hover:text-green-400">
+                <Link href="#" className="font-medium text-primary hover:opacity-90">
                   Términos y Condiciones
                 </Link>
               </span>
@@ -163,12 +164,12 @@ export default function RegisterPage() {
           )}
           <div className="text-center text-sm text-muted-foreground">
             ¿Ya tienes cuenta?{" "}
-            <Link href="/login" className="text-blue-600 hover:text-green-600 dark:text-blue-400 dark:hover:text-green-400 font-medium">
+            <Link href="/login" className="font-medium text-primary hover:opacity-90">
               Inicia sesión
             </Link>
           </div>
         </motion.form>
       </Card>
-    </div>
+    </AuthShell>
   );
 }

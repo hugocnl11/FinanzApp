@@ -15,16 +15,9 @@ import {
   Target,
   Workflow,
 } from "lucide-react";
-import { DM_Sans } from "next/font/google";
 import { AppLogo } from "@/components/brand/AppLogo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-landing",
-  weight: ["400", "500", "600", "700"],
-});
 
 type Phase = "done" | "now" | "next";
 
@@ -161,7 +154,7 @@ const phaseMeta: Record<
     line: "bg-emerald-500",
     node: "border-emerald-500 bg-emerald-500 text-white",
     badge: "bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
-    card: "border-border dark:border-white/15",
+    card: "border-border",
   },
   now: {
     label: "Estamos aquí",
@@ -173,9 +166,9 @@ const phaseMeta: Record<
   next: {
     label: "Siguiente",
     line: "bg-border dark:bg-white/20",
-    node: "border-border dark:border-white/20 bg-background text-foreground/50 dark:text-foreground/70",
+    node: "border-border bg-background text-foreground/50 dark:text-foreground/70",
     badge: "bg-muted text-foreground/65 dark:bg-white/10 dark:text-foreground/85",
-    card: "border-border dark:border-white/12",
+    card: "border-border",
   },
 };
 
@@ -183,10 +176,7 @@ const phasesOrder: Phase[] = ["done", "now", "next"];
 
 export default function RoadmapPage() {
   return (
-    <div
-      className={`${dmSans.variable} min-h-screen bg-background text-foreground antialiased`}
-      style={{ fontFamily: "var(--font-landing), ui-sans-serif, system-ui, sans-serif" }}
-    >
+    <div className="min-h-screen bg-background text-foreground">
       <div
         className="pointer-events-none fixed inset-0 -z-10 opacity-30 dark:opacity-[0.08]"
         style={{
@@ -215,7 +205,7 @@ export default function RoadmapPage() {
           </Link>
           <Link
             href="/register"
-            className="rounded-lg bg-foreground px-3.5 py-2 text-sm font-semibold text-background transition hover:opacity-90"
+            className="rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
           >
             Crear cuenta
           </Link>
@@ -224,7 +214,7 @@ export default function RoadmapPage() {
 
       <main className="mx-auto w-full max-w-6xl px-6 pb-20">
         <div className="py-10">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
             Producto
           </p>
           <h1 className="mt-3 text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
@@ -321,7 +311,7 @@ export default function RoadmapPage() {
                       <p
                         className={cn(
                           "mb-2 text-[11px] font-bold uppercase tracking-[0.14em]",
-                          item.phase === "done" && "text-emerald-700 dark:text-emerald-300",
+                          item.phase === "done" && "text-primary",
                           item.phase === "now" && "text-amber-700 dark:text-amber-200",
                           item.phase === "next" && "text-foreground/55 dark:text-foreground/75"
                         )}
@@ -333,14 +323,14 @@ export default function RoadmapPage() {
 
                     <div
                       className={cn(
-                        "flex min-h-[168px] flex-col rounded-xl border bg-card dark:bg-zinc-900 p-3.5 sm:p-4",
+                        "flex min-h-[168px] flex-col rounded-xl border bg-card p-3.5 sm:p-4",
                         meta.card
                       )}
                     >
                       <div className="mb-2 flex items-start gap-2.5">
                         <span
                           className={cn(
-                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border dark:border-white/12",
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border",
                             item.icon === "notion" || item.icon === "googlesheets"
                               ? "bg-white dark:bg-white/90"
                               : "bg-background"
@@ -397,12 +387,12 @@ export default function RoadmapPage() {
             return (
               <div
                 key={phase}
-                className="rounded-xl border border-border dark:border-white/12 bg-card/70 dark:bg-white/[0.05] px-4 py-3"
+                className="rounded-xl border border-border bg-card/70 px-4 py-3"
               >
                 <p
                   className={cn(
                     "text-xs font-bold uppercase tracking-wide",
-                    phase === "done" && "text-emerald-700 dark:text-emerald-300",
+                    phase === "done" && "text-primary",
                     phase === "now" && "text-amber-700 dark:text-amber-200",
                     phase === "next" && "text-foreground/55 dark:text-foreground/75"
                   )}

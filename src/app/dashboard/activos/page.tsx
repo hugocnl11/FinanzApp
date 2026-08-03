@@ -13,6 +13,7 @@ import { createAssetSnapshot } from "@/lib/api/asset-snapshots";
 import { updateCategory } from "@/lib/api/categories";
 import { getUserId, isDemoUser } from "@/lib/auth";
 import type { CategoryIconKey } from "@/lib/category-icons";
+import { DashboardPageHeader } from "@/components/dashboard/DashboardPageHeader";
 
 type CategoryItem = { name: string; icon: CategoryIconKey; color: string };
 
@@ -161,22 +162,21 @@ export default function ActivosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-2xl md:text-3xl font-bold truncate">Activos</h1>
-          <p className="text-sm text-muted-foreground">
-            Distribución de tu patrimonio por activo. Actualiza el valor actual cuando quieras.
-          </p>
-        </div>
-        {canEdit && !isDemoUser() && (
-          <div className="flex items-center gap-2">
-            <AssetsDistributionManager />
-            <span className="text-xs text-muted-foreground hidden sm:inline">
-              Editar distribución de activos
-            </span>
-          </div>
-        )}
-      </div>
+      <DashboardPageHeader
+        eyebrow="Patrimonio"
+        title="Activos"
+        description="Distribución de tu patrimonio por activo. Actualiza el valor actual cuando quieras."
+        actions={
+          canEdit && !isDemoUser() ? (
+            <div className="flex items-center gap-2">
+              <AssetsDistributionManager />
+              <span className="hidden text-xs text-muted-foreground sm:inline">
+                Editar distribución de activos
+              </span>
+            </div>
+          ) : undefined
+        }
+      />
 
       {/* Resumen global */}
       <Card className="p-5">

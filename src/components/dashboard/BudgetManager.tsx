@@ -883,7 +883,7 @@ export function BudgetManager({
       )}
 
       <div className={cn(
-        inline && "w-full rounded-2xl border border-border bg-white dark:bg-[#18181b] p-6 ring-1 ring-border/50 shadow space-y-6"
+        inline && "w-full space-y-6 rounded-xl border border-border bg-card p-6 shadow-sm"
       )}>
         {!inline && (
           <div className="flex items-center justify-between gap-2 flex-wrap">

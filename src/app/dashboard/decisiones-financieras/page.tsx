@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Lightbulb, CheckCircle2, AlertTriangle, XCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DashboardPageHeader } from "@/components/dashboard/DashboardPageHeader";
 
 const PLAZO_OPTIONS = [
   { value: "corto" as const, label: "Corto plazo", sub: "Menos de 1 año" },
@@ -65,14 +66,13 @@ export default function DecisionesFinancierasPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <div className="min-w-0">
-        <h1 className="text-2xl md:text-3xl font-bold truncate">Decisiones financieras</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Describe una compra o meta y recibe una recomendación basada en tu situación financiera
-        </p>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Asistente"
+        title="Decisiones financieras"
+        description="Describe una compra o meta y recibe una recomendación basada en tu situación financiera."
+      />
 
-      <Card className="p-6 border border-border bg-white dark:bg-[#18181b] shadow">
+      <Card className="p-6">
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label htmlFor="question" className="block text-xs font-medium text-muted-foreground mb-2">
@@ -139,7 +139,7 @@ export default function DecisionesFinancierasPage() {
       </Card>
 
       {loading && (
-        <Card className="p-6 border border-border bg-white dark:bg-[#18181b] shadow">
+        <Card className="p-6">
           <div className="flex items-center gap-3 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin shrink-0" />
             <span className="text-sm">La IA está analizando tu situación y tu pregunta...</span>
@@ -151,7 +151,7 @@ export default function DecisionesFinancierasPage() {
       )}
 
       {error && !loading && (
-        <Card className="p-6 border border-border bg-white dark:bg-[#18181b] shadow border-destructive/50">
+        <Card className="border-destructive/50 p-6">
           <div className="flex items-start gap-3">
             <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
             <div>
@@ -166,7 +166,7 @@ export default function DecisionesFinancierasPage() {
       )}
 
       {result && !loading && (
-        <Card className="p-6 border border-border bg-white dark:bg-[#18181b] shadow">
+        <Card className="p-6">
           {hasVerdict ? (
             <>
               <div className="flex items-center gap-3 mb-4">

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AppLogo } from "@/components/brand/AppLogo";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { forgotPassword } from "@/lib/api/auth";
 
 export default function ForgotPasswordPage() {
@@ -30,7 +31,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black p-4">
+    <AuthShell>
       <Card className="w-full max-w-[420px] p-6 sm:p-8">
         <div className="flex items-center justify-center gap-3 mb-6">
           <AppLogo size="lg" showText={false} variant="minimal" />
@@ -44,10 +45,10 @@ export default function ForgotPasswordPage() {
         </p>
         {sent ? (
           <div className="text-center space-y-4">
-            <p className="text-sm text-emerald-600 dark:text-emerald-400">
+            <p className="text-sm text-primary">
               Si existe una cuenta con ese email, recibirás un enlace para restablecer la contraseña. Revisa tu bandeja de entrada.
             </p>
-            <Link href="/login" className="inline-block text-sm text-blue-600 hover:underline dark:text-blue-400">
+            <Link href="/login" className="inline-block text-sm font-medium text-primary hover:opacity-90">
               Volver al inicio de sesión
             </Link>
           </div>
@@ -67,13 +68,13 @@ export default function ForgotPasswordPage() {
               {loading ? "Enviando…" : "Enviar enlace"}
             </Button>
             <div className="text-center">
-              <Link href="/login" className="text-sm text-muted-foreground hover:underline">
+              <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">
                 Volver al inicio de sesión
               </Link>
             </div>
           </form>
         )}
       </Card>
-    </div>
+    </AuthShell>
   );
 }

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AppLogo } from "@/components/brand/AppLogo";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { resetPassword } from "@/lib/api/auth";
 
 function ResetPasswordContent() {
@@ -49,34 +50,34 @@ function ResetPasswordContent() {
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black p-4">
+      <AuthShell>
         <Card className="w-full max-w-[420px] p-6 sm:p-8 text-center">
           <p className="text-sm text-rose-500 mb-4">Falta el enlace de restablecimiento. Solicita uno nuevo.</p>
-          <Link href="/forgot-password" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
+          <Link href="/forgot-password" className="text-sm font-medium text-primary hover:opacity-90">
             Recuperar contraseña
           </Link>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   if (status === "success") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black p-4">
+      <AuthShell>
         <Card className="w-full max-w-[420px] p-6 sm:p-8 text-center">
-          <p className="text-sm text-emerald-600 dark:text-emerald-400 mb-4">
+          <p className="text-sm text-primary mb-4">
             Contraseña actualizada. Redirigiendo al inicio de sesión…
           </p>
-          <Link href="/login" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
+          <Link href="/login" className="text-sm font-medium text-primary hover:opacity-90">
             Ir al login
           </Link>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black p-4">
+    <AuthShell>
       <Card className="w-full max-w-[420px] p-6 sm:p-8">
         <div className="flex items-center justify-center gap-3 mb-6">
           <AppLogo size="lg" showText={false} variant="minimal" />
@@ -112,13 +113,13 @@ function ResetPasswordContent() {
             {loading ? "Guardando…" : "Restablecer contraseña"}
           </Button>
           <div className="text-center">
-            <Link href="/login" className="text-sm text-muted-foreground hover:underline">
+            <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">
               Volver al inicio de sesión
             </Link>
           </div>
         </form>
       </Card>
-    </div>
+    </AuthShell>
   );
 }
 
@@ -126,11 +127,11 @@ export default function ResetPasswordPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black p-4">
+        <AuthShell>
           <Card className="w-full max-w-[420px] p-6 sm:p-8 text-center">
             <p className="text-sm text-muted-foreground">Cargando…</p>
           </Card>
-        </div>
+        </AuthShell>
       }
     >
       <ResetPasswordContent />

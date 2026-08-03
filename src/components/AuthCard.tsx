@@ -11,6 +11,8 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { login, register } from "@/lib/api/auth";
 import { saveSession } from "@/lib/auth";
+import { Card } from "@/components/ui/card";
+import { AppLogo } from "@/components/brand/AppLogo";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -86,10 +88,10 @@ export function AuthCard() {
   };
 
   return (
-    <div className="w-full max-w-[420px] bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-6 sm:p-8">
-      {/* Logo placeholder */}
-      <div className="w-12 h-12 mx-auto mb-6 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center text-white text-xl font-bold select-none">
-        FZ
+    <Card className="w-full max-w-[420px] p-6 sm:p-8">
+      <div className="mb-6 flex items-center justify-center gap-3">
+        <AppLogo size="lg" showText={false} variant="minimal" />
+        <span className="text-xl font-bold text-foreground">FinanzApp</span>
       </div>
       <Tabs
         tabs={[
@@ -131,14 +133,14 @@ export function AuthCard() {
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded dark:border-gray-700 dark:bg-gray-800"
+                  className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
                   {...loginRegister("remember")}
                 />
                 Recuérdame
               </label>
               <a
                 href="#"
-                className="text-sm text-purple-600 hover:text-purple-500 dark:text-purple-400 dark:hover:text-purple-300 focus:outline-none focus:underline focus:ring-2 focus:ring-purple-500/20 rounded"
+                className="text-sm font-medium text-primary hover:opacity-90 focus:outline-none focus:underline focus:ring-2 focus:ring-ring/20 rounded"
               >
                 ¿Olvidaste la contraseña?
               </a>
@@ -193,7 +195,7 @@ export function AuthCard() {
             <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input
                 type="checkbox"
-                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded dark:border-gray-700 dark:bg-gray-800"
+                className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
                 {...regRegister("terms")}
               />
               Acepto los Términos y Condiciones
@@ -212,6 +214,6 @@ export function AuthCard() {
           </motion.form>
         )}
       </AnimatePresence>
-    </div>
+    </Card>
   );
 } 

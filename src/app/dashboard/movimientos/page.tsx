@@ -28,6 +28,7 @@ import {
 import { useDashboardDataContext } from "@/contexts/DashboardDataContext";
 import { fetchMovements, createMovement, updateMovement, deleteMovement } from "@/lib/api/movements";
 import { toast } from "@/lib/toast";
+import { DashboardPageHeader } from "@/components/dashboard/DashboardPageHeader";
 import { fetchCategories } from "@/lib/api/categories";
 import { getUserId } from "@/lib/auth";
 
@@ -543,14 +544,11 @@ export default function MovimientosPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <div className="flex items-center justify-between min-w-0">
-        <div className="min-w-0">
-          <h1 className="text-2xl md:text-3xl font-bold truncate">Movimientos</h1>
-          <p className="text-muted-foreground mt-1">
-            Gestiona tus ingresos, gastos e inversiones
-          </p>
-        </div>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Registro"
+        title="Movimientos"
+        description="Gestiona tus ingresos, gastos e inversiones."
+      />
 
       {/* Mobile: filtros en Sheet */}
       <div className="md:hidden">
@@ -608,7 +606,7 @@ export default function MovimientosPage() {
       </div>
 
       {/* Desktop: filtros inline */}
-      <div className="hidden md:block rounded-2xl border border-border bg-white dark:bg-[#18181b] p-6 shadow">
+      <div className="hidden rounded-xl border border-border bg-card p-6 shadow-sm md:block">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-border/40">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Filtros avanzados</h2>

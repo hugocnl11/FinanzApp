@@ -1,16 +1,16 @@
 "use client";
 
 import { GoalsManager } from "@/components/dashboard/GoalsManager";
+import { DashboardPageHeader } from "@/components/dashboard/DashboardPageHeader";
 
 export default function ObjetivosPage() {
   return (
     <div className="space-y-6 min-w-0">
-      <div className="min-w-0">
-        <h1 className="text-2xl md:text-3xl font-bold truncate">Objetivos</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Define metas de ahorro, gasto o ingresos y sigue tu progreso
-        </p>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Metas"
+        title="Objetivos"
+        description="Define metas de ahorro, gasto o ingresos y sigue tu progreso."
+      />
 
       <GoalsManager inline />
     </div>

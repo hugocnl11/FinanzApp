@@ -18,6 +18,7 @@ import {
 } from "@/lib/api/salary-history";
 import type { SalaryEntry } from "@/lib/api/types";
 import { formatCurrency } from "@/lib/format";
+import { DashboardPageHeader } from "@/components/dashboard/DashboardPageHeader";
 
 const CHART_HEIGHT = 140;
 const CHART_PADDING = { top: 4, right: 8, bottom: 28, left: 44 };
@@ -442,13 +443,12 @@ export default function PerfilPage() {
   if (!session) return null;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 min-w-0">
-      <div className="min-w-0">
-        <h1 className="text-2xl md:text-3xl font-bold truncate">Perfil</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Gestiona tu foto, datos personales y laborales para analíticas y seguimiento
-        </p>
-      </div>
+    <div className="mx-auto max-w-3xl space-y-6 min-w-0">
+      <DashboardPageHeader
+        eyebrow="Cuenta"
+        title="Perfil"
+        description="Gestiona tu foto, datos personales y laborales para analíticas y seguimiento."
+      />
 
       <Card>
         <CardHeader className="pb-3">

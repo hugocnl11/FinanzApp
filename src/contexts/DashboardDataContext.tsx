@@ -18,7 +18,7 @@ import { fetchAssetSnapshotsByMonth, fetchAssetSnapshotsForDate, fetchAssetSnaps
 import { buildMonthlySeries, latestByCategory, totalsByCategory } from "@/lib/dashboard/derive";
 import { getSession, isDemoUser, saveSession } from "@/lib/auth";
 import { restoreSessionFromCookie } from "@/lib/api/auth";
-import { DASHBOARD_MOCK, DEMO_CATEGORIES, DEMO_CATEGORY_INVESTED, DEMO_DISTRIBUCION_ACTIVOS, DEMO_ASSET_EVOLUTION } from "@/lib/dashboard/mock";
+import { DASHBOARD_MOCK, DEMO_CATEGORIES, getDemoAssetEvolutionSeries, getDemoCategoryInvested, getDemoDistribucionActivos } from "@/lib/dashboard/mock";
 
 const emptyData: DashboardData = {
   ingresosMensuales: [],
@@ -88,12 +88,13 @@ export async function loadDashboardDataCore(opts: {
       const gastosMensuales = buildMonthlySeries(mockMovements, "Gasto", 12);
       const ingresosPorCategoria = totalsByCategory(mockMovements, "Ingreso");
       const gastosPorCategoria = totalsByCategory(mockMovements, "Gasto");
-      const distribucionActivos = DEMO_DISTRIBUCION_ACTIVOS;
-      // Evolución de patrimonio: suma de DEMO_ASSET_EVOLUTION por mes (Ahorro + Acciones + Crypto)
+      const distribucionActivos = getDemoDistribucionActivos();
+      const assetEvolution = getDemoAssetEvolutionSeries(12);
+      const demoInvested = getDemoCategoryInvested();
       const demoAssetIds = ["cat-15", "cat-16", "cat-17"];
       const activosPorMes = ingresosMensuales.map((entry, i) => ({
         mes: entry.mes as DashboardData["activosPorMes"][0]["mes"],
-        valor: demoAssetIds.reduce((acc, id) => acc + (DEMO_ASSET_EVOLUTION[id]?.[i] ?? 0), 0),
+        valor: demoAssetIds.reduce((acc, id) => acc + (assetEvolution[id]?.[i] ?? 0), 0),
         monthKey: entry.monthKey,
       }));
 
@@ -105,6 +106,8 @@ export async function loadDashboardDataCore(opts: {
         type: g.type as Goal["type"],
         dueDate: g.dueDate,
         description: g.description,
+        isPrimary: g.isPrimary,
+        color: g.color,
       }));
 
       const primaryGoalId =
@@ -129,12 +132,17 @@ export async function loadDashboardDataCore(opts: {
             icon: c.icon,
             color: c.color,
             active: c.active,
-            investedAmount: DEMO_CATEGORY_INVESTED[c.id] ?? null,
+            investedAmount: demoInvested[c.id] ?? null,
             taePercent: null,
           })),
           notifications: DASHBOARD_MOCK.notifications,
           recurringMovements: DASHBOARD_MOCK.recurringMovements.map((rm) => ({
-            ...mockMovements.find((m) => m.id === rm.id)!,
+            id: rm.id,
+            fecha: rm.fecha,
+            concepto: rm.concepto,
+            categoria: rm.categoria,
+            tipo: rm.tipo as Movement["tipo"],
+            cantidad: rm.cantidad,
             frequency: rm.frequency,
             nextDate: rm.nextDate,
           })),

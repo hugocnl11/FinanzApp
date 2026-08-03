@@ -51,10 +51,10 @@ export function GoalProgressWithMilestones({
                   <Tooltip key={i}>
                     <TooltipTrigger asChild>
                       <span
-                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 rounded-full bg-primary-foreground p-0.5 shadow-sm ring-2 ring-primary/50 cursor-default pointer-events-auto"
+                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 rounded-full bg-background p-0.5 shadow-sm ring-2 ring-foreground/40 cursor-default pointer-events-auto"
                         style={{ left: `${pct}%` }}
                       >
-                        <Flag className="h-3 w-3 text-primary stroke-[2]" strokeWidth={2} />
+                        <Flag className="h-3 w-3 text-foreground stroke-[2]" strokeWidth={2} />
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="font-medium">

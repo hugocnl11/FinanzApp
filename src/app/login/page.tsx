@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { login, resendVerification, verify2FALogin } from "@/lib/api/auth";
 import { saveSession } from "@/lib/auth";
 import { AppLogo } from "@/components/brand/AppLogo";
+import { AuthShell } from "@/components/auth/AuthShell";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -127,7 +128,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black p-4">
+    <AuthShell>
       <Card className="w-full max-w-[420px] p-6 sm:p-8">
         {/* Logo */}
         <div className="flex items-center justify-center gap-3 mb-6">
@@ -199,17 +200,17 @@ export default function LoginPage() {
             error={errors.password?.message}
           />
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <label className="flex items-center gap-2 text-sm text-foreground/80">
               <input
                 type="checkbox"
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded dark:border-gray-700 dark:bg-gray-800"
+                className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
                 {...register("remember")}
               />
               Recuérdame
             </label>
             <Link
               href="/forgot-password"
-              className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+              className="text-sm font-medium text-primary hover:opacity-90"
             >
               ¿Olvidaste la contraseña?
             </Link>
@@ -233,13 +234,13 @@ export default function LoginPage() {
           )}
           <div className="text-center text-sm text-muted-foreground">
             ¿No tienes cuenta?{" "}
-            <Link href="/register" className="text-blue-600 hover:text-green-600 dark:text-blue-400 dark:hover:text-green-400 font-medium">
+            <Link href="/register" className="font-medium text-primary hover:opacity-90">
               Regístrate
             </Link>
           </div>
         </motion.form>
         )}
       </Card>
-    </div>
+    </AuthShell>
   );
 }

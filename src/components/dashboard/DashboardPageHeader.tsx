@@ -23,13 +23,13 @@ export function DashboardPageHeader({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5",
+        "flex flex-wrap items-center justify-between gap-4",
         className
       )}
     >
-      <div className="min-w-0 max-w-2xl space-y-1.5">
+      <div className="min-w-0">
         {eyebrow ? (
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+          <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
             {eyebrow}
           </p>
         ) : null}
@@ -40,11 +40,9 @@ export function DashboardPageHeader({
           {title}
         </h1>
         {description ? (
-          <p className="text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
-            {description}
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         ) : null}
-        {meta ? <div className="pt-0.5 text-[11px] text-muted-foreground">{meta}</div> : null}
+        {meta ? <div className="mt-1 text-[11px] text-muted-foreground">{meta}</div> : null}
       </div>
       {actions ? (
         <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">

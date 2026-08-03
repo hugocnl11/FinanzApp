@@ -68,9 +68,8 @@ export default function DashboardPage() {
 
   return (
     <PeriodProvider>
-      <div className="space-y-6" aria-label="Dashboard">
+      <div className="space-y-4" aria-label="Dashboard">
       <DashboardPageHeader
-        eyebrow="Resumen"
         title="Dashboard"
         titleId="dashboard-titulo"
         description="Tu visión financiera en un solo lugar."

@@ -16,18 +16,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarLogo } from "@/components/brand/SidebarLogo";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, List, PieChart, BarChart2, Wallet, Target, Settings, User, Lightbulb } from "lucide-react";
+import { Home, List, PieChart, BarChart2, Wallet, Target, Settings, User, ShoppingBag } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getSession, isDemoUser } from "@/lib/auth";
 
 const allItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
-  { title: "Movimientos", url: "/dashboard/movimientos", icon: List },
   { title: "Activos", url: "/dashboard/activos", icon: PieChart },
-  { title: "Presupuestos", url: "/dashboard/presupuestos", icon: Wallet },
   { title: "Objetivos", url: "/dashboard/objetivos", icon: Target },
+  { title: "Movimientos", url: "/dashboard/movimientos", icon: List },
+  { title: "Presupuestos", url: "/dashboard/presupuestos", icon: Wallet },
+  { title: "Compras", url: "/dashboard/compras", icon: ShoppingBag },
   { title: "Gráficas", url: "/dashboard/graficas", icon: BarChart2 },
-  { title: "Decisiones financieras", url: "/dashboard/decisiones-financieras", icon: Lightbulb },
   { title: "Perfil", url: "/dashboard/perfil", icon: User },
   { title: "Ajustes", url: "/dashboard/ajustes", icon: Settings },
 ];

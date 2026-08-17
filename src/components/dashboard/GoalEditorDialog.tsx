@@ -59,23 +59,31 @@ export function GoalEditorDialog({
   goal,
   trigger,
   onSave,
+  onDelete,
   title = "Editar objetivo",
   description = "Actualiza los detalles de tu objetivo financiero.",
   assetOptions = [],
   budgetOptions = [],
   mode = "dialog",
+  open: openProp,
+  onOpenChange,
 }: {
   goal: EditableGoal;
-  trigger: React.ReactNode;
+  trigger?: React.ReactNode;
   onSave: (goal: EditableGoal) => void;
+  onDelete?: () => void;
   title?: string;
   description?: string;
   assetOptions?: AssetOption[];
   budgetOptions?: BudgetOption[];
   /** "dialog" = modal centrado, "sheet" = drawer lateral */
   mode?: "dialog" | "sheet";
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = openProp ?? uncontrolledOpen;
+  const setOpen = onOpenChange ?? setUncontrolledOpen;
   const [form, setForm] = useState(goal);
 
   const isAssetGoal = (g: EditableGoal) => Array.isArray(g.linkedCategoryIds) && g.linkedCategoryIds.length > 0;
@@ -154,7 +162,7 @@ export function GoalEditorDialog({
     form.title.trim() &&
     form.dueDate &&
     (goalKind === "asset"
-      ? (form.linkedCategoryIds?.length ?? 0) > 0 && form.target >= 0
+      ? (form.linkedCategoryIds?.length ?? 0) > 0 || Boolean(form.target)
       : Boolean(form.linkedBudgetId));
 
   const formContent = (
@@ -407,6 +415,18 @@ export function GoalEditorDialog({
 
   const footer = (
     <>
+      {onDelete ? (
+        <Button
+          variant="ghost"
+          className="min-h-[44px] text-destructive hover:text-destructive mr-auto"
+          onClick={() => {
+            onDelete();
+            setOpen(false);
+          }}
+        >
+          Eliminar
+        </Button>
+      ) : null}
       <Button variant="outline" onClick={() => setOpen(false)} className="min-h-[44px]">
         Cancelar
       </Button>
@@ -419,7 +439,7 @@ export function GoalEditorDialog({
   if (mode === "sheet") {
     return (
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>{trigger}</SheetTrigger>
+        {trigger ? <SheetTrigger asChild>{trigger}</SheetTrigger> : null}
         <SheetContent side="right" className="overflow-y-auto max-w-lg sm:max-w-md flex flex-col">
           <SheetHeader>
             <SheetTitle>{title}</SheetTitle>
@@ -434,7 +454,7 @@ export function GoalEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
       <DialogContent className="max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] max-w-lg">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

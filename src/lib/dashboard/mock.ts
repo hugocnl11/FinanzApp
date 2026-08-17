@@ -478,6 +478,7 @@ export function getDemoGoals(now = new Date()) {
       description: "Para sobrevivir varios meses sin ingresos",
       isPrimary: true,
       color: "#22c55e",
+      milestones: [{ amount: 2000 }, { amount: 4000 }, { amount: 6000 }],
     },
     {
       id: "goal-2",
@@ -489,6 +490,7 @@ export function getDemoGoals(now = new Date()) {
       description: "Ahorro para un viaje especial",
       isPrimary: false,
       color: "#0ea5e9",
+      milestones: [{ amount: 1000 }, { amount: 2000 }],
     },
     {
       id: "goal-3",
@@ -500,6 +502,7 @@ export function getDemoGoals(now = new Date()) {
       description: "Renovar portátil y periféricos",
       isPrimary: false,
       color: "#f59e0b",
+      milestones: [{ amount: 800 }, { amount: 1500 }],
     },
   ];
 }

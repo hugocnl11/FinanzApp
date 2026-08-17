@@ -90,6 +90,17 @@ export type Movement = {
   metodoPago?: string; // Revolut, Cajamar, Trade Republic, Efectivo (desde Notion)
 };
 
+export type WishlistColumn = "undecided" | "short" | "medium" | "long";
+
+export type WishlistItem = {
+  id: string;
+  title: string;
+  price: number;
+  notes?: string;
+  column: WishlistColumn;
+  sortOrder: number;
+};
+
 export type DashboardData = {
   ingresosMensuales: MoneyByMonth[];
   gastosMensuales: MoneyByMonth[];

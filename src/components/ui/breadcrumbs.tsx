@@ -12,6 +12,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   graficas: "Gráficas",
   presupuestos: "Presupuestos",
   objetivos: "Objetivos",
+  compras: "Compras",
   ajustes: "Ajustes",
   perfil: "Perfil",
 };

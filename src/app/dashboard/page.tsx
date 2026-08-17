@@ -6,9 +6,6 @@ import { IncomeCard, ExpensesCard, GoalCard } from "@/components/dashboard/Widge
 import { BudgetSummary } from "@/components/dashboard/BudgetSummary";
 import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
 import { DashboardMonthSelector } from "@/components/dashboard/DashboardMonthSelector";
-import { ForecastCard } from "@/components/dashboard/ForecastCard";
-import { FinanceCalendar } from "@/components/dashboard/FinanceCalendar";
-import { SmartAlerts } from "@/components/dashboard/SmartAlerts";
 import { NotificationCenter } from "@/components/dashboard/NotificationCenter";
 import { PeriodProvider } from "@/contexts/PeriodContext";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -131,18 +128,6 @@ export default function DashboardPage() {
           </div>
           <div className="min-w-0 h-full">
             <DashboardCategoryBreakdowns type="assets" />
-          </div>
-        </div>
-      </section>
-
-      <section className="min-w-0">
-        <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
-          <div className="lg:col-span-2 min-w-0">
-            <SmartAlerts />
-          </div>
-          <div className="min-w-0 space-y-4">
-            <ForecastCard />
-            <FinanceCalendar />
           </div>
         </div>
       </section>

@@ -29,6 +29,7 @@ export type ItemAffordability = {
   monthsToAfford: number | null;
   suggestedColumn: WishlistColumn;
   fitsColumn: boolean;
+  coveragePercent: number;
   verdict: "now" | "fits" | "sooner" | "short" | "blocked";
   verdictLabel: string;
 };
@@ -63,7 +64,13 @@ export function snapshotFromDashboard(data: DashboardData): AffordabilitySnapsho
   const monthlyExpenses = averageLast(data.gastosMensuales.map((row) => row.valor));
   const monthlySurplus = monthlyIncome - monthlyExpenses;
   const liquidSavings = liquidSavingsFromDashboard(data);
-  const emergencyReserved = emergencyRemainingFromGoals(data.goals);
+  const emergencyRemaining = emergencyRemainingFromGoals(data.goals);
+  // Reserve unfinished emergency only when liquid can cover that remainder.
+  // If remaining >= liquid (demo: Fondo de emergencia vs Ahorro), locking it
+  // would wipe discretionary savings and every gauge would read 0%. The gap
+  // is then a surplus-funded goal, not a 100% claim on current cash.
+  // When liquid > remaining, still earmark the gap (don't spend the buffer).
+  const emergencyReserved = liquidSavings > emergencyRemaining ? emergencyRemaining : 0;
   const discretionarySavings = Math.max(0, liquidSavings - emergencyReserved);
   const responsibleMonthly = Math.max(0, monthlySurplus * RESPONSIBLE_SURPLUS_RATIO);
   return {
@@ -106,6 +113,8 @@ export function analyzeItem(
   }
 
   const suggestedColumn = suggestColumn(canAffordNow, monthsToAfford);
+  const coveragePercent =
+    price <= 0 ? 0 : Math.min(100, (snapshot.discretionarySavings / price) * 100);
   const fitsColumn =
     column === "undecided" ||
     canAffordNow ||
@@ -139,6 +148,7 @@ export function analyzeItem(
     monthsToAfford,
     suggestedColumn,
     fitsColumn,
+    coveragePercent,
     verdict,
     verdictLabel,
   };

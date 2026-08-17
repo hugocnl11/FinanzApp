@@ -55,6 +55,21 @@ function polar(center: number, radius: number, angle: number) {
   };
 }
 
+const MILESTONE_EPSILON = 1e-6;
+
+function isMilestoneReached(item: GoalsRingItem, amount: number) {
+  if (!Number.isFinite(amount)) return false;
+  const saved = Number(item.saved);
+  const fromSaved = Number.isFinite(saved) && saved + MILESTONE_EPSILON >= amount;
+  const target = Number(item.target);
+  const percent = Number(item.percent);
+  const fromPercent =
+    Number.isFinite(target) &&
+    Number.isFinite(percent) &&
+    (percent / 100) * target + MILESTONE_EPSILON >= amount;
+  return fromSaved || fromPercent;
+}
+
 function RingLayer({
   index,
   item,
@@ -121,19 +136,74 @@ function RingLayer({
           }}
         />
       ) : null}
+      {item.milestones?.map((milestone, mi) => {
+        const target = Number(item.target) || 0;
+        const amount = Number(milestone.amount);
+        if (target <= 0 || !Number.isFinite(amount) || amount <= 0) return null;
+        const pct = Math.min(1, Math.max(0, amount / target));
+        const angle = -Math.PI / 2 + pct * 2 * Math.PI;
+        const { x, y } = polar(center, radius, angle);
+        return (
+          <MilestoneMarker
+            key={`${item.id}-ms-${mi}`}
+            x={x}
+            y={y}
+            label={Math.round(amount).toLocaleString("es-ES")}
+            color={color}
+            reached={isMilestoneReached(item, amount)}
+            isHovered={isHovered}
+          />
+        );
+      })}
     </motion.g>
   );
 }
 
-function MilestoneFlag({ x, y, label }: { x: number; y: number; label: string }) {
+function MilestoneMarker({
+  x,
+  y,
+  label,
+  color,
+  reached,
+  isHovered,
+}: {
+  x: number;
+  y: number;
+  label: string;
+  color: string;
+  reached: boolean;
+  isHovered: boolean;
+}) {
   return (
-    <g transform={`translate(${x}, ${y})`} className="pointer-events-auto">
+    <g
+      style={{
+        filter: isHovered ? `drop-shadow(0 0 10px ${color})` : "none",
+      }}
+    >
       <title>{`Hito: ${label} €`}</title>
-      <circle r={8} fill="hsl(var(--background))" stroke="hsl(var(--foreground) / 0.45)" strokeWidth={1.25} />
-      <g transform="translate(-5, -6)" fill="hsl(var(--foreground))" stroke="hsl(var(--foreground))" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M1 1 v12" fill="none" />
-        <path d="M1 1 h8 l-2 3 2 3 H1 z" stroke="none" />
-      </g>
+      <circle
+        cx={x}
+        cy={y}
+        r={5.5}
+        fill="hsl(var(--background))"
+        stroke={color}
+        strokeOpacity={reached ? 1 : 0.5}
+        strokeWidth={1.75}
+      />
+      {reached ? (
+        <>
+          <circle cx={x} cy={y} r={5.5} fill={color} fillOpacity={0.22} stroke="none" />
+          <path
+            d="M-3.5 -0.5 L-1.5 2 L3.5 -2.5"
+            transform={`translate(${x} ${y})`}
+            fill="none"
+            stroke={color}
+            strokeWidth={1.75}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </>
+      ) : null}
     </g>
   );
 }
@@ -190,26 +260,6 @@ function RingChartInner({
               onHoverChange={onHoverChange}
             />
           );
-        })}
-        {items.flatMap((item, index) => {
-          const radius = baseInnerRadius + index * (strokeWidth + ringGap) + strokeWidth / 2;
-          const target = Number(item.target) || 0;
-          if (target <= 0 || !item.milestones?.length) return [];
-          return item.milestones.map((milestone, mi) => {
-            const amount = Number(milestone.amount);
-            if (!Number.isFinite(amount) || amount <= 0) return null;
-            const pct = Math.min(1, Math.max(0, amount / target));
-            const angle = -Math.PI / 2 + pct * 2 * Math.PI;
-            const { x, y } = polar(center, radius, angle);
-            return (
-              <MilestoneFlag
-                key={`${item.id}-flag-${mi}`}
-                x={x}
-                y={y}
-                label={Math.round(amount).toLocaleString("es-ES")}
-              />
-            );
-          });
         })}
       </svg>
 

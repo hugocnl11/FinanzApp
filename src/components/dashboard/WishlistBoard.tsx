@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { LinearNotchGauge } from "@/components/dashboard/LinearNotchGauge";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/format";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -53,6 +54,14 @@ const verdictClass: Record<ItemAffordability["verdict"], string> = {
   sooner: "bg-sky-500/10 text-sky-700 dark:text-sky-300",
   short: "bg-amber-500/15 text-amber-800 dark:text-amber-200",
   blocked: "bg-destructive/10 text-destructive",
+};
+
+const verdictFill: Record<ItemAffordability["verdict"], string> = {
+  now: "bg-emerald-500",
+  fits: "bg-primary",
+  sooner: "bg-sky-500",
+  short: "bg-amber-600",
+  blocked: "bg-destructive",
 };
 
 export function WishlistBoard() {
@@ -178,38 +187,60 @@ export function WishlistBoard() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
-        <div className="min-w-0 space-y-1">
-          <p className="text-sm text-muted-foreground">
-            Usamos el 30% de tu margen mensual y no tocamos el fondo de emergencia.
-          </p>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            <span>
-              Margen:{" "}
-              <strong className="text-foreground tabular-nums">
-                {formatCurrency(snapshot.monthlySurplus, currency)}
-              </strong>
-              /mes
-            </span>
-            <span>
-              Disponible:{" "}
-              <strong className="text-foreground tabular-nums">
-                {formatCurrency(snapshot.discretionarySavings, currency)}
-              </strong>
-            </span>
-            <span>
-              Ritmo responsable:{" "}
-              <strong className="text-foreground tabular-nums">
-                {formatCurrency(snapshot.responsibleMonthly, currency)}
-              </strong>
-              /mes
-            </span>
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-3">
+            <div>
+              <p className="text-sm font-medium">Capacidad de compra</p>
+              <p className="text-xs text-muted-foreground">
+                Usamos el 30% de tu margen mensual y no tocamos el fondo de emergencia.
+              </p>
+            </div>
+            <LinearNotchGauge
+              value={
+                snapshot.monthlyIncome > 0
+                  ? (snapshot.monthlySurplus / snapshot.monthlyIncome) * 100
+                  : 0
+              }
+              notches={40}
+              label="Tasa de ahorro"
+            />
+            <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
+              <span>
+                Tasa de ahorro{" "}
+                <strong className="text-foreground tabular-nums">
+                  {snapshot.monthlyIncome > 0
+                    ? `${Math.max(0, Math.round((snapshot.monthlySurplus / snapshot.monthlyIncome) * 100))}%`
+                    : "—"}
+                </strong>
+              </span>
+              <span>
+                Margen{" "}
+                <strong className="text-foreground tabular-nums">
+                  {formatCurrency(snapshot.monthlySurplus, currency)}
+                </strong>
+                /mes
+              </span>
+              <span>
+                Disponible{" "}
+                <strong className="text-foreground tabular-nums">
+                  {formatCurrency(snapshot.discretionarySavings, currency)}
+                </strong>
+              </span>
+              <span>
+                Ritmo responsable{" "}
+                <strong className="text-foreground tabular-nums">
+                  {formatCurrency(snapshot.responsibleMonthly, currency)}
+                </strong>
+                /mes
+              </span>
+            </div>
           </div>
+          <Button size="sm" onClick={() => openCreate("undecided")}>
+            <Plus className="h-4 w-4" />
+            Añadir objeto
+          </Button>
         </div>
-        <Button size="sm" onClick={() => openCreate("undecided")}>
-          <Plus className="h-4 w-4" />
-          Añadir objeto
-        </Button>
       </div>
 
       <div className="flex gap-3 overflow-x-auto pb-1 xl:grid xl:grid-cols-4 xl:overflow-visible">
@@ -296,8 +327,24 @@ export function WishlistBoard() {
                         <p className="mt-1 text-lg font-bold tabular-nums tracking-tight">
                           {formatCurrency(item.price, currency)}
                         </p>
+                        {analysis ? (
+                          <div className="mt-2.5 space-y-1.5">
+                            <LinearNotchGauge
+                              value={analysis.coveragePercent}
+                              notches={22}
+                              fillClassName={verdictFill[analysis.verdict]}
+                              label={`Cobertura del precio: ${Math.round(analysis.coveragePercent)}%`}
+                            />
+                            <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                              <span>Cubierto con ahorro</span>
+                              <span className="tabular-nums font-medium text-foreground">
+                                {Math.round(analysis.coveragePercent)}%
+                              </span>
+                            </div>
+                          </div>
+                        ) : null}
                         {item.notes ? (
-                          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.notes}</p>
+                          <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">{item.notes}</p>
                         ) : null}
                         {analysis ? (
                           <p

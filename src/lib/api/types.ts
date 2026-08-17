@@ -14,6 +14,9 @@ export type AuthPayload = {
 export type ChartWidgetsPref = {
   visible: string[];
   order: string[];
+  layoutRevision?: number;
+  /** Nombres de activos ocultos en la gráfica de rentabilidad. */
+  rentabilidadHiddenAssets?: string[];
 };
 
 export type UserPreferences = {

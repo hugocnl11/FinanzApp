@@ -4,15 +4,19 @@ import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import html2canvas from "html2canvas";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { patrimonioAcumulado, filterMonthsByPeriod, comparativaAnual } from "@/lib/dashboard/selectors";
+import { patrimonioAcumulado, filterMonthsByPeriod } from "@/lib/dashboard/selectors";
+import { buildComposedCashFlow } from "@/lib/dashboard/advanced-charts";
 import { formatNumber } from "@/lib/format";
 import { ParentSize } from "@visx/responsive";
 import { LinePath } from "@visx/shape";
 import { scaleLinear, scalePoint, scaleBand } from "@visx/scale";
 import { curveMonotoneX } from "d3-shape";
 import { motion } from "framer-motion";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { CategoryDistributionCard } from "@/components/dashboard/CategoryDistributionCard";
+import { CashFlowComposedChart } from "@/components/dashboard/CashFlowComposedChart";
+import { MoneyFlowSankey } from "@/components/dashboard/MoneyFlowSankey";
+import { ActivityYearHeatmap } from "@/components/dashboard/ActivityYearHeatmap";
 import { fetchAssetSnapshotsForDate, fetchAssetSnapshotsInMonth } from "@/lib/api/asset-snapshots";
 import type { AssetSnapshotLatest, AssetSnapshotInMonth } from "@/lib/api/asset-snapshots";
 import { fetchCategories } from "@/lib/api/categories";
@@ -45,14 +49,18 @@ const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 const WIDGET_IDS = [
   "flujoCaja",
-  "tasaAhorro",
   "saldoAcumulado",
-  "rentabilidadPorActivo",
-  "actividadPorDia",
-  "comparativaAnual",
+  "tasaAhorro",
   "ingresosPorCategoria",
   "gastosPorCategoria",
+  "flujoDinero",
+  "rentabilidadPorActivo",
+  "actividadAnual",
+  "actividadPorDia",
 ] as const;
+
+/** Sube este número al cambiar el orden por defecto para migrar layouts guardados. */
+const CHART_LAYOUT_REVISION = 5;
 
 const WIDGET_LABELS: Record<(typeof WIDGET_IDS)[number], string> = {
   flujoCaja: "Flujo de Caja Mensual",
@@ -60,9 +68,10 @@ const WIDGET_LABELS: Record<(typeof WIDGET_IDS)[number], string> = {
   saldoAcumulado: "Saldo Acumulado",
   rentabilidadPorActivo: "Rentabilidad por activo",
   actividadPorDia: "Actividad por día",
-  comparativaAnual: "Comparativa anual",
   ingresosPorCategoria: "Ingresos por Categoría",
   gastosPorCategoria: "Gastos por Categoría",
+  flujoDinero: "Flujo de dinero",
+  actividadAnual: "Actividad anual",
 };
 
 const CHART_WIDGETS_KEY = "finanzapp:chartWidgets";
@@ -91,7 +100,7 @@ function formatAxisCurrency(v: number): string {
 }
 
 function defaultChartWidgets(): ChartWidgetsPref {
-  return { visible: [...WIDGET_IDS], order: [...WIDGET_IDS] };
+  return { visible: [...WIDGET_IDS], order: [...WIDGET_IDS], layoutRevision: CHART_LAYOUT_REVISION };
 }
 
 type RentabilidadPeriod = "month" | "3m" | "6m" | "12m";
@@ -104,7 +113,7 @@ const RENTABILIDAD_PERIODS: { value: RentabilidadPeriod; label: string }[] = [
 const MONTH_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
 export default function GraficasPage() {
-  const { data } = useDashboardData();
+  const { data, loading } = useDashboardData();
   const { ingresosMensuales, gastosMensuales, gastosPorCategoria, ingresosPorCategoria, movimientos } = data;
   const [snapshotsToday, setSnapshotsToday] = useState<AssetSnapshotLatest[]>([]);
   const [snapshotsInMonth, setSnapshotsInMonth] = useState<AssetSnapshotInMonth[]>([]);
@@ -123,19 +132,31 @@ export default function GraficasPage() {
 
   const loadChartWidgets = useCallback(async () => {
     const validIds = new Set(WIDGET_IDS);
-    const filterPrefs = (prefs: ChartWidgetsPref) => ({
-      visible: prefs.visible.filter((id) => validIds.has(id as (typeof WIDGET_IDS)[number])),
-      order: prefs.order.filter((id) => validIds.has(id as (typeof WIDGET_IDS)[number])),
-    });
+    const normalizePrefs = (prefs: ChartWidgetsPref): { value: ChartWidgetsPref; migrated: boolean } => {
+      const visible = prefs.visible.filter((id) => validIds.has(id as (typeof WIDGET_IDS)[number]));
+      const orderFromPrefs = prefs.order.filter((id) => validIds.has(id as (typeof WIDGET_IDS)[number]));
+      const missing = WIDGET_IDS.filter((id) => !orderFromPrefs.includes(id));
+      const needsLayoutMigration = prefs.layoutRevision !== CHART_LAYOUT_REVISION;
+      const order = needsLayoutMigration ? [...WIDGET_IDS] : [...orderFromPrefs, ...missing];
+      const value: ChartWidgetsPref = {
+        visible: visible.length ? visible : [...WIDGET_IDS],
+        order,
+        layoutRevision: CHART_LAYOUT_REVISION,
+        rentabilidadHiddenAssets: prefs.rentabilidadHiddenAssets ?? [],
+      };
+      const migrated =
+        needsLayoutMigration ||
+        !visible.length ||
+        !orderFromPrefs.length ||
+        missing.length > 0;
+      return { value, migrated };
+    };
     if (isDemoUser()) {
       const stored = loadFromStorage(CHART_WIDGETS_KEY, null as ChartWidgetsPref | null);
       if (stored?.visible?.length && stored?.order?.length) {
-        const filtered = filterPrefs(stored);
-        const next = filtered.visible.length && filtered.order.length ? filtered : defaultChartWidgets();
-        setChartWidgets(next);
-        if (!filtered.visible.length || !filtered.order.length) {
-          saveToStorage(CHART_WIDGETS_KEY, next);
-        }
+        const { value, migrated } = normalizePrefs(stored);
+        setChartWidgets(value);
+        if (migrated) saveToStorage(CHART_WIDGETS_KEY, value);
       }
       setChartWidgetsLoaded(true);
       return;
@@ -153,8 +174,19 @@ export default function GraficasPage() {
       }
     }
     if (prefs?.chartWidgets?.visible?.length && prefs?.chartWidgets?.order?.length) {
-      const filtered = filterPrefs(prefs.chartWidgets);
-      setChartWidgets(filtered.visible.length && filtered.order.length ? filtered : defaultChartWidgets());
+      const { value, migrated } = normalizePrefs(prefs.chartWidgets);
+      setChartWidgets(value);
+      if (migrated) {
+        const session = getSession();
+        const currentPrefs = (session?.user?.preferences ?? {}) as UserPreferences;
+        updateProfile({ preferences: { ...currentPrefs, chartWidgets: value } })
+          .then((res) => {
+            if (res?.data?.user?.preferences) {
+              updateSessionUser({ preferences: res.data.user.preferences });
+            }
+          })
+          .catch(() => {});
+      }
     }
     setChartWidgetsLoaded(true);
   }, []);
@@ -164,14 +196,15 @@ export default function GraficasPage() {
   }, [loadChartWidgets]);
 
   const saveChartWidgets = useCallback((next: ChartWidgetsPref) => {
-    setChartWidgets(next);
+    const payload: ChartWidgetsPref = { ...next, layoutRevision: CHART_LAYOUT_REVISION };
+    setChartWidgets(payload);
     if (isDemoUser()) {
-      saveToStorage(CHART_WIDGETS_KEY, next);
+      saveToStorage(CHART_WIDGETS_KEY, payload);
       return;
     }
     const session = getSession();
     const prefs = (session?.user?.preferences ?? {}) as UserPreferences;
-    updateProfile({ preferences: { ...prefs, chartWidgets: next } })
+    updateProfile({ preferences: { ...prefs, chartWidgets: payload } })
         .then((res) => {
           if (res?.data?.user?.preferences) {
             updateSessionUser({ preferences: res.data.user.preferences });
@@ -201,6 +234,23 @@ export default function GraficasPage() {
       if (swap < 0 || swap >= nextOrder.length) return;
       [nextOrder[idx], nextOrder[swap]] = [nextOrder[swap], nextOrder[idx]];
       saveChartWidgets({ ...chartWidgets, order: nextOrder });
+    },
+    [chartWidgets, saveChartWidgets]
+  );
+
+  const toggleRentabilidadAsset = useCallback(
+    (name: string) => {
+      const hidden = new Set(chartWidgets.rentabilidadHiddenAssets ?? []);
+      if (hidden.has(name)) hidden.delete(name);
+      else hidden.add(name);
+      saveChartWidgets({ ...chartWidgets, rentabilidadHiddenAssets: Array.from(hidden) });
+    },
+    [chartWidgets, saveChartWidgets]
+  );
+
+  const setRentabilidadAssetsHidden = useCallback(
+    (hiddenNames: string[]) => {
+      saveChartWidgets({ ...chartWidgets, rentabilidadHiddenAssets: hiddenNames });
     },
     [chartWidgets, saveChartWidgets]
   );
@@ -247,14 +297,11 @@ export default function GraficasPage() {
       .catch(() => setSnapshotsHistorical([]));
   }, [rentabilidadPeriod]);
 
-  // 1. Flujo de Caja Mensual (últimos 12 meses)
-  const flujoCaja = useMemo(() => {
+  // 1. Flujo compuesto: ingresos, gastos y saldo (últimos 12 meses)
+  const composedCashFlow = useMemo(() => {
     const ultimos12Ingresos = filterMonthsByPeriod(ingresosMensuales, 12);
     const ultimos12Gastos = filterMonthsByPeriod(gastosMensuales, 12);
-    return ultimos12Ingresos.map((ing, i) => ({
-      mes: ing.mes,
-      valor: ing.valor - ultimos12Gastos[i].valor,
-    }));
+    return buildComposedCashFlow(ultimos12Ingresos, ultimos12Gastos);
   }, [ingresosMensuales, gastosMensuales]);
 
   // 2. Tasa de Ahorro Mensual (últimos 12 meses)
@@ -281,14 +328,6 @@ export default function GraficasPage() {
 
   // Colores para charts
   const COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#8b5cf6", "#ec4899", "#f97316"];
-  const totalIngresos = useMemo(
-    () => ingresosPorCategoria.reduce((acc, item) => acc + item.value, 0),
-    [ingresosPorCategoria]
-  );
-  const totalGastos = useMemo(
-    () => gastosPorCategoria.reduce((acc, item) => acc + item.value, 0),
-    [gastosPorCategoria]
-  );
 
   // Invertido por categoría: solo movimientos tipo Inversión (no Ahorro)
   const invertidoByCategoryName = useMemo(() => {
@@ -319,11 +358,22 @@ export default function GraficasPage() {
     [categoriesList]
   );
 
+  const rentabilidadAssetNames = useMemo(
+    () =>
+      Array.from(investmentCategoryNames).filter(
+        (name) => (valorIngresadoByCategoryName.get(name) ?? 0) > 0
+      ),
+    [investmentCategoryNames, valorIngresadoByCategoryName]
+  );
+
+  const rentabilidadHiddenSet = useMemo(
+    () => new Set(chartWidgets.rentabilidadHiddenAssets ?? []),
+    [chartWidgets.rentabilidadHiddenAssets]
+  );
+
   // Rentabilidad por activo: vista "Mes" (día a día) o histórico (3m/6m/12m por mes). Rentabilidad = (valor_actual - valor_ingresado) / valor_ingresado * 100
   const rentabilidadPorDiaPorActivo = useMemo(() => {
-    const names = Array.from(investmentCategoryNames).filter(
-      (name) => (valorIngresadoByCategoryName.get(name) ?? 0) > 0
-    );
+    const names = rentabilidadAssetNames;
     if (names.length === 0) {
       return { mode: "day" as const, numPoints: 31, xLabels: undefined, xAxisLabel: "Día del mes", series: [] as { name: string; color: string; points: { x: number; rentabilidad: number }[] }[] };
     }
@@ -349,6 +399,7 @@ export default function GraficasPage() {
       const series: { name: string; color: string; points: { x: number; rentabilidad: number }[] }[] = [];
       for (let i = 0; i < names.length; i++) {
         const name = names[i];
+        if (rentabilidadHiddenSet.has(name)) continue;
         const valorIngresado = valorIngresadoByCategoryName.get(name) ?? 0;
         const byDate = snapByCategoryAndDate.get(name);
         const points: { x: number; rentabilidad: number }[] = [];
@@ -390,6 +441,7 @@ export default function GraficasPage() {
     const series: { name: string; color: string; points: { x: number; rentabilidad: number }[] }[] = [];
     for (let i = 0; i < names.length; i++) {
       const name = names[i];
+      if (rentabilidadHiddenSet.has(name)) continue;
       const valorIngresado = valorIngresadoByCategoryName.get(name) ?? 0;
       const points: { x: number; rentabilidad: number }[] = [];
       for (let xi = 0; xi < monthKeys.length; xi++) {
@@ -402,9 +454,7 @@ export default function GraficasPage() {
       series.push({ name, color: COLORS[i % COLORS.length], points });
     }
     return { mode: "month" as const, numPoints: monthKeys.length, xLabels, xAxisLabel: "Mes", series };
-  }, [rentabilidadPeriod, movimientos, categoriesList, snapshotsInMonth, snapshotsHistorical, investmentCategoryNames, valorIngresadoByCategoryName]);
-
-  const comparativaAnualData = useMemo(() => comparativaAnual(movimientos), [movimientos]);
+  }, [rentabilidadPeriod, snapshotsInMonth, snapshotsHistorical, investmentCategoryNames, valorIngresadoByCategoryName, rentabilidadAssetNames, rentabilidadHiddenSet]);
 
   // Actividad por día del mes actual gastado, ingresado, invertido por fecha
   const actividadPorDia = useMemo(() => {
@@ -609,134 +659,14 @@ export default function GraficasPage() {
       >
         {/* 1. Flujo de Caja Mensual */}
         <div
-          className="min-w-0"
+          className="min-w-0 md:col-span-2"
           key="flujoCaja"
           style={{
             display: visibleOrder.includes("flujoCaja") ? undefined : "none",
             order: visibleOrder.includes("flujoCaja") ? visibleOrder.indexOf("flujoCaja") : 999,
           }}
         >
-        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PIE_PX }}>
-          <div className="flex flex-col flex-1 min-h-0">
-            <div className="shrink-0">
-              <h3 className="text-sm font-medium text-muted-foreground">Flujo de Caja Mensual</h3>
-              <p className="text-xs text-muted-foreground mt-1">Diferencia entre ingresos y gastos</p>
-            </div>
-            {flujoCaja.length === 0 ? (
-              <div className="flex-1 min-h-0 flex items-center justify-center text-sm text-muted-foreground">
-                Sin datos disponibles
-              </div>
-            ) : (
-            <div className="flex-1 min-h-0 mt-2">
-              <ParentSize>
-                {({ width, height }) => {
-                  const margin = CHART_MARGIN;
-                  const innerWidth = width - margin.left - margin.right;
-                  const innerHeight = height - margin.top - margin.bottom;
-
-                  const xScale = scaleBand({
-                    domain: flujoCaja.map((d) => d.mes),
-                    range: [0, innerWidth],
-                    padding: 0.3,
-                  });
-
-                  const yScale = scaleLinear({
-                    domain: [
-                      Math.min(...flujoCaja.map((d) => d.valor), 0),
-                      Math.max(...flujoCaja.map((d) => d.valor)),
-                    ],
-                    range: [innerHeight, 0],
-                    nice: true,
-                  });
-
-                  const zeroY = yScale(0);
-                  const yTicks = yScale.ticks(5);
-
-                  return (
-                    <svg width={width} height={height}>
-                      <g transform={`translate(${margin.left},${margin.top})`}>
-                        {/* Eje Y - ticks */}
-                        {yTicks.map((tick) => (
-                          <g key={tick}>
-                            <line x1={0} x2={innerWidth} y1={yScale(tick)} y2={yScale(tick)} stroke="currentColor" strokeDasharray="2 2" className="text-muted-foreground/20" />
-                            <text x={-8} y={yScale(tick)} textAnchor="end" dominantBaseline="middle" fontSize={CHART_FONT_SIZE_AXIS} fill="currentColor" className="text-muted-foreground">
-                              {formatAxisCurrency(tick)}
-                            </text>
-                          </g>
-                        ))}
-                        {/* Línea del cero */}
-                        <line
-                          x1={0}
-                          x2={innerWidth}
-                          y1={zeroY}
-                          y2={zeroY}
-                          stroke="currentColor"
-                          strokeWidth={1}
-                          strokeDasharray="4 2"
-                          className="text-muted-foreground/30"
-                        />
-                        {/* Barras */}
-                        {flujoCaja.map((d, i) => {
-                          const barHeight = Math.abs(yScale(d.valor) - zeroY);
-                          const barY = d.valor >= 0 ? yScale(d.valor) : zeroY;
-                          const labelY = d.valor >= 0 ? barY - 6 : barY + barHeight + 12;
-                          return (
-                            <motion.rect
-                              key={d.mes}
-                              x={xScale(d.mes)}
-                              y={barY}
-                              width={xScale.bandwidth()}
-                              height={barHeight}
-                              fill={d.valor >= 0 ? "#22c55e" : "#ef4444"}
-                              rx={4}
-                              initial={{ scaleY: 0 }}
-                              animate={{ scaleY: 1 }}
-                              transition={{ duration: 2.0, delay: i * 0.08 }}
-                              style={{ transformOrigin: `center ${zeroY}px` }}
-                            />
-                          );
-                        })}
-                        {flujoCaja.map((d, i) => {
-                          const barHeight = Math.abs(yScale(d.valor) - zeroY);
-                          const barY = d.valor >= 0 ? yScale(d.valor) : zeroY;
-                          const labelY = d.valor >= 0 ? barY - 6 : barY + barHeight + 12;
-                          return (
-                            <text
-                              key={`value-${i}`}
-                              x={(xScale(d.mes) || 0) + xScale.bandwidth() / 2}
-                              y={labelY}
-                              textAnchor="middle"
-                              fontSize={CHART_FONT_SIZE_AXIS}
-                              fill="currentColor"
-                              className="text-foreground"
-                            >
-                              {formatNumber(d.valor)}
-                            </text>
-                          );
-                        })}
-                        {/* Etiquetas X */}
-                        {flujoCaja.map((d, i) => (
-                          <text
-                            key={`label-${i}`}
-                            x={(xScale(d.mes) || 0) + xScale.bandwidth() / 2}
-                            y={innerHeight + 20}
-                            textAnchor="middle"
-                            fontSize={CHART_FONT_SIZE_AXIS}
-                            fill="currentColor"
-                            className="text-muted-foreground"
-                          >
-                            {d.mes.slice(0, 3)}
-                          </text>
-                        ))}
-                      </g>
-                    </svg>
-                  );
-                }}
-              </ParentSize>
-            </div>
-            )}
-          </div>
-        </Card>
+          <CashFlowComposedChart data={composedCashFlow} />
         </div>
 
         {/* 2. Tasa de Ahorro Mensual */}
@@ -1005,14 +935,14 @@ export default function GraficasPage() {
 
         {/* Rentabilidad por activo */}
         <div
-          className="min-w-0"
+          className="min-w-0 md:col-span-2"
           key="rentabilidadPorActivo"
           style={{
             display: visibleOrder.includes("rentabilidadPorActivo") ? undefined : "none",
             order: visibleOrder.includes("rentabilidadPorActivo") ? visibleOrder.indexOf("rentabilidadPorActivo") : 999,
           }}
         >
-        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PIE_PX }}>
+        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_ACTIVIDAD_PX }}>
           <div className="flex flex-col flex-1 min-h-0">
             <div className="shrink-0 flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -1036,12 +966,56 @@ export default function GraficasPage() {
                 ))}
               </div>
             </div>
-            {rentabilidadPorDiaPorActivo.series.length === 0 ? (
+            {rentabilidadAssetNames.length > 0 && (
+              <div className="shrink-0 flex flex-wrap items-center gap-1.5 mt-3">
+                <button
+                  type="button"
+                  onClick={() => setRentabilidadAssetsHidden([])}
+                  className="rounded-full border border-border/70 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+                >
+                  Todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRentabilidadAssetsHidden(rentabilidadAssetNames)}
+                  className="rounded-full border border-border/70 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+                >
+                  Ninguno
+                </button>
+                {rentabilidadAssetNames.map((name, i) => {
+                  const active = !rentabilidadHiddenSet.has(name);
+                  const color = COLORS[i % COLORS.length];
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => toggleRentabilidadAsset(name)}
+                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                        active
+                          ? "border-border bg-background text-foreground shadow-sm"
+                          : "border-border/50 bg-muted/20 text-muted-foreground"
+                      }`}
+                    >
+                      <span
+                        className="h-2 w-2 rounded-full shrink-0"
+                        style={{ backgroundColor: active ? color : "transparent", boxShadow: `inset 0 0 0 1.5px ${color}` }}
+                      />
+                      {name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {rentabilidadAssetNames.length === 0 ? (
               <div className="flex-1 min-h-0 flex items-center justify-center text-sm text-muted-foreground">
                 Sin datos suficientes. Añade activos de inversión y valor actual en Editar activos.
               </div>
+            ) : rentabilidadPorDiaPorActivo.series.length === 0 ? (
+              <div className="flex-1 min-h-0 flex items-center justify-center text-sm text-muted-foreground">
+                No hay activos seleccionados. Pulsa las etiquetas para mostrarlos.
+              </div>
             ) : (
-              <>
               <div className="flex-1 min-h-0 mt-2">
                 <ParentSize>
                   {({ width, height }) => {
@@ -1118,17 +1092,6 @@ export default function GraficasPage() {
                   }}
                 </ParentSize>
               </div>
-                {rentabilidadPorDiaPorActivo.series.length > 0 && (
-                  <div className="shrink-0 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 mt-2 max-h-[84px] overflow-y-auto overflow-x-hidden text-xs">
-                    {rentabilidadPorDiaPorActivo.series.map((s) => (
-                      <span key={s.name} className="flex items-center gap-1.5 min-w-0">
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                        <span className="truncate">{s.name}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </>
             )}
           </div>
         </Card>
@@ -1199,164 +1162,6 @@ export default function GraficasPage() {
         </Card>
         </div>
 
-        {/* Comparativa anual */}
-        <div
-          className="min-w-0"
-          key="comparativaAnual"
-          style={{
-            display: visibleOrder.includes("comparativaAnual") ? undefined : "none",
-            order: visibleOrder.includes("comparativaAnual") ? visibleOrder.indexOf("comparativaAnual") : 999,
-          }}
-        >
-        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PIE_PX }}>
-          <div className="flex flex-col flex-1 min-h-0">
-            <div className="shrink-0">
-              <h3 className="text-sm font-medium text-muted-foreground">Comparativa anual</h3>
-              <p className="text-xs text-muted-foreground mt-1">Ingresos y gastos: año actual vs anterior</p>
-            </div>
-            <div className="flex-1 min-h-0 mt-2">
-              <ParentSize>
-                {({ width, height }) => {
-                  const margin = CHART_MARGIN;
-                  const innerWidth = width - margin.left - margin.right;
-                  const innerHeight = height - margin.top - margin.bottom;
-                  const months = comparativaAnualData.thisYear.map((d) => d.mes);
-                  const maxVal = Math.max(
-                    ...comparativaAnualData.thisYear.flatMap((d) => [d.ingresos, d.gastos]),
-                    ...comparativaAnualData.lastYear.flatMap((d) => [d.ingresos, d.gastos]),
-                    1
-                  );
-                  const xScale = scaleBand({
-                    domain: months,
-                    range: [0, innerWidth],
-                    padding: 0.25,
-                  });
-                  const yScale = scaleLinear({
-                    domain: [0, maxVal],
-                    range: [innerHeight, 0],
-                    nice: true,
-                  });
-                  const subBand = xScale.bandwidth() / 3;
-                  const yTicks = yScale.ticks(5);
-                  return (
-                    <svg width={width} height={height}>
-                      <g transform={`translate(${margin.left},${margin.top})`}>
-                        {/* Eje Y */}
-                        {yTicks.map((tick) => (
-                          <g key={tick}>
-                            <line x1={0} x2={innerWidth} y1={yScale(tick)} y2={yScale(tick)} stroke="currentColor" strokeDasharray="2 2" className="text-muted-foreground/20" />
-                            <text x={-8} y={yScale(tick)} textAnchor="end" dominantBaseline="middle" fontSize={CHART_FONT_SIZE_AXIS} fill="currentColor" className="text-muted-foreground">
-                              {formatAxisCurrency(tick)}
-                            </text>
-                          </g>
-                        ))}
-                        {comparativaAnualData.thisYear.map((d, i) => (
-                          <g key={`ty-${i}`}>
-                            <motion.rect
-                              x={(xScale(d.mes) ?? 0) + subBand * 0}
-                              y={yScale(d.ingresos)}
-                              width={subBand - 2}
-                              height={innerHeight - yScale(d.ingresos)}
-                              fill="#22c55e"
-                              rx={4}
-                              initial={{ scaleY: 0 }}
-                              animate={{ scaleY: 1 }}
-                              transition={{ duration: 0.5, delay: i * 0.03 }}
-                              style={{ transformOrigin: `bottom` }}
-                            />
-                            <text
-                              x={(xScale(d.mes) ?? 0) + subBand * 0 + (subBand - 2) / 2}
-                              y={yScale(d.ingresos) - 4}
-                              textAnchor="middle"
-                              fontSize={9}
-                              fill="currentColor"
-                              className="text-muted-foreground"
-                            >
-                              {formatAxisCurrency(d.ingresos)}
-                            </text>
-                            <motion.rect
-                              x={(xScale(d.mes) ?? 0) + subBand * 1}
-                              y={yScale(d.gastos)}
-                              width={subBand - 2}
-                              height={innerHeight - yScale(d.gastos)}
-                              fill="#ef4444"
-                              rx={4}
-                              initial={{ scaleY: 0 }}
-                              animate={{ scaleY: 1 }}
-                              transition={{ duration: 0.5, delay: i * 0.03 + 0.05 }}
-                              style={{ transformOrigin: `bottom` }}
-                            />
-                            <text
-                              x={(xScale(d.mes) ?? 0) + subBand * 1 + (subBand - 2) / 2}
-                              y={yScale(d.gastos) - 4}
-                              textAnchor="middle"
-                              fontSize={9}
-                              fill="currentColor"
-                              className="text-muted-foreground"
-                            >
-                              {formatAxisCurrency(d.gastos)}
-                            </text>
-                          </g>
-                        ))}
-                        {comparativaAnualData.lastYear.map((d, i) => {
-                          const saldo = d.ingresos - d.gastos;
-                          const barTop = yScale(saldo);
-                          const barH = Math.abs(innerHeight - yScale(0) - (barTop - yScale(0)));
-                          return (
-                            <g key={`ly-${i}`}>
-                              <motion.rect
-                                x={(xScale(d.mes) ?? 0) + subBand * 2}
-                                y={barTop}
-                                width={subBand - 2}
-                                height={barH}
-                                fill="#8b5cf6"
-                                rx={4}
-                                initial={{ scaleY: 0 }}
-                                animate={{ scaleY: 1 }}
-                                transition={{ duration: 0.5, delay: i * 0.03 + 0.1 }}
-                                style={{ transformOrigin: saldo >= 0 ? "bottom" : "top" }}
-                              />
-                              <text
-                                x={(xScale(d.mes) ?? 0) + subBand * 2 + (subBand - 2) / 2}
-                                y={saldo >= 0 ? barTop - 4 : barTop + barH + 12}
-                                textAnchor="middle"
-                                fontSize={9}
-                                fill="currentColor"
-                                className="text-muted-foreground"
-                              >
-                                {formatAxisCurrency(Math.abs(saldo))}
-                              </text>
-                            </g>
-                          );
-                        })}
-                        {months.map((m, i) => (
-                          <text
-                            key={i}
-                            x={(xScale(m) ?? 0) + xScale.bandwidth() / 2}
-                            y={innerHeight + 20}
-                            textAnchor="middle"
-                            fontSize={CHART_FONT_SIZE_AXIS}
-                            fill="currentColor"
-                            className="text-muted-foreground"
-                          >
-                            {m}
-                          </text>
-                        ))}
-                      </g>
-                    </svg>
-                  );
-                }}
-              </ParentSize>
-            </div>
-            <div className="shrink-0 flex flex-wrap gap-3 justify-center text-xs mt-2">
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-500" /> Ingresos {new Date().getFullYear()}</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-500" /> Gastos {new Date().getFullYear()}</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-violet-500" /> Saldo (ingresos − gastos) {new Date().getFullYear() - 1}</span>
-            </div>
-          </div>
-        </Card>
-        </div>
-
         {/* 5. Ingresos por Categoría */}
         <div
           className="min-w-0"
@@ -1366,80 +1171,12 @@ export default function GraficasPage() {
             order: visibleOrder.includes("ingresosPorCategoria") ? visibleOrder.indexOf("ingresosPorCategoria") : 999,
           }}
         >
-        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PIE_PX }}>
-          <div className="flex flex-col flex-1 min-h-0">
-            <div className="shrink-0">
-              <h3 className="text-sm font-medium text-muted-foreground">Ingresos por Categoría</h3>
-              <p className="text-xs text-muted-foreground mt-1">Distribución de fuentes de ingreso</p>
-            </div>
-            {ingresosPorCategoria.length === 0 ? (
-              <div className="flex-1 min-h-0 flex items-center justify-center text-sm text-muted-foreground">
-                Sin datos disponibles
-              </div>
-            ) : (
-              <>
-                <div className="flex-1 min-h-0 relative min-h-0 mt-2">
-                  <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center">
-                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Total</span>
-                    <span className="text-2xl font-semibold">{formatNumber(totalIngresos)} €</span>
-                  </div>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={ingresosPorCategoria}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                        innerRadius="60%"
-                        outerRadius="88%"
-                        paddingAngle={2}
-                        cornerRadius={8}
-                        stroke="hsl(var(--card))"
-                        strokeWidth={2}
-                  >
-                    {ingresosPorCategoria.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    cursor={{ fill: "transparent" }}
-                    content={({ active, payload }) => {
-                      if (!active || !payload?.length) return null;
-                      const entry = payload[0];
-                      return (
-                        <div className="bg-popover text-popover-foreground border border-border rounded-lg px-3 py-2 shadow-lg text-sm">
-                          <span className="font-medium">{entry.name}</span>
-                          <span className="ml-2">€ {formatNumber(Number(entry.value))}</span>
-                        </div>
-                      );
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-                <div className="shrink-0 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2 text-xs max-h-[100px] overflow-y-auto overflow-x-hidden mt-2">
-                  {[...ingresosPorCategoria].sort((a, b) => b.value - a.value).map((entry) => {
-                    const index = ingresosPorCategoria.indexOf(entry);
-                    const pct = totalIngresos ? (entry.value / totalIngresos) * 100 : 0;
-                    return (
-                      <div
-                        key={entry.name}
-                        className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-muted/20 px-2 py-1 min-w-0"
-                      >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                          <span className="truncate text-[11px]">{entry.name}</span>
-                        </div>
-                        <span className="tabular-nums text-muted-foreground text-[11px] shrink-0">{pct.toFixed(0)}%</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-        </Card>
+        <CategoryDistributionCard
+          title="Ingresos por Categoría"
+          subtitle="Distribución de fuentes de ingreso"
+          data={ingresosPorCategoria}
+          loading={loading}
+        />
         </div>
 
         {/* 6. Gastos por Categoría (expandido) */}
@@ -1451,80 +1188,34 @@ export default function GraficasPage() {
             order: visibleOrder.includes("gastosPorCategoria") ? visibleOrder.indexOf("gastosPorCategoria") : 999,
           }}
         >
-        <Card className="p-4 flex flex-col overflow-hidden" style={{ height: CARD_HEIGHT_PIE_PX }}>
-          <div className="flex flex-col flex-1 min-h-0">
-            <div className="shrink-0">
-              <h3 className="text-sm font-medium text-muted-foreground">Gastos por Categoría</h3>
-              <p className="text-xs text-muted-foreground mt-1">Análisis detallado de gastos</p>
-            </div>
-            {gastosPorCategoria.length === 0 ? (
-              <div className="flex-1 min-h-0 flex items-center justify-center text-sm text-muted-foreground">
-                Sin datos disponibles
-              </div>
-            ) : (
-              <>
-                <div className="flex-1 min-h-0 relative min-h-0 mt-2">
-                  <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center">
-                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Total</span>
-                    <span className="text-2xl font-semibold">{formatNumber(totalGastos)} €</span>
-                  </div>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={gastosPorCategoria}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                        innerRadius="60%"
-                        outerRadius="88%"
-                        paddingAngle={2}
-                        cornerRadius={8}
-                        stroke="hsl(var(--card))"
-                        strokeWidth={2}
-                  >
-                    {gastosPorCategoria.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    cursor={{ fill: "transparent" }}
-                    content={({ active, payload }) => {
-                      if (!active || !payload?.length) return null;
-                      const entry = payload[0];
-                      return (
-                        <div className="bg-popover text-popover-foreground border border-border rounded-lg px-3 py-2 shadow-lg text-sm">
-                          <span className="font-medium">{entry.name}</span>
-                          <span className="ml-2">€ {formatNumber(Number(entry.value))}</span>
-                        </div>
-                      );
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-                <div className="shrink-0 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2 text-xs max-h-[100px] overflow-y-auto overflow-x-hidden mt-2">
-                  {[...gastosPorCategoria].sort((a, b) => b.value - a.value).map((entry) => {
-                    const index = gastosPorCategoria.indexOf(entry);
-                    const pct = totalGastos ? (entry.value / totalGastos) * 100 : 0;
-                    return (
-                      <div
-                        key={entry.name}
-                        className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-muted/20 px-2 py-1 min-w-0"
-                      >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                          <span className="truncate text-[11px]">{entry.name}</span>
-                        </div>
-                        <span className="tabular-nums text-muted-foreground text-[11px] shrink-0">{pct.toFixed(0)}%</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-        </Card>
+        <CategoryDistributionCard
+          title="Gastos por Categoría"
+          subtitle="Análisis detallado de gastos"
+          data={gastosPorCategoria}
+          loading={loading}
+        />
+        </div>
+
+        <div
+          className="min-w-0 md:col-span-2"
+          key="flujoDinero"
+          style={{
+            display: visibleOrder.includes("flujoDinero") ? undefined : "none",
+            order: visibleOrder.includes("flujoDinero") ? visibleOrder.indexOf("flujoDinero") : 999,
+          }}
+        >
+          <MoneyFlowSankey movimientos={movimientos} />
+        </div>
+
+        <div
+          className="min-w-0 md:col-span-2"
+          key="actividadAnual"
+          style={{
+            display: visibleOrder.includes("actividadAnual") ? undefined : "none",
+            order: visibleOrder.includes("actividadAnual") ? visibleOrder.indexOf("actividadAnual") : 999,
+          }}
+        >
+          <ActivityYearHeatmap movimientos={movimientos} />
         </div>
       </section>
       )}

@@ -319,7 +319,19 @@ function generateAllMovements(): Movement[] {
     }
   }
 
-  return movements;
+  return movements.map((movement) => ({
+    ...movement,
+    metodoPago: demoPaymentMethod(movement.tipo, movement.categoria),
+  }));
+}
+
+function demoPaymentMethod(tipo: Movement["tipo"], categoria: string): string {
+  if (tipo === "Ingreso") return categoria === "Nomina" ? "Cajamar" : "Revolut";
+  if (tipo === "Inversión") return "Trade Republic";
+  if (tipo === "Ahorro") return "Cajamar";
+  if (categoria === "Alquiler") return "Cajamar";
+  if (categoria === "Transporte") return "Efectivo";
+  return "Revolut";
 }
 
 /** Cache de todos los movimientos 2025-02 → 2030-12 (determinista) */

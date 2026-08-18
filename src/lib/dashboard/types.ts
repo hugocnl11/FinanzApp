@@ -62,10 +62,7 @@ export type Notification = {
   date: string;
 };
 
-export type RecurringMovement = Movement & {
-  frequency: "daily" | "weekly" | "monthly" | "yearly";
-  nextDate: string;
-};
+// TODO: Recurring movements — planned feature, not yet implemented
 
 export type Category = {
   id: string;
@@ -110,7 +107,7 @@ export type DashboardData = {
   budgets: Budget[];
   categories: Category[];
   notifications: Notification[];
-  recurringMovements: RecurringMovement[];
+  // TODO: Recurring movements — planned feature, not yet implemented
   gastosPorCategoria: CategoryAmount[];
   ingresosPorCategoria: CategoryAmount[];
   distribucionActivos: CategoryAmount[];

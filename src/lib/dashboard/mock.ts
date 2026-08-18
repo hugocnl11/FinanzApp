@@ -464,11 +464,6 @@ function daysAgoISO(days: number, now = new Date()) {
   return todayISO(d);
 }
 
-function nextMonthDay(day: number, now = new Date()) {
-  const d = new Date(now.getFullYear(), now.getMonth() + 1, day);
-  return todayISO(d);
-}
-
 /** Progreso de objetivos en función del tiempo (2025→2030) */
 function goalProgress(now = new Date()) {
   const start = new Date(2025, 1, 1).getTime();
@@ -538,31 +533,7 @@ function getDemoNotifications(now = new Date()) {
   ];
 }
 
-function getDemoRecurring(now = new Date()) {
-  const salary = 2400 + (now.getFullYear() - 2025) * 50;
-  return [
-    {
-      id: "rec-1",
-      fecha: `${monthKey(now.getFullYear(), now.getMonth())}-01`,
-      concepto: "Nómina",
-      categoria: "Nomina",
-      tipo: "Ingreso" as const,
-      cantidad: salary,
-      frequency: "monthly" as const,
-      nextDate: nextMonthDay(1, now),
-    },
-    {
-      id: "rec-2",
-      fecha: `${monthKey(now.getFullYear(), now.getMonth())}-05`,
-      concepto: "Alquiler",
-      categoria: "Alquiler",
-      tipo: "Gasto" as const,
-      cantidad: -850,
-      frequency: "monthly" as const,
-      nextDate: nextMonthDay(5, now),
-    },
-  ];
-}
+// TODO: Recurring movements — planned feature, not yet implemented
 
 /**
  * Mock del dashboard. `movimientos` y series relacionadas se calculan al acceder
@@ -602,9 +573,6 @@ export const DASHBOARD_MOCK: DashboardData = {
   },
   get notifications() {
     return getDemoNotifications();
-  },
-  get recurringMovements() {
-    return getDemoRecurring();
   },
 };
 

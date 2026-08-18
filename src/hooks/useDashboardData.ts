@@ -12,7 +12,6 @@ const emptyData: DashboardData = {
   budgets: [],
   categories: [],
   notifications: [],
-  recurringMovements: [],
   gastosPorCategoria: [],
   ingresosPorCategoria: [],
   distribucionActivos: [],

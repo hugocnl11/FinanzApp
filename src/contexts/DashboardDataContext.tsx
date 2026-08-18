@@ -18,6 +18,7 @@ import { fetchAssetSnapshotsByMonth, fetchAssetSnapshotsForDate, fetchAssetSnaps
 import { buildMonthlySeries, latestByCategory, totalsByCategory } from "@/lib/dashboard/derive";
 import { getSession, isDemoUser, saveSession } from "@/lib/auth";
 import { restoreSessionFromCookie } from "@/lib/api/auth";
+import { toast } from "@/lib/toast";
 import { DASHBOARD_MOCK, DEMO_CATEGORIES, getDemoAssetEvolutionSeries, getDemoCategoryInvested, getDemoDistribucionActivos } from "@/lib/dashboard/mock";
 
 const emptyData: DashboardData = {
@@ -29,7 +30,6 @@ const emptyData: DashboardData = {
   budgets: [],
   categories: [],
   notifications: [],
-  recurringMovements: [],
   gastosPorCategoria: [],
   ingresosPorCategoria: [],
   distribucionActivos: [],
@@ -136,16 +136,6 @@ export async function loadDashboardDataCore(opts: {
             taePercent: null,
           })),
           notifications: DASHBOARD_MOCK.notifications,
-          recurringMovements: DASHBOARD_MOCK.recurringMovements.map((rm) => ({
-            id: rm.id,
-            fecha: rm.fecha,
-            concepto: rm.concepto,
-            categoria: rm.categoria,
-            tipo: rm.tipo as Movement["tipo"],
-            cantidad: rm.cantidad,
-            frequency: rm.frequency,
-            nextDate: rm.nextDate,
-          })),
           gastosPorCategoria,
           ingresosPorCategoria,
           distribucionActivos,
@@ -157,6 +147,7 @@ export async function loadDashboardDataCore(opts: {
         const message = err instanceof Error ? err.message : "Error cargando datos";
         setError(message);
         setData(emptyData);
+        toast.error("Error al cargar los datos. Inténtalo de nuevo.");
       }
     } finally {
       if (isMounted()) setLoading(false);
@@ -296,7 +287,6 @@ export async function loadDashboardDataCore(opts: {
         budgets,
         categories: categoriesData as DashboardData["categories"],
         notifications: [],
-        recurringMovements: [],
         gastosPorCategoria,
         ingresosPorCategoria,
         distribucionActivos,
@@ -308,6 +298,7 @@ export async function loadDashboardDataCore(opts: {
       const message = err instanceof Error ? err.message : "Error cargando datos";
       setError(message);
       setData(emptyData);
+      toast.error("Error al cargar los datos. Inténtalo de nuevo.");
     }
   } finally {
     if (isMounted()) setLoading(false);

@@ -25,13 +25,14 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Shield, Database, Download, Upload, Mail, Globe, Sun, DollarSign, Calendar, Link2, ChevronRight } from "lucide-react";
+import { Shield, Database, Download, Upload, Mail, Globe, Sun, DollarSign, Calendar, Link2, ChevronRight, Trash2 } from "lucide-react";
 import { loadFromStorage, saveToStorage } from "@/lib/storage";
 import { isDemoUser, updateSessionUser, clearSession } from "@/lib/auth";
 import { updateProfile, fetch2FAStatus, setup2FA, verify2FASetup, disable2FA } from "@/lib/api/auth";
 import type { UserPreferences } from "@/lib/api/types";
 import { useTheme } from "next-themes";
 import { toast } from "@/lib/toast";
+import { apiFetch } from "@/lib/api/client";
 import { DashboardPageHeader } from "@/components/dashboard/DashboardPageHeader";
 
 type SessionItem = { id: string; current: boolean; userAgent?: string; createdAt: string };
@@ -288,6 +289,9 @@ export default function AjustesPage() {
     next: "",
     confirm: "",
   });
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const prefsToPayload = useCallback(
     (): UserPreferences => ({
@@ -458,14 +462,34 @@ export default function AjustesPage() {
     }
   };
 
-  const handlePasswordChange = () => {
-    if (!passwordForm.current || !passwordForm.next) return;
-    if (passwordForm.next !== passwordForm.confirm) {
-      alert("Las contraseñas no coinciden");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  const handlePasswordChange = async () => {
+    if (isDemoUser()) {
+      toast.error("No disponible en modo demo");
       return;
     }
-    setPasswordForm({ current: "", next: "", confirm: "" });
-    alert("Contraseña actualizada");
+    if (!passwordForm.current || !passwordForm.next) return;
+    if (passwordForm.next !== passwordForm.confirm) {
+      toast.error("Las contraseñas no coinciden");
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      await apiFetch("/auth/change-password", {
+        method: "PUT",
+        json: {
+          currentPassword: passwordForm.current,
+          newPassword: passwordForm.next,
+        },
+      });
+      toast.success("Contraseña actualizada correctamente");
+      setPasswordForm({ current: "", next: "", confirm: "" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al cambiar la contraseña");
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   return (
@@ -619,7 +643,9 @@ export default function AjustesPage() {
                     <DialogClose asChild>
                       <Button variant="outline">Cancelar</Button>
                     </DialogClose>
-                    <Button onClick={handlePasswordChange}>Guardar</Button>
+                    <Button onClick={handlePasswordChange} disabled={passwordLoading}>
+                      {passwordLoading ? "Guardando…" : "Guardar"}
+                    </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -645,7 +671,6 @@ export default function AjustesPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <Database className="h-4 w-4 text-purple-500" />
               <CardTitle className="text-lg">Datos</CardTitle>
-              <span className="text-xs font-medium text-red-500">EN DESARROLLO</span>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -703,8 +728,71 @@ export default function AjustesPage() {
             </Dialog>
             <div className="flex items-center justify-between p-3 border rounded-lg">
               <span className="text-sm font-medium">Eliminar cuenta</span>
-              <Button variant="destructive" size="sm">Eliminar</Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  if (isDemoUser()) {
+                    toast.error("No disponible en modo demo");
+                    return;
+                  }
+                  setDeleteAccountOpen(true);
+                }}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Eliminar
+              </Button>
             </div>
+            <Dialog open={deleteAccountOpen} onOpenChange={(open) => { if (!open) { setDeleteAccountOpen(false); setDeletePassword(""); } }}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Eliminar cuenta</DialogTitle>
+                  <DialogDescription>
+                    Esta acción es irreversible. Se eliminarán todos tus datos, movimientos, presupuestos y objetivos. Introduce tu contraseña para confirmar.
+                  </DialogDescription>
+                </DialogHeader>
+                <Input
+                  label="Contraseña"
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  placeholder="Tu contraseña actual"
+                />
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => { setDeleteAccountOpen(false); setDeletePassword(""); }}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    disabled={!deletePassword || deleteLoading}
+                    onClick={async () => {
+                      setDeleteLoading(true);
+                      try {
+                        const res = await fetch("/api/auth/delete-account", {
+                          method: "DELETE",
+                          credentials: "include",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ password: deletePassword }),
+                        });
+                        if (!res.ok) {
+                          const data = await res.json().catch(() => null);
+                          toast.error(data?.error ?? "No se pudo eliminar la cuenta");
+                          return;
+                        }
+                        clearSession();
+                        router.replace("/");
+                      } catch {
+                        toast.error("Error al eliminar la cuenta. Inténtalo de nuevo.");
+                      } finally {
+                        setDeleteLoading(false);
+                      }
+                    }}
+                  >
+                    {deleteLoading ? "Eliminando…" : "Eliminar cuenta"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </CardContent>
         </Card>
       </div>
